@@ -1,0 +1,9 @@
+{
+    "url": "http://localhost:8448",
+    "client_versions": {
+        "unstable_features": {},
+        "versions": [
+            "v1.2"
+        ]
+    }
+}
