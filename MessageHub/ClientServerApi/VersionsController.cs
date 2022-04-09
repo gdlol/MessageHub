@@ -8,6 +8,7 @@ namespace MessageHub.ClientServerApi;
 public class VersionsController : ControllerBase
 {
     [Route("versions")]
+    [HttpGet]
     public object GetVersions() => new
     {
         unstable_features = new object(),

@@ -3,19 +3,20 @@ using System.Text.Json.Serialization;
 
 namespace MessageHub.ClientServerProtocol.Events.Room;
 
+public class PreviousRoom
+{
+    [Required]
+    [JsonPropertyName("event_id")]
+    public string EventId { get; set; } = default!;
+
+    [Required]
+    [JsonPropertyName("room_id")]
+    public string RoomId { get; set; } = default!;
+}
+
 [EventType(RoomEventTypes.Create)]
 public class CreateEvent
 {
-    public class PreviousRoom
-    {
-        [Required]
-        [JsonPropertyName("event_id")]
-        public string EventId { get; set; } = default!;
-
-        [Required]
-        [JsonPropertyName("room_id")]
-        public string RoomId { get; set; } = default!;
-    }
 
     [Required]
     [JsonPropertyName("creator")]
