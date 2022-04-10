@@ -9,9 +9,11 @@ public class AccountController : ControllerBase
     [HttpGet]
     public object WhoAmI()
     {
-        return new
+        string? userId = Request.HttpContext.User.Identity?.Name;
+        if (userId is null)
         {
-            user_id = Request.HttpContext.User.Identity?.Name ?? string.Empty
-        };
+            throw new InvalidOperationException();
+        }
+        return new { user_id = userId };
     }
 }

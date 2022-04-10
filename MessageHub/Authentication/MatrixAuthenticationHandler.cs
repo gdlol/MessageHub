@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using MessageHub.ClientServerProtocol;
+using MessageHub.HomeServer;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;
@@ -9,14 +10,19 @@ namespace MessageHub.Authentication;
 
 public class MatrixAuthenticationHandler : AuthenticationHandler<MatrixAuthenticationSchemeOptions>
 {
+    private readonly IAuthenticator authenticator;
+
     public MatrixAuthenticationHandler(
         IOptionsMonitor<MatrixAuthenticationSchemeOptions> options,
         ILoggerFactory logger,
         UrlEncoder encoder,
-        ISystemClock clock) : base(options, logger, encoder, clock)
-    { }
+        ISystemClock clock,
+        IAuthenticator authenticator) : base(options, logger, encoder, clock)
+    {
+        this.authenticator = authenticator;
+    }
 
-    protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+    protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         string? token = null;
         if (Request.Headers.TryGetValue(HeaderNames.Authorization, out var authorizationHeader))
@@ -36,17 +42,25 @@ public class MatrixAuthenticationHandler : AuthenticationHandler<MatrixAuthentic
             token = Request.Query["access_token"];
         }
 
-        if (string.IsNullOrEmpty(token) || token != "test")
+
+        if (string.IsNullOrEmpty(token))
         {
             var error = MatrixError.Create(MatrixErrorCode.MissingToken);
-            return Task.FromResult(AuthenticateResult.Fail(error.ToString()));
+            return AuthenticateResult.Fail(error.ToString());
         }
         else
         {
-            var claims = new[] { new Claim(ClaimTypes.Name, "token") };
+            string? userId = await authenticator.AuthenticateAsync(token);
+            if (userId is null)
+            {
+                var error = MatrixError.Create(MatrixErrorCode.UnknownToken);
+                return AuthenticateResult.Fail(error.ToString());
+            }
+            Request.HttpContext.Items[nameof(token)] = token;
+            var claims = new[] { new Claim(ClaimTypes.Name, userId) };
             var claimsIdentity = new ClaimsIdentity(claims);
             var ticket = new AuthenticationTicket(new ClaimsPrincipal(claimsIdentity), Scheme.Name);
-            return Task.FromResult(AuthenticateResult.Success(ticket));
+            return AuthenticateResult.Success(ticket);
         }
     }
 }

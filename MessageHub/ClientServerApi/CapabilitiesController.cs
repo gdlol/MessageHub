@@ -17,7 +17,7 @@ public class CapabilitiesController : ControllerBase
                 ["m.room_versions"] = new Dictionary<string, object>
                 {
                     ["default"] = 1,
-                    ["available"] = new Dictionary<string, object>
+                    ["available"] = new Dictionary<string, string>
                     {
                         ["1"] = "stable"
                     }

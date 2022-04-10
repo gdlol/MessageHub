@@ -7,6 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
 string url = "http://localhost:8448";
 builder.WebHost.UseUrls(url);
 builder.Services.AddCors();
+builder.Services.AddDummyHomeServer();
 builder.Services.AddMatrixAuthentication();
 builder.Services.AddMatrixPersistence();
 builder.Services.AddControllers();
@@ -21,10 +22,8 @@ app.UseCors(builder =>
 });
 app.Map("/.well-known/matrix/client", () => new Dictionary<string, object>
 {
-    ["m.homeserver"] = new Dictionary<string, object>
-    {
-        ["base_url"] = url
-    }
+    ["m.homeserver"] = new { base_url = url },
+    ["m.identity_server"] = new { base_url = url }
 });
 app.UseAuthentication();
 app.UseAuthorization();
