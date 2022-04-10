@@ -1,6 +1,6 @@
 namespace MessageHub.ClientServerProtocol.Events.Room;
 
-public static class RoomEventTypes
+public static class EventTypes
 {
     public const string CanonicalAlias = "m.room.canonical_alias";
     public const string Create = "m.room.create";

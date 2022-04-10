@@ -42,7 +42,7 @@ public class ImageInfo
     public int? Width { get; set; }
 }
 
-[EventType(RoomEventTypes.Avatar)]
+[EventType(EventTypes.Avatar)]
 public class AvatarEvent
 {
     [JsonPropertyName("info")]

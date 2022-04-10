@@ -14,7 +14,7 @@ public class PreviousRoom
     public string RoomId { get; set; } = default!;
 }
 
-[EventType(RoomEventTypes.Create)]
+[EventType(EventTypes.Create)]
 public class CreateEvent
 {
 

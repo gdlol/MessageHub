@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace MessageHub.ClientServerProtocol.Events.Room;
 
-[EventType(RoomEventTypes.PowerLevels)]
+[EventType(EventTypes.PowerLevels)]
 public class PowerLevelsEvent
 {
     [JsonPropertyName("ban")]

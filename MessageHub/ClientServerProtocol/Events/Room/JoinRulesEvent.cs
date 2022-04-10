@@ -22,12 +22,12 @@ public class AllowCondition
     public string ConditionType { get; set; } = "m.room_membership";
 }
 
-[EventType(RoomEventTypes.JoinRules)]
+[EventType(EventTypes.JoinRules)]
 public class JoinRulesEvent
 {
 
     [JsonPropertyName("allow")]
-    public List<AllowCondition>? Allow { get; set; }
+    public AllowCondition[]? Allow { get; set; }
 
     [Required]
     [JsonPropertyName("join_rule")]

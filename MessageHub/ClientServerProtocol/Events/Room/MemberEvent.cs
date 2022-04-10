@@ -39,7 +39,7 @@ public class Invite
     public Signed Signed { get; set; } = default!;
 }
 
-[EventType(RoomEventTypes.Member)]
+[EventType(EventTypes.Member)]
 public class MemberEvent
 {
 

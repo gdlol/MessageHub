@@ -14,7 +14,7 @@ public class Answer
     public string AnswerType { get; set; } = default!;
 }
 
-[EventType(CallEventTypes.Answer)]
+[EventType(EventTypes.Answer)]
 public class AnswerEvent
 {
     [Required]

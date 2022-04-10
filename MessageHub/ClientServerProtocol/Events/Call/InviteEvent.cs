@@ -14,7 +14,7 @@ public class Offer
     public string AnswerType { get; set; } = default!;
 }
 
-[EventType(CallEventTypes.Invite)]
+[EventType(EventTypes.Invite)]
 public class InviteEvent
 {
     [Required]

@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace MessageHub.ClientServerProtocol.Events.Room;
 
-[EventType(RoomEventTypes.Message)]
+[EventType(EventTypes.Message)]
 public class MessageEvent
 {
     [Required]

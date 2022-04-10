@@ -18,7 +18,7 @@ public class Candidate
     public string SdpMid { get; set; } = default!;
 }
 
-[EventType(CallEventTypes.Candidates)]
+[EventType(EventTypes.Candidates)]
 public class CandidatesEvent
 {
     [Required]

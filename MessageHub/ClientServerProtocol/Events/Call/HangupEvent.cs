@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace MessageHub.ClientServerProtocol.Events.Call;
 
-[EventType(CallEventTypes.Hangup)]
+[EventType(EventTypes.Hangup)]
 public class HangupEvent
 {
     [Required]
