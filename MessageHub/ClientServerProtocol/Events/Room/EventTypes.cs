@@ -12,4 +12,6 @@ public static class EventTypes
     public const string Topic = "m.room.topic";
     public const string Avatar = "m.room.avatar";
     public const string PinnedEvents = "m.room.pinned_events";
+    public const string Encryption = "m.room.encryption";
+    public const string Encrypted = "m.room.encrypted";
 }

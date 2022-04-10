@@ -171,9 +171,8 @@ public class SyncResponse
     [JsonPropertyName("device_one_time_keys_count")]
     public Dictionary<string, int>? OneTimeKeysCount { get; set; }
 
-    [Required]
     [JsonPropertyName("device_unused_fallback_key_types")]
-    public string[] DeviceUnusedFallbackKeyAlgorithms { get; set; } = default!;
+    public string[]? DeviceUnusedFallbackKeyAlgorithms { get; set; }
 
     [Required]
     [JsonPropertyName("next_batch")]
