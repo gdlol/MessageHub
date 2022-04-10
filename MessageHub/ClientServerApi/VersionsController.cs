@@ -12,6 +12,6 @@ public class VersionsController : ControllerBase
     public object GetVersions() => new
     {
         unstable_features = new object(),
-        versions = new[] { "r0.6.0", "v1.2" }
+        versions = new[] { "v1.2" }
     };
 }

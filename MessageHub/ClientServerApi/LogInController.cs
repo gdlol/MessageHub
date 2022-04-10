@@ -9,6 +9,8 @@ namespace MessageHub.ClientServerApi;
 [AllowAnonymous]
 public class LogInController : ControllerBase
 {
+    public const string IdPId = "org.message-hub.sso";
+
     [Route("login")]
     [HttpGet]
     public object LogIn()
@@ -17,13 +19,25 @@ public class LogInController : ControllerBase
         {
             flows = new object[]
             {
-                new { type = "m.login.sso" },
+                new
+                {
+                    identity_providers = new[]
+                    {
+                        new
+                        {
+                            id = IdPId,
+                            name = nameof(MessageHub)
+                        }
+                    },
+                    type = "m.login.sso"
+                },
                 new { type = "m.login.token" }
             }
         };
     }
 
     [Route("login/sso/redirect")]
+    [Route($"login/sso/redirect/{IdPId}")]
     [HttpGet]
     public IActionResult LogInSsoRedirect()
     {

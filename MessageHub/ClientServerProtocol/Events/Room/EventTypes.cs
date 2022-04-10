@@ -14,4 +14,6 @@ public static class EventTypes
     public const string PinnedEvents = "m.room.pinned_events";
     public const string Encryption = "m.room.encryption";
     public const string Encrypted = "m.room.encrypted";
+    public const string HistoryVisibility = "m.room.history_visibility";
+    public const string Tombstone = "m.room.tombstone";
 }
