@@ -9,7 +9,6 @@ builder.WebHost.UseUrls(url);
 builder.Services.AddCors();
 builder.Services.AddDummyHomeServer();
 builder.Services.AddMatrixAuthentication();
-builder.Services.AddMatrixPersistence();
 builder.Services.AddControllers();
 
 var app = builder.Build();

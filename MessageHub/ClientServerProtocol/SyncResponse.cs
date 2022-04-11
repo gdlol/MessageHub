@@ -12,9 +12,11 @@ public class InviteState
 
 public class Event
 {
-    [Required]
     [JsonPropertyName("content")]
-    public JsonElement Content { get; set; } = default!;
+    public JsonElement? Content { get; set; }
+
+    [JsonPropertyName("sender")]
+    public string? Sender { get; set; }
 
     [Required]
     [JsonPropertyName("type")]

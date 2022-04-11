@@ -1,6 +1,6 @@
 using System.Text.Json;
 using MessageHub.ClientServerProtocol;
-using MessageHub.Persistence;
+using MessageHub.HomeServer;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MessageHub.ClientServerApi;
@@ -8,9 +8,9 @@ namespace MessageHub.ClientServerApi;
 [Route("_matrix/client/{version}")]
 public class FilterController : ControllerBase
 {
-    private readonly IMatrixPersistenceService persistence;
+    private readonly IPersistenceService persistence;
 
-    public FilterController(IMatrixPersistenceService persistence)
+    public FilterController(IPersistenceService persistence)
     {
         ArgumentNullException.ThrowIfNull(persistence);
 
@@ -19,17 +19,21 @@ public class FilterController : ControllerBase
 
     [Route("user/{userId}/filter")]
     [HttpPost]
-    public async Task<object> Filter(string userId, [FromBody] JsonElement filter)
+    public async Task<object> Filter(string userId, [FromBody] Filter filter)
     {
-        var identity = Request.HttpContext.User.Identity;
-        if (identity is null || userId != identity.Name)
+        var identity = Request.HttpContext.User.Identity!;
+        if (userId != identity.Name)
         {
-            return Unauthorized(MatrixError.Create(MatrixErrorCode.Unauthorized));
+            return new JsonResult(MatrixError.Create(MatrixErrorCode.Forbidden))
+            {
+                StatusCode = StatusCodes.Status403Forbidden
+            };
         }
 
+        string filterJson = JsonSerializer.Serialize(filter);
         return new
         {
-            filter_id = await persistence.SaveFilterAsync(userId, filter.ToString())
+            filter_id = await persistence.SaveFilterAsync(userId, filterJson)
         };
     }
 
@@ -37,10 +41,13 @@ public class FilterController : ControllerBase
     [HttpGet]
     public async Task<object> Filter(string userId, string filterId)
     {
-        var identity = Request.HttpContext.User.Identity;
-        if (identity is null || userId != identity.Name)
+        var identity = Request.HttpContext.User.Identity!;
+        if (userId != identity.Name)
         {
-            return Unauthorized(MatrixError.Create(MatrixErrorCode.Unauthorized));
+            return new JsonResult(MatrixError.Create(MatrixErrorCode.Forbidden))
+            {
+                StatusCode = StatusCodes.Status403Forbidden
+            };
         }
 
         string? filter = await persistence.LoadFilterAsync(userId, filterId);
