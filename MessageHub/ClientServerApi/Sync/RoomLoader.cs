@@ -163,7 +163,7 @@ public class RoomLoader
         return delta.ToArray();
     }
 
-    public async Task<(string nextBatch, Rooms rooms)> LoadRooms(
+    public async Task<(string nextBatch, Rooms rooms)> LoadRoomsAsync(
         string userId,
         bool fullState,
         string? since,
@@ -241,7 +241,7 @@ public class RoomLoader
             {
                 while (true)
                 {
-                    if (iterator.CurrentEventId == sinceEventId)
+                    if (iterator.CurrentEvent.EventId == sinceEventId)
                     {
                         previousEventId = sinceEventId;
                         previousStateEvents = iterator.GetStateEvents();
@@ -250,7 +250,7 @@ public class RoomLoader
                     if (filter?.Timeline?.Limit is int limit && timelineEvents.Count >= limit)
                     {
                         limited = true;
-                        previousEventId = iterator.CurrentEventId;
+                        previousEventId = iterator.CurrentEvent.EventId;
                         previousStateEvents = iterator.GetStateEvents();
                         break;
                     }
@@ -268,7 +268,7 @@ public class RoomLoader
             }
             else
             {
-                previousEventId = iterator.CurrentEventId;
+                previousEventId = iterator.CurrentEvent.EventId;
                 previousStateEvents = iterator.GetStateEvents();
             }
             var timeline = new Timeline

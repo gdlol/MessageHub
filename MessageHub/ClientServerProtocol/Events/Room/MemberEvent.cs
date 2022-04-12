@@ -42,7 +42,6 @@ public class Invite
 [EventType(EventTypes.Member)]
 public class MemberEvent
 {
-
     [JsonPropertyName("avatar_url")]
     public string? AvatarUrl { get; set; }
 

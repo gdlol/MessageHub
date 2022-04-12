@@ -4,7 +4,6 @@ namespace MessageHub.HomeServer;
 
 public interface ITimelineIterator
 {
-    string CurrentEventId { get; }
     ClientEventWithoutRoomID CurrentEvent { get; }
     ValueTask<bool> TryMoveBackwardAsync();
     ClientEventWithoutRoomID[] GetStateEvents();

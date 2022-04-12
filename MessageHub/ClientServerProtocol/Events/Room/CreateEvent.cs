@@ -17,7 +17,6 @@ public class PreviousRoom
 [EventType(EventTypes.Create)]
 public class CreateEvent
 {
-
     [Required]
     [JsonPropertyName("creator")]
     public string Creator { get; set; } = default!;
