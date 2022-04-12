@@ -78,7 +78,5 @@ public class PersistentDataUnit
 
     public string GetEventId() => throw new NotImplementedException();
 
-    public string ToJson() => throw new NotImplementedException();
-
-    public static PersistentDataUnit FromJson(string json) => throw new NotImplementedException();
+    public string ToCanonicalJson() => throw new NotImplementedException();
 }

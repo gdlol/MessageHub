@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Text.Json;
 
 namespace MessageHub.HomeServer.Dummy;
 
@@ -37,7 +38,7 @@ public class Room
                 break;
             }
             string json = Events[eventId];
-            var pdu = PersistentDataUnit.FromJson(json);
+            var pdu = JsonSerializer.Deserialize<PersistentDataUnit>(json)!;
             result.Add((eventId, pdu));
         }
         return result.ToArray();
@@ -48,7 +49,7 @@ public class Room
         ArgumentNullException.ThrowIfNull(eventId);
 
         string json = Events[eventId];
-        var pdu = PersistentDataUnit.FromJson(json);
+        var pdu = JsonSerializer.Deserialize<PersistentDataUnit>(json)!;
         return pdu.PreviousEvents.Length == 0 ? RoomState.Empty : States[pdu.PreviousEvents[0]];
     }
 
@@ -72,7 +73,7 @@ public class Room
             roomState = roomState.SetItem(new RoomStateKey(pdu.EventType, pdu.StateKey), eventId);
         }
         var eventIds = EventIds.Add(eventId);
-        var events = Events.Add(eventId, pdu.ToJson());
+        var events = Events.Add(eventId, pdu.ToCanonicalJson());
         var states = States.Add(eventId, roomState);
         return new Room(eventIds, events, states);
     }

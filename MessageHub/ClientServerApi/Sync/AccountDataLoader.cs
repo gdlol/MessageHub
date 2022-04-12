@@ -15,10 +15,12 @@ public class AccountDataLoader
         this.persistenceService = persistenceService;
     }
 
-    public async Task<AccountData> GetAccountDataAsync(string userId, EventFilter? filter)
+    private async Task<AccountData> InternalLoadAccountDataAsync(
+        string userId,
+        string? roomId,
+        EventFilter? filter,
+        bool? containsUrl = null)
     {
-        ArgumentNullException.ThrowIfNull(userId);
-
         int? limit = filter?.Limit;
         Func<string, JsonElement, bool>? filterFunc = null;
         var result = new AccountData
@@ -51,9 +53,13 @@ public class AccountDataLoader
             {
                 filters.Add((eventType, _) => !filter.NotTypes.Any(pattern => Filter.StringMatch(eventType, pattern)));
             }
+            if (containsUrl is not null)
+            {
+                filters.Add((_, content) => content.TryGetProperty("url", out var _) == containsUrl.Value);
+            }
             filterFunc = (eventType, _) => filters.All(x => x(eventType, _));
         }
-        var accoutData = await persistenceService.LoadAccountDataAsync(null, filterFunc, limit);
+        var accoutData = await persistenceService.LoadAccountDataAsync(roomId, filterFunc, limit);
         var events = new List<Event>();
         foreach (var (eventType, content) in accoutData)
         {
@@ -65,5 +71,27 @@ public class AccountDataLoader
         }
         result.Events = events.ToArray();
         return result;
+    }
+
+    public Task<AccountData> LoadAccountDataAsync(string userId, EventFilter? filter)
+    {
+        ArgumentNullException.ThrowIfNull(userId);
+
+        return InternalLoadAccountDataAsync(userId, null, filter);
+    }
+
+    public Task<AccountData> LoadAccountDataAsync(string userId, string roomId, RoomEventFilter? filter)
+    {
+        ArgumentNullException.ThrowIfNull(userId);
+
+        var eventFilter = filter is null ? null : new EventFilter
+        {
+            Limit = filter.Limit,
+            NotSenders = filter.NotSenders,
+            NotTypes = filter.NotTypes,
+            Senders = filter.Senders,
+            Types = filter.Types,
+        };
+        return InternalLoadAccountDataAsync(userId, roomId, eventFilter, filter?.ContainsUrl);
     }
 }

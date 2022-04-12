@@ -38,7 +38,7 @@ public class SyncController : ControllerBase
         {
             return BadRequest(error);
         }
-        var accountData = await accountDataLoader.GetAccountDataAsync(userId, filter?.AccountData);
+        var accountData = await accountDataLoader.LoadAccountDataAsync(userId, filter?.AccountData);
         return new JsonResult(new SyncResponse
         {
             AccountData = accountData
