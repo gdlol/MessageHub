@@ -24,6 +24,8 @@ public class DummyAuthenticator : IAuthenticator
 
     public Task<string?> GetDeviceIdAsync(string accessToken)
     {
+        ArgumentNullException.ThrowIfNull(accessToken);
+
         string? deviceId = null;
         if (accessTokens.ContainsKey(accessToken))
         {
@@ -34,6 +36,9 @@ public class DummyAuthenticator : IAuthenticator
 
     public Task<(string userId, string accessToken)?> LogInAsync(string deviceId, string token)
     {
+        ArgumentNullException.ThrowIfNull(deviceId);
+        ArgumentNullException.ThrowIfNull(token);
+
         if (token == loginToken)
         {
             string accessToken = accessTokenPrefix + deviceId;
@@ -48,6 +53,8 @@ public class DummyAuthenticator : IAuthenticator
 
     public Task<string?> AuthenticateAsync(string accessToken)
     {
+        ArgumentNullException.ThrowIfNull(accessToken);
+
         if (accessTokens.ContainsKey(accessToken))
         {
             return Task.FromResult<string?>(userId);
@@ -60,6 +67,8 @@ public class DummyAuthenticator : IAuthenticator
 
     public Task LogOutAsync(string deviceId)
     {
+        ArgumentNullException.ThrowIfNull(deviceId);
+
         string accessToken = accessTokenPrefix + deviceId;
         accessTokens.TryRemove(accessToken, out object? _);
         return Task.CompletedTask;

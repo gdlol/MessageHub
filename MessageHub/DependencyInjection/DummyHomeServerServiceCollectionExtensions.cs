@@ -8,8 +8,9 @@ public static class DummyHomeServerServiceCollectionExtensions
     public static IServiceCollection AddDummyHomeServer(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
-        
+
         services.AddSingleton<IAuthenticator, DummyAuthenticator>();
+        services.AddSingleton<IPersistenceService, DummyPersistenceService>();
         return services;
     }
 }

@@ -19,6 +19,8 @@ public class MatrixAuthenticationHandler : AuthenticationHandler<MatrixAuthentic
         ISystemClock clock,
         IAuthenticator authenticator) : base(options, logger, encoder, clock)
     {
+        ArgumentNullException.ThrowIfNull(authenticator);
+
         this.authenticator = authenticator;
     }
 

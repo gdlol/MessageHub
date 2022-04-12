@@ -58,6 +58,10 @@ public class LogInController : ControllerBase
     [HttpPost]
     public async Task<object> LogIn([FromBody] LogInParmeters parameters)
     {
+        if (parameters is null)
+        {
+            return new JsonResult(MatrixError.Create(MatrixErrorCode.InvalidParameter));
+        }
         if (parameters.LogInType != "m.login.token")
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(parameters.LogInType)));

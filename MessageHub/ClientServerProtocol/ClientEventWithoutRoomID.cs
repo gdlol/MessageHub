@@ -30,5 +30,5 @@ public class ClientEventWithoutRoomID
     public string EventType { get; set; } = default!;
 
     [JsonPropertyName("unsigned")]
-    public UnsignedData? Unsigned { get; set; }
+    public JsonElement? Unsigned { get; set; }
 }

@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 
 namespace MessageHub.ClientServerProtocol;
 
@@ -126,4 +127,13 @@ public class Filter
 
     [JsonPropertyName("room")]
     public RoomFilter? Room { get; set; }
+
+    public static bool StringMatch(string input, string pattern)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+        ArgumentNullException.ThrowIfNull(pattern);
+
+        pattern = "^" + Regex.Escape(pattern).Replace(@"\*", ".*") + "$";
+        return Regex.IsMatch(input, pattern);
+    }
 }

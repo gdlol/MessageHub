@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace MessageHub.ServerServerProtocol;
+namespace MessageHub.HomeServer;
 
 public class EventHash
 {
@@ -74,5 +74,11 @@ public class PersistentDataUnit
     public string EventType { get; set; } = default!;
 
     [JsonPropertyName("unsigned")]
-    public UnsignedData? Unsigned { get; set; }
+    public JsonElement? Unsigned { get; set; }
+
+    public string GetEventId() => throw new NotImplementedException();
+
+    public string ToJson() => throw new NotImplementedException();
+
+    public static PersistentDataUnit FromJson(string json) => throw new NotImplementedException();
 }

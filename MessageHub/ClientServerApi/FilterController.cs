@@ -21,6 +21,11 @@ public class FilterController : ControllerBase
     [HttpPost]
     public async Task<object> Filter(string userId, [FromBody] Filter filter)
     {
+        if (userId is null || filter is null)
+        {
+            return new JsonResult(MatrixError.Create(MatrixErrorCode.InvalidParameter));
+        }
+
         var identity = Request.HttpContext.User.Identity!;
         if (userId != identity.Name)
         {
@@ -33,7 +38,7 @@ public class FilterController : ControllerBase
         string filterJson = JsonSerializer.Serialize(filter);
         return new
         {
-            filter_id = await persistence.SaveFilterAsync(userId, filterJson)
+            filter_id = await persistence.SaveFilterAsync(filterJson)
         };
     }
 
@@ -41,6 +46,11 @@ public class FilterController : ControllerBase
     [HttpGet]
     public async Task<object> Filter(string userId, string filterId)
     {
+        if (userId is null || filterId is null)
+        {
+            return new JsonResult(MatrixError.Create(MatrixErrorCode.InvalidParameter));
+        }
+
         var identity = Request.HttpContext.User.Identity!;
         if (userId != identity.Name)
         {
@@ -50,7 +60,7 @@ public class FilterController : ControllerBase
             };
         }
 
-        string? filter = await persistence.LoadFilterAsync(userId, filterId);
+        string? filter = await persistence.LoadFilterAsync(filterId);
         if (filter is null)
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));
