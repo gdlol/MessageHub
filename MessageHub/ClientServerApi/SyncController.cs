@@ -26,30 +26,34 @@ public class SyncController : ControllerBase
 
     [Route("sync")]
     [HttpGet]
-    public async Task<IActionResult> Sync(SyncParmeters parmeters)
+    public async Task<IActionResult> Sync(SyncParameters parameters)
     {
         string? userId = Request.HttpContext.User.Identity?.Name;
         if (userId is null)
         {
             throw new InvalidOperationException();
         }
+        if (parameters is null)
+        {
+            return new JsonResult(MatrixError.Create(MatrixErrorCode.MissingParameter));
+        }
 
-        var (filter, error) = await filterLoader.LoadFilterAsync(parmeters.Filter);
+        var (filter, error) = await filterLoader.LoadFilterAsync(parameters.Filter);
         if (error is not null)
         {
             return BadRequest(error);
         }
-        if (parmeters.Timeout > 0)
+        if (parameters.Timeout > 0)
         {
             using var cts = new CancellationTokenSource();
             using var timer = new Timer(
                 _ => cts.Cancel(),
                 null,
-                dueTime: Math.Min(parmeters.Timeout, TimeSpan.FromMinutes(10).Milliseconds),
+                dueTime: Math.Min(parameters.Timeout, TimeSpan.FromMinutes(10).Milliseconds),
                 period: Timeout.Infinite);
             while (!cts.IsCancellationRequested)
             {
-                if (roomLoader.CurrentBatchId != (parmeters.Since ?? string.Empty))
+                if (roomLoader.CurrentBatchId != (parameters.Since ?? string.Empty))
                 {
                     break;
                 }
@@ -64,8 +68,8 @@ public class SyncController : ControllerBase
         var accountData = await accountDataLoader.LoadAccountDataAsync(userId, filter?.AccountData);
         var (nextBatch, rooms) = await roomLoader.LoadRoomsAsync(
             userId,
-            parmeters.FullState,
-            parmeters.Since,
+            parameters.FullState,
+            parameters.Since,
             filter?.Room);
         return new JsonResult(new SyncResponse
         {

@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace MessageHub.ClientServerProtocol;
 
-public class SyncParmeters
+public class SyncParameters
 {
     public static class SetPresenceValues
     {

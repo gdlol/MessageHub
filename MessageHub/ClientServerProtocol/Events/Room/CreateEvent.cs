@@ -28,7 +28,7 @@ public class CreateEvent
     public PreviousRoom? Predecessor { get; set; }
 
     [JsonPropertyName("room_version")]
-    public string RoomVersion { get; set; } = "1";
+    public string RoomVersion { get; set; } = "6";
 
     [JsonPropertyName("type")]
     public string? RoomType { get; set; }

@@ -25,7 +25,6 @@ public class AllowCondition
 [EventType(EventTypes.JoinRules)]
 public class JoinRulesEvent
 {
-
     [JsonPropertyName("allow")]
     public AllowCondition[]? Allow { get; set; }
 

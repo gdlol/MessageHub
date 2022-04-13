@@ -80,5 +80,6 @@ public class PersistentDataUnit
 
     public string ToCanonicalJson() => JsonSerializer.Serialize(this);
 
-    public string GetEventId() => Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(ToCanonicalJson())));
+    public string GetEventId() =>
+        "$" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(ToCanonicalJson()))) + ":" + Origin;
 }
