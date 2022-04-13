@@ -13,12 +13,15 @@ namespace MessageHub.ClientServerApi;
 public class RoomsController : ControllerBase
 {
     private readonly IRoomLoader roomLoader;
+    private readonly IEventSender eventSender;
 
-    public RoomsController(IRoomLoader roomLoader)
+    public RoomsController(IRoomLoader roomLoader, IEventSender eventSender)
     {
         ArgumentNullException.ThrowIfNull(roomLoader);
+        ArgumentNullException.ThrowIfNull(eventSender);
 
         this.roomLoader = roomLoader;
+        this.eventSender = eventSender;
     }
 
     [Route("{roomId}/event/{eventId}")]
@@ -250,5 +253,66 @@ public class RoomsController : ControllerBase
             end,
             start = from
         });
+    }
+
+    [Route("{roomId}/state/{eventType}/{stateKey}")]
+    [HttpPut]
+    public async Task<IActionResult> SendStateEvent(
+        [FromRoute] string roomId,
+        [FromRoute] string eventType,
+        [FromRoute] string stateKey,
+        [FromBody] JsonElement body)
+    {
+        string? userId = Request.HttpContext.User.Identity?.Name;
+        if (userId is null)
+        {
+            throw new InvalidOperationException();
+        }
+        if (body.ValueKind != JsonValueKind.Object)
+        {
+            return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, $"{nameof(body)}: {body}"));
+        }
+
+        var (eventId, error) = await eventSender.SendStateEventAsync(
+            userId,
+            roomId,
+            new RoomStateKey(eventType, stateKey),
+            body);
+        if (error is not null)
+        {
+            return BadRequest(error);
+        }
+        return new JsonResult(new { event_id = eventId });
+    }
+
+    [Route("{roomId}/send/{eventType}/{txnId}")]
+    [HttpPut]
+    public async Task<IActionResult> SendMessageEvent(
+        [FromRoute] string roomId,
+        [FromRoute] string eventType,
+        [FromRoute(Name = "txnId")] string transactionId,
+        [FromBody] JsonElement body)
+    {
+        string? userId = Request.HttpContext.User.Identity?.Name;
+        if (userId is null)
+        {
+            throw new InvalidOperationException();
+        }
+        if (body.ValueKind != JsonValueKind.Object)
+        {
+            return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, $"{nameof(body)}: {body}"));
+        }
+
+        var (eventId, error) = await eventSender.SendMessageEventAsync(
+            userId,
+            roomId,
+            eventType,
+            transactionId,
+            body);
+        if (error is not null)
+        {
+            return BadRequest(error);
+        }
+        return new JsonResult(new { event_id = eventId });
     }
 }

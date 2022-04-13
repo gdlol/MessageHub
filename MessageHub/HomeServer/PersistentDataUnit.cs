@@ -1,4 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -76,7 +78,7 @@ public class PersistentDataUnit
     [JsonPropertyName("unsigned")]
     public JsonElement? Unsigned { get; set; }
 
-    public string GetEventId() => throw new NotImplementedException();
+    public string ToCanonicalJson() => JsonSerializer.Serialize(this);
 
-    public string ToCanonicalJson() => throw new NotImplementedException();
+    public string GetEventId() => Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(ToCanonicalJson())));
 }

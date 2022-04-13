@@ -86,4 +86,13 @@ internal class RoomStates : IRoomStates
             .ToImmutableDictionary();
         return new RoomStates(rooms, BatchId);
     }
+
+    public RoomStates AddEvent(PersistentDataUnit pdu, RoomMembership membership)
+    {
+        var newRoom = Rooms.TryGetValue(pdu.RoomId, out var room)
+            ? room.AddEvent(pdu, membership)
+            : Room.Create(pdu, membership);
+        var newRooms = Rooms.SetItem(pdu.RoomId, newRoom);
+        return new RoomStates(newRooms, Guid.NewGuid().ToString());
+    }
 }

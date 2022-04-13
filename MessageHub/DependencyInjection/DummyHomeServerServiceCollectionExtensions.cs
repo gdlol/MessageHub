@@ -12,6 +12,7 @@ public static class DummyHomeServerServiceCollectionExtensions
         services.AddSingleton<IAuthenticator, DummyAuthenticator>();
         services.AddSingleton<IPersistenceService, DummyPersistenceService>();
         services.AddSingleton<IRoomLoader, DummyRoomLoader>();
+        services.AddSingleton<IEventSender, DummyEventSender>();
         return services;
     }
 }
