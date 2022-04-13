@@ -1,4 +1,3 @@
-using System.Text.Json;
 using MessageHub.ClientServerProtocol;
 
 namespace MessageHub.HomeServer.Dummy;
@@ -17,17 +16,38 @@ internal class TimelineIterator : ITimelineIterator
 
         this.room = room;
         index = room.EventIds.Count - 1;
-        CurrentEvent = room.LoadClientEvent(room.EventIds[index]);
+        CurrentEvent = room.LoadClientEventWithoutRoomId(room.EventIds[index]);
+    }
+
+    public TimelineIterator(Room room, string eventId)
+    {
+        ArgumentNullException.ThrowIfNull(room);
+        ArgumentNullException.ThrowIfNull(eventId);
+
+        this.room = room;
+        index = room.EventIds.IndexOf(eventId);
+        CurrentEvent = room.LoadClientEventWithoutRoomId(room.EventIds[index]);
+    }
+
+    public ValueTask<bool> TryMoveForwardAsync()
+    {
+        if (index >= room.EventIds.Count - 1)
+        {
+            return ValueTask.FromResult(false);
+        }
+        index += 1;
+        CurrentEvent = room.LoadClientEventWithoutRoomId(room.EventIds[index]);
+        return ValueTask.FromResult(true);
     }
 
     public ValueTask<bool> TryMoveBackwardAsync()
     {
-        if (index == 0)
+        if (index <= 0)
         {
             return ValueTask.FromResult(false);
         }
         index -= 1;
-        CurrentEvent = room.LoadClientEvent(room.EventIds[index]);
+        CurrentEvent = room.LoadClientEventWithoutRoomId(room.EventIds[index]);
         return ValueTask.FromResult(true);
     }
 
@@ -37,7 +57,7 @@ internal class TimelineIterator : ITimelineIterator
         var states = room.States[CurrentEvent.EventId];
         foreach (var (_, eventId) in states)
         {
-            var clientEvent = room.LoadClientEvent(eventId);
+            var clientEvent = room.LoadClientEventWithoutRoomId(eventId);
             result.Add(clientEvent);
         }
         return result.ToArray();

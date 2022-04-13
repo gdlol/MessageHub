@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MessageHub.ClientServerProtocol;
 
 namespace MessageHub.HomeServer;
@@ -5,6 +6,7 @@ namespace MessageHub.HomeServer;
 public interface ITimelineIterator
 {
     ClientEventWithoutRoomID CurrentEvent { get; }
+    ValueTask<bool> TryMoveForwardAsync();
     ValueTask<bool> TryMoveBackwardAsync();
     ClientEventWithoutRoomID[] GetStateEvents();
 }
@@ -23,7 +25,13 @@ public interface IRoomStates
 public interface IRoomLoader
 {
     bool IsEmpty { get; }
+    string CurrentBatchId { get; }
     Task<IRoomStates> LoadRoomStatesAsync(Func<string, bool> roomIdFilter, bool includeLeave);
     Task<IReadOnlyDictionary<string, string>> GetRoomEventIds(string? since);
+    bool HasRoom(string roomId);
     ValueTask<ClientEventWithoutRoomID[]> GetRoomStateEvents(string roomId, string? sinceEventId);
+    Task<ClientEvent?> LoadEventAsync(string roomId, string eventId);
+    Task<ClientEvent[]?> LoadRoomMembersAsync(string roomId, string? sinceEventId);
+    Task<JsonElement?> LoadStateAsync(string roomId, RoomStateKey stateKey);
+    Task<ITimelineIterator?> GetTimelineIteratorAsync(string roomId, string eventId);
 }

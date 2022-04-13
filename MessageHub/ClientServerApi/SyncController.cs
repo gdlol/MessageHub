@@ -39,6 +39,28 @@ public class SyncController : ControllerBase
         {
             return BadRequest(error);
         }
+        if (parmeters.Timeout > 0)
+        {
+            using var cts = new CancellationTokenSource();
+            using var timer = new Timer(
+                _ => cts.Cancel(),
+                null,
+                dueTime: Math.Min(parmeters.Timeout, TimeSpan.FromMinutes(10).Milliseconds),
+                period: Timeout.Infinite);
+            while (!cts.IsCancellationRequested)
+            {
+                if (roomLoader.CurrentBatchId != (parmeters.Since ?? string.Empty))
+                {
+                    break;
+                }
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
+                }
+                catch (OperationCanceledException)
+                { }
+            }
+        }
         var accountData = await accountDataLoader.LoadAccountDataAsync(userId, filter?.AccountData);
         var (nextBatch, rooms) = await roomLoader.LoadRoomsAsync(
             userId,

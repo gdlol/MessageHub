@@ -67,7 +67,7 @@ public class RoomLoader
         return true;
     }
 
-    private static Func<ClientEventWithoutRoomID, bool> GetTimelineEventFilter(RoomEventFilter? filter)
+    internal static Func<ClientEventWithoutRoomID, bool> GetTimelineEventFilter(RoomEventFilter? filter)
     {
         if (filter is null)
         {
@@ -162,6 +162,8 @@ public class RoomLoader
         }
         return delta.ToArray();
     }
+
+    public string CurrentBatchId => roomLoader.CurrentBatchId;
 
     public async Task<(string nextBatch, Rooms rooms)> LoadRoomsAsync(
         string userId,
