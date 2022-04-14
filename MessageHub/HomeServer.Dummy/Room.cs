@@ -55,10 +55,16 @@ internal class Room
         return Empty.AddEvent(createEvent, membership);
     }
 
-    public ClientEventWithoutRoomID LoadClientEventWithoutRoomId(string eventId)
+    public PersistentDataUnit LoadPdu(string eventId)
     {
         var pduJson = Events[eventId];
         var pdu = JsonSerializer.Deserialize<PersistentDataUnit>(pduJson)!;
+        return pdu;
+    }
+
+    public ClientEventWithoutRoomID LoadClientEventWithoutRoomId(string eventId)
+    {
+        var pdu = LoadPdu(eventId);
         return new ClientEventWithoutRoomID
         {
             Content = pdu.Content,
@@ -73,8 +79,7 @@ internal class Room
 
     public ClientEvent LoadClientEvent(string eventId)
     {
-        var pduJson = Events[eventId];
-        var pdu = JsonSerializer.Deserialize<PersistentDataUnit>(pduJson)!;
+        var pdu = LoadPdu(eventId);
         return new ClientEvent
         {
             Content = pdu.Content,

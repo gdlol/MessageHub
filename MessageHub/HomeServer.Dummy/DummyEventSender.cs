@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Text.Json;
 using MessageHub.ClientServerProtocol;
 using MessageHub.ClientServerProtocol.Events.Room;
