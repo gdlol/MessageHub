@@ -10,6 +10,7 @@ public class DummyPersistenceService : IPersistenceService
     private readonly DataMap accountData = new();
     private readonly ConcurrentDictionary<string, DataMap> roomData = new();
     private readonly ConcurrentDictionary<string, string> filters = new();
+    private readonly ConcurrentDictionary<string, string> roomVisibilities = new();
 
     public Task SaveAccountDataAsync(string? roomId, string eventType, JsonElement? content)
     {
@@ -96,5 +97,26 @@ public class DummyPersistenceService : IPersistenceService
 
         filters.TryGetValue(filterId, out string? filter);
         return Task.FromResult(filter);
+    }
+
+    public Task<string?> GetRoomVisibilityAsync(string roomId)
+    {
+        string? result = roomVisibilities.TryGetValue(roomId, out var value) ? value : null;
+        return Task.FromResult(result);
+    }
+
+    public Task<bool> SetRoomVisibilityAsync(string roomId, string visibility)
+    {
+        if (!RoomHistory.RoomStatesList[^1].Rooms.ContainsKey(roomId))
+        {
+            return Task.FromResult(false);
+        }
+        roomVisibilities.AddOrUpdate(roomId, visibility, (_, _) => visibility);
+        return Task.FromResult(true);
+    }
+
+    public Task<string[]> GetPublicRoomListAsync()
+    {
+        return Task.FromResult(roomVisibilities.Where(x => x.Value == "public").Select(x => x.Key).ToArray());
     }
 }

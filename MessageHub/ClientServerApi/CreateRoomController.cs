@@ -11,22 +11,25 @@ namespace MessageHub.ClientServerApi;
 public class CreateRoomController : ControllerBase
 {
     private readonly IHostInfo hostInfo;
+    private readonly IPersistenceService persistenceService;
     private readonly IEventSender eventSender;
     private readonly JsonSerializerOptions ignoreNullOptions = new()
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    public CreateRoomController(IHostInfo hostInfo, IEventSender eventSender)
+    public CreateRoomController(IHostInfo hostInfo, IPersistenceService persistenceService, IEventSender eventSender)
     {
         ArgumentNullException.ThrowIfNull(eventSender);
+        ArgumentNullException.ThrowIfNull(persistenceService);
         ArgumentNullException.ThrowIfNull(hostInfo);
 
         this.hostInfo = hostInfo;
+        this.persistenceService = persistenceService;
         this.eventSender = eventSender;
     }
 
-    private static JsonElement GetRoomCreateContent(string userId, JsonElement? creationContent, string? roomVersion)
+    private static JsonElement GetRoomCreateContent(string userId, JsonElement? creationContent, string? _)
     {
         JsonElement result;
         if (creationContent is null)
@@ -239,6 +242,12 @@ public class CreateRoomController : ControllerBase
                     new RoomStateKey(EventTypes.Member, invitedId),
                     JsonSerializer.SerializeToElement(inviteContent, ignoreNullOptions));
             }
+        }
+
+        // Set visibility.
+        if (parameters.Visibility is not null)
+        {
+            await persistenceService.SetRoomVisibilityAsync(roomId, parameters.Visibility);
         }
 
         return new JsonResult(new
