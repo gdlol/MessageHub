@@ -1,5 +1,6 @@
 using MessageHub.ClientServerProtocol;
 using MessageHub.HomeServer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MessageHub.ClientServerApi;
@@ -28,6 +29,7 @@ public class ContentRepositoryController : ControllerBase
 
     [Route("download/{serverName}/{mediaId}")]
     [HttpGet]
+    [AllowAnonymous]
     public async Task<IActionResult> Download(string serverName, string mediaId)
     {
         string url = $"mxc://{serverName}/{mediaId}";
@@ -44,6 +46,7 @@ public class ContentRepositoryController : ControllerBase
 
     [Route("download/{serverName}/{mediaId}/{fileName}")]
     [HttpGet]
+    [AllowAnonymous]
     public async Task<IActionResult> Download(string serverName, string mediaId, string fileName)
     {
         string url = $"mxc://{serverName}/{mediaId}";
@@ -60,6 +63,7 @@ public class ContentRepositoryController : ControllerBase
 
     [Route("thumbnail/{serverName}/{mediaId}")]
     [HttpGet]
+    [AllowAnonymous]
     public Task<IActionResult> DownloadThumbnail(string serverName, string mediaId)
     {
         return Download(serverName, mediaId);

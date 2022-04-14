@@ -2,13 +2,19 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace MessageHub.ClientServerApi;
 
-[Route("_matrix/client/v3/voip")]
+[Route("_matrix/client/{version}/voip")]
 public class VoIPController : ControllerBase
 {
     [Route("turnServer")]
     [HttpGet]
     public object GetTurnServer()
     {
-        return NotFound();
+        return new
+        {
+            password = string.Empty,
+            ttl = 86400,
+            uris = Array.Empty<string>(),
+            username = string.Empty
+        };
     }
 }

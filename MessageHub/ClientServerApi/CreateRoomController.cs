@@ -108,22 +108,30 @@ public class CreateRoomController : ControllerBase
                     $"{nameof(parameters.CreationContent)}: {parameters.CreationContent}"));
         }
         var roomCreateEventContent = GetRoomCreateContent(userId, parameters.CreationContent, parameters.RoomVersion);
-        await eventSender.SendStateEventAsync(
+        var (_, error) = await eventSender.SendStateEventAsync(
             userId,
             roomId,
             new RoomStateKey(EventTypes.Create, ""),
             roomCreateEventContent);
+        if (error is not null)
+        {
+            return new JsonResult(error);
+        }
 
         // Join sender.
         var memberEventContent = new MemberEvent
         {
             MemberShip = MembershipStates.Join
         };
-        await eventSender.SendStateEventAsync(
+        (_, error) = await eventSender.SendStateEventAsync(
             userId,
             roomId,
             new RoomStateKey(EventTypes.Member, userId),
             JsonSerializer.SerializeToElement(memberEventContent, ignoreNullOptions));
+        if (error is not null)
+        {
+            return new JsonResult(error);
+        }
 
         // Power level
         if (parameters.PowerLevelContentOverride is not null
@@ -135,21 +143,29 @@ public class CreateRoomController : ControllerBase
                     $"{nameof(parameters.PowerLevelContentOverride)}: {parameters.PowerLevelContentOverride}"));
         }
         var powerLevelContent = GetPowerLevelContent(parameters.PowerLevelContentOverride);
-        await eventSender.SendStateEventAsync(
+        (_, error) = await eventSender.SendStateEventAsync(
             userId,
             roomId,
             new RoomStateKey(EventTypes.PowerLevels, ""),
             powerLevelContent);
+        if (error is not null)
+        {
+            return new JsonResult(error);
+        }
 
         // Set alias.
         if (parameters.RoomAliasName is string alias)
         {
             var canonicalAliasContent = new CanonicalAliasEvent { Alias = alias };
-            await eventSender.SendStateEventAsync(
+            (_, error) = await eventSender.SendStateEventAsync(
                 userId,
                 roomId,
                 new RoomStateKey(EventTypes.CanonicalAlias, ""),
                 JsonSerializer.SerializeToElement(canonicalAliasContent, ignoreNullOptions));
+            if (error is not null)
+            {
+                return new JsonResult(error);
+            }
         }
 
         // preset...
@@ -175,19 +191,27 @@ public class CreateRoomController : ControllerBase
             }
             if (joinRulesContent is not null)
             {
-                await eventSender.SendStateEventAsync(
+                (_, error) = await eventSender.SendStateEventAsync(
                     userId,
                     roomId,
                     new RoomStateKey(EventTypes.JoinRules, ""),
                     JsonSerializer.SerializeToElement(joinRulesContent, ignoreNullOptions));
+                if (error is not null)
+                {
+                    return new JsonResult(error);
+                }
             }
             if (historyVisibilityContent is not null)
             {
-                await eventSender.SendStateEventAsync(
+                (_, error) = await eventSender.SendStateEventAsync(
                     userId,
                     roomId,
                     new RoomStateKey(EventTypes.HistoryVisibility, ""),
                     JsonSerializer.SerializeToElement(historyVisibilityContent, ignoreNullOptions));
+                if (error is not null)
+                {
+                    return new JsonResult(error);
+                }
             }
         }
 
@@ -196,7 +220,7 @@ public class CreateRoomController : ControllerBase
         {
             foreach (var stateEvent in parameters.InitialState)
             {
-                await eventSender.SendStateEventAsync(
+                (_, error) = await eventSender.SendStateEventAsync(
                     userId,
                     roomId,
                     new RoomStateKey(stateEvent.EventType, stateEvent.StateKey),
@@ -208,22 +232,30 @@ public class CreateRoomController : ControllerBase
         if (parameters.Name is string name)
         {
             var nameContent = new NameEvent { Name = name };
-            await eventSender.SendStateEventAsync(
+            (_, error) = await eventSender.SendStateEventAsync(
                 userId,
                 roomId,
                 new RoomStateKey(EventTypes.Name, ""),
                 JsonSerializer.SerializeToElement(nameContent, ignoreNullOptions));
+            if (error is not null)
+            {
+                return new JsonResult(error);
+            }
         }
 
         // Topic.
         if (parameters.Topic is string topic)
         {
             var topicContent = new TopicEvent { Topic = topic };
-            await eventSender.SendStateEventAsync(
+            (_, error) = await eventSender.SendStateEventAsync(
                 userId,
                 roomId,
                 new RoomStateKey(EventTypes.Topic, ""),
                 JsonSerializer.SerializeToElement(topicContent, ignoreNullOptions));
+            if (error is not null)
+            {
+                return new JsonResult(error);
+            }
         }
 
         // invite...
@@ -236,7 +268,7 @@ public class CreateRoomController : ControllerBase
                     IsDirect = parameters.IsDirect,
                     MemberShip = MembershipStates.Invite
                 };
-                await eventSender.SendStateEventAsync(
+                (_, error) = await eventSender.SendStateEventAsync(
                     userId,
                     roomId,
                     new RoomStateKey(EventTypes.Member, invitedId),

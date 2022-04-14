@@ -19,7 +19,8 @@ public class DummyEventSender : IEventSender
         string? eventId = null;
         MatrixError? error = null;
         var getResult = () => Task.FromResult((eventId, error));
-        if (!RoomHistory.RoomStatesList[^1].Rooms.ContainsKey(roomId))
+        if (!RoomHistory.RoomStatesList[^1].Rooms.ContainsKey(roomId)
+            && stateKey.EventType != EventTypes.Create)
         {
             error = MatrixError.Create(MatrixErrorCode.InvalidRoomState);
             return getResult();
@@ -27,13 +28,16 @@ public class DummyEventSender : IEventSender
         var pdu = new PersistentDataUnit
         {
             Content = content,
+            Origin = DummyHostInfo.Instance.ServerName,
             OriginServerTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             RoomId = roomId,
             Sender = sender,
             StateKey = stateKey.StateKey,
             EventType = stateKey.EventType
         };
-        var membership = RoomHistory.RoomStatesList[^1].Rooms[roomId].Membership;
+        var membership = stateKey.EventType == EventTypes.Create
+            ? RoomMembership.Joined
+            : RoomHistory.RoomStatesList[^1].Rooms[roomId].Membership;
         if (stateKey.EventType == EventTypes.Member && stateKey.StateKey == sender)
         {
             try
@@ -77,10 +81,15 @@ public class DummyEventSender : IEventSender
         var pdu = new PersistentDataUnit
         {
             Content = content,
+            Origin = DummyHostInfo.Instance.ServerName,
             OriginServerTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             RoomId = roomId,
             Sender = sender,
-            EventType = eventType
+            EventType = eventType,
+            Unsigned = JsonSerializer.SerializeToElement(new
+            {
+                transaction_id = transactionId
+            })
         };
         var membership = RoomHistory.RoomStatesList[^1].Rooms[roomId].Membership;
         lock (transactionIds)

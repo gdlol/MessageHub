@@ -25,18 +25,28 @@ public class SyncController : ControllerBase
     }
 
     [Route("sync")]
+    [Consumes("application/problem+json")]
     [HttpGet]
-    public async Task<IActionResult> Sync(SyncParameters parameters)
+    public async Task<IActionResult> Sync(
+        [FromQuery(Name = "filter")] string? filterString,
+        [FromQuery(Name = "full_state")] bool? fullState,
+        [FromQuery(Name = "set_presence")] string? setPresence,
+        [FromQuery(Name = "since")] string? since,
+        [FromQuery(Name = "timeout")] long? timeout)
     {
         string? userId = Request.HttpContext.User.Identity?.Name;
         if (userId is null)
         {
             throw new InvalidOperationException();
         }
-        if (parameters is null)
+        var parameters = new SyncParameters
         {
-            return new JsonResult(MatrixError.Create(MatrixErrorCode.MissingParameter));
-        }
+            Filter = filterString,
+            FullState = fullState ?? false,
+            SetPresence = setPresence ?? SyncParameters.SetPresenceValues.Online,
+            Since = since,
+            Timeout = timeout ?? 0
+        };
 
         var (filter, error) = await filterLoader.LoadFilterAsync(parameters.Filter);
         if (error is not null)
@@ -49,7 +59,9 @@ public class SyncController : ControllerBase
             using var timer = new Timer(
                 _ => cts.Cancel(),
                 null,
-                dueTime: Math.Min(parameters.Timeout, TimeSpan.FromMinutes(10).Milliseconds),
+                dueTime: Math.Min(
+                    parameters.Timeout,
+                    (long)TimeSpan.FromMinutes(10).TotalMilliseconds),
                 period: Timeout.Infinite);
             while (!cts.IsCancellationRequested)
             {

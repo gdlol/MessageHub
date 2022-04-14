@@ -132,10 +132,11 @@ public class RoomsController : ControllerBase
         }
     }
 
-    [Route("{roomId}/state/{eventType}/{stateKey}")]
+    [Route("{roomId}/state/{eventType}/{stateKey?}")]
     [HttpGet]
-    public async Task<IActionResult> GetState(string roomId, string eventType, string stateKey)
+    public async Task<IActionResult> GetState(string roomId, string eventType, string? stateKey)
     {
+        stateKey ??= string.Empty;
         if (!roomLoader.HasRoom(roomId))
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));
@@ -158,19 +159,31 @@ public class RoomsController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetMessages(
         [FromRoute] string roomId,
-        [FromQuery(Name = "dir"), BindRequired] string direction,
+        [FromQuery(Name = "dir")] string? direction,
         [FromQuery(Name = "filter")] string? filter,
-        [FromQuery(Name = "from"), BindRequired] string from,
+        [FromQuery(Name = "from")] string? from,
         [FromQuery(Name = "limit")] int? limit,
         [FromQuery(Name = "to")] string? to)
     {
-        if (!ModelState.IsValid)
+        if (direction is null)
         {
-            return BadRequest(MatrixError.Create(MatrixErrorCode.MissingParameter));
+            return BadRequest(MatrixError.Create(MatrixErrorCode.MissingParameter, nameof(direction)));
         }
         if (!roomLoader.HasRoom(roomId))
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(roomId)}: {roomId}"));
+        }
+        if (from is null)
+        {
+            var eventIds = await roomLoader.GetRoomEventIds(null);
+            if (!eventIds.TryGetValue(roomId, out string? eventId))
+            {
+                return new JsonResult(new
+                {
+                    chunk = Array.Empty<object>()
+                });
+            }
+            from = eventId;
         }
         if (!new[] { "b", "f" }.Contains(direction))
         {
@@ -255,14 +268,15 @@ public class RoomsController : ControllerBase
         });
     }
 
-    [Route("{roomId}/state/{eventType}/{stateKey}")]
+    [Route("{roomId}/state/{eventType}/{stateKey?}")]
     [HttpPut]
     public async Task<IActionResult> SendStateEvent(
         [FromRoute] string roomId,
         [FromRoute] string eventType,
-        [FromRoute] string stateKey,
+        [FromRoute] string? stateKey,
         [FromBody] JsonElement body)
     {
+        stateKey ??= string.Empty;
         string? userId = Request.HttpContext.User.Identity?.Name;
         if (userId is null)
         {

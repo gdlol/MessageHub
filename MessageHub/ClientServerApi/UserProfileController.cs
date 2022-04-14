@@ -50,7 +50,7 @@ public class UserProfileController : ControllerBase
         });
     }
 
-    [Route("{userId}")]
+    [Route("{userId}/avatar_url")]
     [HttpGet]
     public async Task<IActionResult> GetAvatarUrl(string userId)
     {
@@ -63,8 +63,8 @@ public class UserProfileController : ControllerBase
         return new JsonResult(new { avatar_url = avatarUrl });
     }
 
-    [Route("{userId}")]
-    [HttpPost]
+    [Route("{userId}/avatar_url")]
+    [HttpPut]
     public async Task<IActionResult> SetAvatarUrl(
         [FromRoute] string userId,
         [FromBody] SetAvatarUrlRequest requestBody)
@@ -78,7 +78,7 @@ public class UserProfileController : ControllerBase
         return new JsonResult(new object());
     }
 
-    [Route("{userId}")]
+    [Route("{userId}/displayname")]
     [HttpGet]
     public async Task<IActionResult> GetDisplayName(string userId)
     {
@@ -91,8 +91,8 @@ public class UserProfileController : ControllerBase
         return new JsonResult(new { displayname = displayName });
     }
 
-    [Route("{userId}")]
-    [HttpPost]
+    [Route("{userId}/displayname")]
+    [HttpPut]
     public async Task<IActionResult> SetDisplayName(
         [FromRoute] string userId,
         [FromBody] SetDisplayNameRequest requestBody)

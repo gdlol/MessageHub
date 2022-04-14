@@ -60,7 +60,7 @@ public class MatrixAuthenticationHandler : AuthenticationHandler<MatrixAuthentic
             }
             Request.HttpContext.Items[nameof(token)] = token;
             var claims = new[] { new Claim(ClaimTypes.Name, userId) };
-            var claimsIdentity = new ClaimsIdentity(claims);
+            var claimsIdentity = new ClaimsIdentity(claims, MatrixDefaults.AuthenticationScheme);
             var ticket = new AuthenticationTicket(new ClaimsPrincipal(claimsIdentity), Scheme.Name);
             return AuthenticateResult.Success(ticket);
         }

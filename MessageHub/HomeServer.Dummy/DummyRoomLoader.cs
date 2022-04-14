@@ -6,7 +6,7 @@ namespace MessageHub.HomeServer.Dummy;
 
 public class DummyRoomLoader : IRoomLoader
 {
-    public bool IsEmpty => RoomHistory.RoomStatesList.IsEmpty;
+    public bool IsEmpty => RoomHistory.RoomStatesList.Count == 1;
 
     public string CurrentBatchId => RoomHistory.RoomStatesList[^1].BatchId;
 
