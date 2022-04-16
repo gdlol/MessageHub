@@ -34,12 +34,9 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
         this.peerStore = peerStore;
     }
 
-    private static bool TryParseAuthorizationHeader(
-        string s,
-        [NotNullWhen(true)] out Dictionary<string, string>? header)
+    private static bool TryParseAuthorizationHeader(string s, out Dictionary<string, string> header)
     {
-        header = null;
-        var result = new Dictionary<string, string>();
+        header = new Dictionary<string, string>();
         foreach (string item in s.Split(','))
         {
             var pair = item.Split('=', 2);
@@ -52,9 +49,9 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
             {
                 value = value[1..^1];
             }
-            result[key] = value;
+            header[key] = value;
         }
-        return false;
+        return true;
     }
 
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
@@ -78,7 +75,7 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
                     {
                         if (!signatures.TryGetValue(origin, out var originSignatures))
                         {
-                            originSignatures = signatures[origin] = new Dictionary<string, string>();
+                            signatures[origin] = originSignatures = new Dictionary<string, string>();
                         }
                         originSignatures[keyIdentifier.ToString()] = signature;
                     }
@@ -118,8 +115,7 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
             Content = content,
             Signatures = JsonSerializer.SerializeToElement(signatures)
         };
-        var requestJson = JsonSerializer.SerializeToElement(request);
-        if (peerStore.TryGetPeer(sender, out var peer) && identity.VerifyJson(peer, requestJson))
+        if (peerStore.TryGetPeer(sender, out var peer) && identity.VerifyRequest(peer, request))
         {
             var claims = new[] { new Claim(ClaimTypes.Name, peer.Id) };
             var claimsIdentity = new ClaimsIdentity(claims, MatrixAuthenticationSchemes.Federation);
