@@ -21,13 +21,13 @@ public class ServerKeysController : ControllerBase
         public string Key { get; set; } = default!;
     }
 
-    private readonly IServerIdentity serverIdentity;
+    private readonly IPeerIdentity peerIdentity;
 
-    public ServerKeysController(IServerIdentity serverIdentity)
+    public ServerKeysController(IPeerIdentity peerIdentity)
     {
-        ArgumentNullException.ThrowIfNull(serverIdentity);
+        ArgumentNullException.ThrowIfNull(peerIdentity);
 
-        this.serverIdentity = serverIdentity;
+        this.peerIdentity = peerIdentity;
     }
 
     [Route("server")]
@@ -36,7 +36,7 @@ public class ServerKeysController : ControllerBase
     public object GetKeys()
     {
         var expiredKeys = new Dictionary<string, OldVerifyKey>();
-        foreach (var verifyKey in serverIdentity.ExpiredKeys)
+        foreach (var verifyKey in peerIdentity.ExpiredKeys)
         {
             foreach (var (identifier, key) in verifyKey.Keys)
             {
@@ -50,13 +50,13 @@ public class ServerKeysController : ControllerBase
         return new
         {
             old_verify_keys = expiredKeys,
-            server_name = serverIdentity.ServerKey,
+            server_name = peerIdentity.Id,
             signatures = new Dictionary<string, string>
             {
-                [serverIdentity.ServerKey] = serverIdentity.Signature
+                [peerIdentity.Id] = peerIdentity.Signature
             },
-            valid_until_ts = serverIdentity.VerifyKeys.ExpireTimestamp,
-            verify_keys = serverIdentity.VerifyKeys.Keys.ToDictionary(
+            valid_until_ts = peerIdentity.VerifyKeys.ExpireTimestamp,
+            verify_keys = peerIdentity.VerifyKeys.Keys.ToDictionary(
                 x => x.Key.ToString(),
                 x => x.Value)
         };

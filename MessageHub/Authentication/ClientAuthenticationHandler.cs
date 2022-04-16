@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using MessageHub.ClientServerProtocol;
@@ -8,12 +9,12 @@ using Microsoft.Net.Http.Headers;
 
 namespace MessageHub.Authentication;
 
-public class MatrixAuthenticationHandler : AuthenticationHandler<MatrixAuthenticationSchemeOptions>
+public class ClientAuthenticationHandler : AuthenticationHandler<ClientAuthenticationSchemeOptions>
 {
     private readonly IAuthenticator authenticator;
 
-    public MatrixAuthenticationHandler(
-        IOptionsMonitor<MatrixAuthenticationSchemeOptions> options,
+    public ClientAuthenticationHandler(
+        IOptionsMonitor<ClientAuthenticationSchemeOptions> options,
         ILoggerFactory logger,
         UrlEncoder encoder,
         ISystemClock clock,
@@ -31,11 +32,9 @@ public class MatrixAuthenticationHandler : AuthenticationHandler<MatrixAuthentic
         {
             foreach (string value in authorizationHeader)
             {
-                const string prefix = "Bearer ";
-                if (value.StartsWith(prefix))
+                if (AuthenticationHeaderValue.TryParse(value, out var header) && header.Scheme == "Bearer")
                 {
-                    token = value[prefix.Length..].Trim();
-                    break;
+                    token = header.Parameter;
                 }
             }
         }
@@ -43,7 +42,6 @@ public class MatrixAuthenticationHandler : AuthenticationHandler<MatrixAuthentic
         {
             token = Request.Query["access_token"];
         }
-
 
         if (string.IsNullOrEmpty(token))
         {
@@ -60,7 +58,7 @@ public class MatrixAuthenticationHandler : AuthenticationHandler<MatrixAuthentic
             }
             Request.HttpContext.Items[nameof(token)] = token;
             var claims = new[] { new Claim(ClaimTypes.Name, userId) };
-            var claimsIdentity = new ClaimsIdentity(claims, MatrixDefaults.AuthenticationScheme);
+            var claimsIdentity = new ClaimsIdentity(claims, MatrixAuthenticationSchemes.Client);
             var ticket = new AuthenticationTicket(new ClaimsPrincipal(claimsIdentity), Scheme.Name);
             return AuthenticateResult.Success(ticket);
         }

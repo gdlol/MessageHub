@@ -12,13 +12,16 @@ public static class AuthenticationServiceCollectionExtensions
 
         services.AddAuthenticationCore(options =>
         {
-            options.DefaultScheme = MatrixDefaults.AuthenticationScheme;
+            options.DefaultScheme = MatrixAuthenticationSchemes.Client;
         });
         services.AddWebEncoders();
         services.TryAddSingleton<ISystemClock, SystemClock>();
         var builder = new AuthenticationBuilder(services);
-        builder.AddScheme<MatrixAuthenticationSchemeOptions, MatrixAuthenticationHandler>(
-            MatrixDefaults.AuthenticationScheme,
+        builder.AddScheme<ClientAuthenticationSchemeOptions, ClientAuthenticationHandler>(
+            MatrixAuthenticationSchemes.Client,
+            _ => { });
+        builder.AddScheme<FederationAuthenticationSchemeOptions, FederationAuthenticationHandler>(
+            MatrixAuthenticationSchemes.Federation,
             _ => { });
         return services;
     }
