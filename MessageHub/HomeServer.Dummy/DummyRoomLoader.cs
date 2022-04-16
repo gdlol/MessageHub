@@ -1,6 +1,6 @@
 using System.Text.Json;
-using MessageHub.ClientServerProtocol;
-using M = MessageHub.ClientServerProtocol.Events;
+using MessageHub.ClientServer.Protocol;
+using M = MessageHub.ClientServer.Protocol.Events;
 
 namespace MessageHub.HomeServer.Dummy;
 

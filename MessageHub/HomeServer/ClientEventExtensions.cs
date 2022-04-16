@@ -1,4 +1,4 @@
-using MessageHub.ClientServerProtocol;
+using MessageHub.ClientServer.Protocol;
 
 namespace MessageHub.HomeServer;
 
