@@ -118,8 +118,7 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
             Content = content,
             Signatures = JsonSerializer.SerializeToElement(signatures)
         };
-        var requestJson = JsonSerializer.SerializeToElement(request);
-        if (peerStore.TryGetPeer(sender, out var peer) && identity.VerifyJson(peer, requestJson))
+        if (peerStore.TryGetPeer(sender, out var peer) && identity.VerifyRequest(peer, request))
         {
             var claims = new[] { new Claim(ClaimTypes.Name, peer.Id) };
             var claimsIdentity = new ClaimsIdentity(claims, MatrixAuthenticationSchemes.Federation);
