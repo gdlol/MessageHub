@@ -6,7 +6,7 @@ namespace MessageHub.HomeServer.Dummy;
 public class DummyAuthenticator : IAuthenticator
 {
     private const string loginToken = "dummy";
-    private readonly string userId = $"@dummy:{DummyHostInfo.Instance.ServerName}";
+    private readonly string userId = $"@dummy:dummy";
     private const string accessTokenPrefix = "dummy";
 
     private readonly ConcurrentDictionary<string, object?> accessTokens = new();
