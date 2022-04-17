@@ -117,6 +117,7 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
         };
         if (peerStore.TryGetPeer(sender, out var peer) && identity.VerifyRequest(peer, request))
         {
+            Request.HttpContext.Items[nameof(request)] = request;
             var claims = new[] { new Claim(ClaimTypes.Name, peer.Id) };
             var claimsIdentity = new ClaimsIdentity(claims, MatrixAuthenticationSchemes.Federation);
             var ticket = new AuthenticationTicket(new ClaimsPrincipal(claimsIdentity), Scheme.Name);

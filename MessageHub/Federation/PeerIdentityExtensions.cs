@@ -146,6 +146,11 @@ public static class PeerIdentityExtensions
         string requestTarget,
         object? content = null)
     {
+        ArgumentNullException.ThrowIfNull(identity);
+        ArgumentNullException.ThrowIfNull(destination);
+        ArgumentNullException.ThrowIfNull(requestMethod);
+        ArgumentNullException.ThrowIfNull(requestTarget);
+
         var request = new SignedRequest
         {
             Method = requestMethod,
@@ -161,6 +166,21 @@ public static class PeerIdentityExtensions
         {
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         });
+        return identity.SignJson(element);
+    }
+
+    public static JsonElement SignResponse(this IPeerIdentity identity, SignedRequest request, object content)
+    {
+        ArgumentNullException.ThrowIfNull(identity);
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(content);
+
+        var response = new SignedResponse
+        {
+            Request = request,
+            Content = JsonSerializer.SerializeToElement(content)
+        };
+        var element = JsonSerializer.SerializeToElement(response);
         return identity.SignJson(element);
     }
 

@@ -22,9 +22,8 @@ public class SignedRequest
     [JsonPropertyName("destination")]
     public string Destination { get; set; } = default!;
 
-    [Required]
     [JsonPropertyName("content")]
-    public JsonElement? Content { get; set; } = default!;
+    public JsonElement? Content { get; set; }
 
     [Required]
     [JsonPropertyName("signatures")]
