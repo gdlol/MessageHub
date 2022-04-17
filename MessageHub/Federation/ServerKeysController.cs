@@ -51,9 +51,12 @@ public class ServerKeysController : ControllerBase
         {
             old_verify_keys = expiredKeys,
             server_name = peerIdentity.Id,
-            signatures = new Dictionary<string, string>
+            signatures = new Signatures
             {
-                [peerIdentity.Id] = peerIdentity.Signature
+                [peerIdentity.Id] = new ServerSignatures
+                {
+                    [new KeyIdentifier(peerIdentity.SignatureAlgorithm, peerIdentity.Id)] = peerIdentity.Signature
+                }
             },
             valid_until_ts = peerIdentity.VerifyKeys.ExpireTimestamp,
             verify_keys = peerIdentity.VerifyKeys.Keys.ToDictionary(

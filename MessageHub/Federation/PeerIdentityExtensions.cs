@@ -22,7 +22,7 @@ public static class PeerIdentityExtensions
             throw new InvalidOperationException($"{nameof(identity.IsReadOnly)}: {identity.IsReadOnly}");
         }
 
-        var signatures = new Dictionary<string, string>();
+        var signatures = new ServerSignatures();
         JsonNode? unsigned;
         var jsonObject = JsonObject.Create(element);
         if (jsonObject is null)
@@ -37,10 +37,10 @@ public static class PeerIdentityExtensions
             var (algorithm, keyName) = keyIdentifier;
             var signature = identity.CreateSignature(algorithm, keyName, jsonBytes);
             var signatureString = UnpaddedBase64Encoder.Encode(signature);
-            signatures[keyIdentifier.ToString()] = signatureString;
+            signatures[keyIdentifier] = signatureString;
         }
         jsonObject[nameof(signatures)] = JsonObject.Create(
-            JsonSerializer.SerializeToElement(new Dictionary<string, object>
+            JsonSerializer.SerializeToElement(new Signatures
             {
                 [identity.Id] = signatures
             }));

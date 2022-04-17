@@ -4,6 +4,7 @@ public interface IPeerIdentity
 {
     bool IsReadOnly { get; }
     string Id { get; }
+    string SignatureAlgorithm { get; }
     string Signature { get; }
     IReadOnlySet<string> SupportedAlgorithms { get; }
     VerifyKeys VerifyKeys { get; }

@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MessageHub.HomeServer.Formatting;
 
 namespace MessageHub.HomeServer;
 
@@ -13,9 +14,9 @@ public class EventHash
     public string Sha256 { get; set; } = default!;
 }
 
-public class Signature : Dictionary<string, string> { }
+public class ServerSignatures : Dictionary<KeyIdentifier, string> { }
 
-public class ServerSignatures : Dictionary<string, Signature> { }
+public class Signatures : Dictionary<string, ServerSignatures> { }
 
 public class UnsignedData
 {
@@ -66,7 +67,7 @@ public class PersistentDataUnit
 
     [Required]
     [JsonPropertyName("signatures")]
-    public ServerSignatures Signatures { get; set; } = default!;
+    public Signatures Signatures { get; set; } = default!;
 
     [JsonPropertyName("state_key")]
     public string? StateKey { get; set; }
@@ -78,7 +79,11 @@ public class PersistentDataUnit
     [JsonPropertyName("unsigned")]
     public JsonElement? Unsigned { get; set; }
 
-    public string ToCanonicalJson() => JsonSerializer.Serialize(this);
+    public string ToCanonicalJson() => CanonicalJson.Serialize(
+        JsonSerializer.Serialize(this, new JsonSerializerOptions
+        {
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        }));
 
     public string GetEventId() =>
         "$" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(ToCanonicalJson()))) + ":" + Origin;

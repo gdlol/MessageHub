@@ -56,7 +56,7 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
 
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        Dictionary<string, Dictionary<string, string>> signatures = new();
+        Signatures signatures = new();
         if (Request.Headers.TryGetValue(HeaderNames.Authorization, out var authorizationHeader))
         {
             foreach (string value in authorizationHeader)
@@ -75,9 +75,9 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
                     {
                         if (!signatures.TryGetValue(origin, out var originSignatures))
                         {
-                            signatures[origin] = originSignatures = new Dictionary<string, string>();
+                            signatures[origin] = originSignatures = new ServerSignatures();
                         }
-                        originSignatures[keyIdentifier.ToString()] = signature;
+                        originSignatures[keyIdentifier] = signature;
                     }
                 }
             }
