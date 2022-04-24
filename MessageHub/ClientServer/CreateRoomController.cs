@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using MessageHub.ClientServer.Protocol;
@@ -36,7 +37,8 @@ public class CreateRoomController : ControllerBase
         {
             var content = new CreateEvent
             {
-                Creator = userId
+                Creator = userId,
+                RoomVersion = "9"
             };
             result = JsonSerializer.SerializeToElement(content);
         }
@@ -44,23 +46,35 @@ public class CreateRoomController : ControllerBase
         {
             var content = creationContent.Value.Deserialize<Dictionary<string, object>>()!;
             content["creator"] = userId;
-            content["room_version"] = new CreateEvent().RoomVersion;
+            content["room_version"] = "9";
             result = JsonSerializer.SerializeToElement(content);
         }
         return result;
     }
 
-    private static JsonElement GetPowerLevelContent(JsonElement? powerLevelContentOverride)
+    private static JsonElement GetPowerLevelContent(string userId, JsonElement? powerLevelContentOverride)
     {
-        var powerLevelContent = new PowerLevelsEvent();
+        var powerLevelContent = new PowerLevelsEvent
+        {
+            Users = new Dictionary<string, int>
+            {
+                [userId] = 100
+            }.ToImmutableDictionary()
+        };
         if (powerLevelContentOverride is null)
         {
-            return JsonSerializer.SerializeToElement(powerLevelContent);
+            return JsonSerializer.SerializeToElement(powerLevelContent, new JsonSerializerOptions
+            {
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+            });
         }
         else
         {
             var propertyMapping = JsonSerializer
-                .SerializeToElement(powerLevelContent)
+                .SerializeToElement(powerLevelContent, new JsonSerializerOptions
+                {
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                })
                 .Deserialize<Dictionary<string, JsonElement>>()!;
             var overwriteMapping = JsonSerializer
                 .SerializeToElement(powerLevelContentOverride)
@@ -142,7 +156,7 @@ public class CreateRoomController : ControllerBase
                     MatrixErrorCode.InvalidParameter,
                     $"{nameof(parameters.PowerLevelContentOverride)}: {parameters.PowerLevelContentOverride}"));
         }
-        var powerLevelContent = GetPowerLevelContent(parameters.PowerLevelContentOverride);
+        var powerLevelContent = GetPowerLevelContent(userId, parameters.PowerLevelContentOverride);
         (_, error) = await eventSender.SendStateEventAsync(
             userId,
             roomId,

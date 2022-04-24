@@ -8,21 +8,21 @@ public class EncryptedFile
 {
     [Required]
     [JsonPropertyName("url")]
-    public string Url { get; set; } = default!;
+    public string Url { get; init; } = default!;
 
     [Required]
     [JsonPropertyName("key")]
-    public JsonElement Key { get; set; } = default!;
+    public JsonElement Key { get; init; } = default!;
 
     [Required]
     [JsonPropertyName("iv")]
-    public string IV { get; set; } = default!;
+    public string IV { get; init; } = default!;
 
     [Required]
     [JsonPropertyName("hashes")]
-    public Dictionary<string, string> Hashes { get; set; } = default!;
+    public Dictionary<string, string> Hashes { get; init; } = default!;
 
     [Required]
     [JsonPropertyName("v")]
-    public string Version { get; set; } = default!;
+    public string Version { get; init; } = default!;
 }

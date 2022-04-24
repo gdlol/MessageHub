@@ -89,9 +89,10 @@ internal class RoomStates : IRoomStates
 
     public RoomStates AddEvent(PersistentDataUnit pdu, RoomMembership membership)
     {
+        string eventId = EventHash.GetEventId(pdu);
         var newRoom = Rooms.TryGetValue(pdu.RoomId, out var room)
-            ? room.AddEvent(pdu, membership)
-            : Room.Create(pdu, membership);
+            ? room.AddEvent(eventId, pdu, membership)
+            : Room.Create(eventId, pdu, membership);
         var newRooms = Rooms.SetItem(pdu.RoomId, newRoom);
         return new RoomStates(newRooms, Guid.NewGuid().ToString());
     }

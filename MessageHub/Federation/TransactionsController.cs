@@ -50,10 +50,10 @@ public class TransactionsController : ControllerBase
         [FromBody] PushMessagesRequest requestBody)
     {
         SignedRequest request = (SignedRequest)Request.HttpContext.Items[nameof(request)]!;
-        var errors = await eventReceiver.SendPersistentEventsAsync(requestBody.Pdus);
+        var errors = await eventReceiver.ReceivePersistentEventsAsync(requestBody.Pdus);
         if (requestBody.Edus is not null)
         {
-            await eventReceiver.SendEphemeralEventsAsync(requestBody.Edus);
+            await eventReceiver.ReceiveEphemeralEventsAsync(requestBody.Edus);
         }
         var response = new
         {

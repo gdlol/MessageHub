@@ -2,6 +2,6 @@ namespace MessageHub.HomeServer;
 
 public interface IEventReceiver
 {
-    Task<Dictionary<string, string?>> SendPersistentEventsAsync(PersistentDataUnit[] pdus);
-    Task SendEphemeralEventsAsync(EphemeralDataUnit[] eus);
+    Task<Dictionary<string, string?>> ReceivePersistentEventsAsync(PersistentDataUnit[] pdus);
+    Task ReceiveEphemeralEventsAsync(EphemeralDataUnit[] edus);
 }

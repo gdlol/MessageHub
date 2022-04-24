@@ -3,33 +3,19 @@ using System.Text.Json.Serialization;
 
 namespace MessageHub.ClientServer.Protocol.Events.Room;
 
-public class PreviousRoom
-{
-    [Required]
-    [JsonPropertyName("event_id")]
-    public string EventId { get; set; } = default!;
-
-    [Required]
-    [JsonPropertyName("room_id")]
-    public string RoomId { get; set; } = default!;
-}
-
 [EventType(EventTypes.Create)]
 public class CreateEvent
 {
     [Required]
     [JsonPropertyName("creator")]
-    public string Creator { get; set; } = default!;
+    public string Creator { get; init; } = default!;
 
     [JsonPropertyName("m.federate")]
-    public bool Federated { get; set; } = true;
-
-    [JsonPropertyName("predecessor")]
-    public PreviousRoom? Predecessor { get; set; }
+    public bool Federated { get; init; } = true;
 
     [JsonPropertyName("room_version")]
-    public string RoomVersion { get; set; } = "6";
+    public string? RoomVersion { get; init; }
 
     [JsonPropertyName("type")]
-    public string? RoomType { get; set; }
+    public string? RoomType { get; init; }
 }

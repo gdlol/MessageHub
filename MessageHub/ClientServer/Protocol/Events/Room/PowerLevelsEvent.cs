@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Text.Json.Serialization;
 
 namespace MessageHub.ClientServer.Protocol.Events.Room;
@@ -6,32 +7,32 @@ namespace MessageHub.ClientServer.Protocol.Events.Room;
 public class PowerLevelsEvent
 {
     [JsonPropertyName("ban")]
-    public int Ban { get; set; } = 50;
+    public int Ban { get; init; } = 50;
 
     [JsonPropertyName("events")]
-    public object? Events { get; set; }
+    public ImmutableDictionary<string, int>? Events { get; init; }
 
     [JsonPropertyName("events_default")]
-    public int EventsDefault { get; set; } = 50;
+    public int EventsDefault { get; init; }
 
     [JsonPropertyName("invite")]
-    public int Invite { get; set; } = 50;
+    public int Invite { get; init; } = 50;
 
     [JsonPropertyName("kick")]
-    public int Kick { get; set; } = 50;
+    public int Kick { get; init; } = 50;
 
     [JsonPropertyName("notifications")]
-    public Dictionary<string, int>? Notifications { get; set; }
+    public ImmutableDictionary<string, int>? Notifications { get; init; }
 
     [JsonPropertyName("redact")]
     public int Redact { get; set; } = 50;
 
     [JsonPropertyName("state_default")]
-    public int StateDefault { get; set; } = 50;
+    public int StateDefault { get; init; } = 50;
 
     [JsonPropertyName("users")]
-    public Dictionary<string, int>? Users { get; set; }
+    public ImmutableDictionary<string, int>? Users { get; init; }
 
     [JsonPropertyName("users_default")]
-    public int UsersDefault { get; set; } = 50;
+    public int? UsersDefault { get; init; }
 }

@@ -7,9 +7,9 @@ namespace MessageHub.ClientServer.Protocol.Events.Room;
 public class AvatarEvent
 {
     [JsonPropertyName("info")]
-    public ImageInfo? Info { get; set; }
+    public ImageInfo? Info { get; init; }
 
     [Required]
     [JsonPropertyName("url")]
-    public string Url { get; set; } = default!;
+    public string Url { get; init; } = default!;
 }

@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Text.Json;
 using MessageHub.ClientServer.Protocol;
+using MessageHub.HomeServer.Formatting;
 
 namespace MessageHub.HomeServer.Dummy;
 
@@ -34,25 +35,24 @@ internal class Room
         ImmutableDictionary<string, RoomState>.Empty,
         RoomMembership.Joined);
 
-    public Room AddEvent(PersistentDataUnit pdu, RoomMembership newMembership)
+    public Room AddEvent(string eventId, PersistentDataUnit pdu, RoomMembership newMembership)
     {
         ArgumentNullException.ThrowIfNull(pdu);
 
-        string eventId = pdu.GetEventId();
         RoomState? roomState = Events.Count == 0 ? RoomState.Empty : States[EventIds[^1]];
         if (pdu.StateKey is not null)
         {
             roomState = roomState.SetItem(new RoomStateKey(pdu.EventType, pdu.StateKey), eventId);
         }
         var eventIds = EventIds.Add(eventId);
-        var events = Events.Add(eventId, pdu.ToCanonicalJson());
+        var events = Events.Add(eventId, CanonicalJson.Serialize(pdu));
         var states = States.Add(eventId, roomState);
         return new Room(eventIds, events, states, newMembership);
     }
 
-    public static Room Create(PersistentDataUnit createEvent, RoomMembership membership)
+    public static Room Create(string eventId, PersistentDataUnit createEvent, RoomMembership membership)
     {
-        return Empty.AddEvent(createEvent, membership);
+        return Empty.AddEvent(eventId, createEvent, membership);
     }
 
     public PersistentDataUnit LoadPdu(string eventId)

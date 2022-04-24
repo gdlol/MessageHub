@@ -2,6 +2,7 @@ using System.Numerics;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace MessageHub.HomeServer.Formatting;
 
@@ -100,13 +101,19 @@ public static class CanonicalJson
 
     public static string Serialize<T>(T value)
     {
-        var element = JsonSerializer.SerializeToElement(value);
+        var element = JsonSerializer.SerializeToElement(value, new JsonSerializerOptions
+        {
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        });
         return CanonicalJsonWriter.WriteJson(element);
     }
 
     public static byte[] SerializeToBytes<T>(T value)
     {
-        var element = JsonSerializer.SerializeToElement(value);
+        var element = JsonSerializer.SerializeToElement(value, new JsonSerializerOptions
+        {
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        });
         return CanonicalJsonWriter.WriteBytes(element);
     }
 }

@@ -1,28 +1,14 @@
 using System.ComponentModel.DataAnnotations;
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using MessageHub.HomeServer.Formatting;
 
 namespace MessageHub.HomeServer;
 
-public class EventHash
-{
-    [Required]
-    [JsonPropertyName("sha256")]
-    public string Sha256 { get; set; } = default!;
-}
-
 public class ServerSignatures : Dictionary<KeyIdentifier, string> { }
 
 public class Signatures : Dictionary<string, ServerSignatures> { }
-
-public class UnsignedData
-{
-    [JsonPropertyName("age")]
-    public long? Age { get; set; }
-}
 
 public class PersistentDataUnit
 {
@@ -40,7 +26,7 @@ public class PersistentDataUnit
 
     [Required]
     [JsonPropertyName("hashes")]
-    public EventHash Hashes { get; set; } = default!;
+    public Dictionary<string, string> Hashes { get; set; } = default!;
 
     [Required]
     [JsonPropertyName("origin")]
@@ -79,12 +65,18 @@ public class PersistentDataUnit
     [JsonPropertyName("unsigned")]
     public JsonElement? Unsigned { get; set; }
 
-    public string ToCanonicalJson() => CanonicalJson.Serialize(
-        JsonSerializer.Serialize(this, new JsonSerializerOptions
-        {
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-        }));
+    public JsonElement ToJsonElement() => JsonSerializer.SerializeToElement(this, new JsonSerializerOptions
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    });
 
-    public string GetEventId() =>
-        "$" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(ToCanonicalJson()))) + ":" + Origin;
+    public string GetEventId()
+    {
+        var hash = Hashes.Values.SingleOrDefault();
+        if (hash is null)
+        {
+            throw new InvalidOperationException();
+        }
+        return '$' + hash.Replace('+', '-').Replace('/', '_');
+    }
 }

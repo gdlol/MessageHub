@@ -36,7 +36,7 @@ public class DummyUserProfile : IUserProfile
             {
                 var stateEvent = room.LoadClientEventWithoutRoomId(eventId);
                 var content = stateEvent.Content.Deserialize<MemberEvent>()!;
-                content.AvatarUrl = url;
+                content = content with { AvatarUrl = url };
                 await eventSender.SendStateEventAsync(
                     userId,
                     roomId,
@@ -58,7 +58,7 @@ public class DummyUserProfile : IUserProfile
             {
                 var stateEvent = room.LoadClientEventWithoutRoomId(eventId);
                 var content = stateEvent.Content.Deserialize<MemberEvent>()!;
-                content.DisplayName = name;
+                content = content with { DisplayName = name };
                 await eventSender.SendStateEventAsync(
                     userId,
                     roomId,
