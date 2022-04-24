@@ -58,8 +58,8 @@ public class DummyEventSender : IEventSender
                 return getResult();
             }
         }
-        RoomHistory.AddEvent(pdu, membership);
         EventHash.UpdateHash(pdu);
+        RoomHistory.AddEvent(pdu, membership);
         eventId = pdu.GetEventId();
         return getResult();
     }
@@ -100,8 +100,8 @@ public class DummyEventSender : IEventSender
                 error = MatrixError.Create(MatrixErrorCode.LimitExceeded);
                 return getResult();
             }
-            RoomHistory.AddEvent(pdu, membership);
             EventHash.UpdateHash(pdu);
+            RoomHistory.AddEvent(pdu, membership);
             eventId = pdu.GetEventId();
             transactionIds.Add(transactionId);
         }
