@@ -60,7 +60,7 @@ public class DummyEventSender : IEventSender
         }
         EventHash.UpdateHash(pdu);
         RoomHistory.AddEvent(pdu, membership);
-        eventId = pdu.GetEventId();
+        eventId = EventHash.GetEventId(pdu);
         return getResult();
     }
 
@@ -102,7 +102,7 @@ public class DummyEventSender : IEventSender
             }
             EventHash.UpdateHash(pdu);
             RoomHistory.AddEvent(pdu, membership);
-            eventId = pdu.GetEventId();
+            eventId = EventHash.GetEventId(pdu);
             transactionIds.Add(transactionId);
         }
         return getResult();

@@ -31,15 +31,26 @@ public static class EventHash
         };
     }
 
+    public static string? TryGetEventId(PersistentDataUnit pdu)
+    {
+        ArgumentNullException.ThrowIfNull(pdu);
+
+        if (pdu.Hashes?.TryGetValue("sha256", out string? hash) != true || string.IsNullOrEmpty(hash))
+        {
+            return null;
+        }
+        return '$' + hash.Replace('+', '-').Replace('/', '_');
+    }
+
     public static string GetEventId(PersistentDataUnit pdu)
     {
         ArgumentNullException.ThrowIfNull(pdu);
 
-        var hash = pdu.Hashes.Values.SingleOrDefault();
-        if (hash is null)
+        string? eventId = TryGetEventId(pdu);
+        if (eventId is null)
         {
             throw new InvalidOperationException();
         }
-        return '$' + hash.Replace('+', '-').Replace('/', '_');
+        return eventId;
     }
 }

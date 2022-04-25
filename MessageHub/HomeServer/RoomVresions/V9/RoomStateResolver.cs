@@ -205,15 +205,11 @@ public class RoomStateResolver
         IEnumerable<string> previousEventIds)
     {
         ArgumentNullException.ThrowIfNull(previousEventIds);
-        if (roomEventStore.IsEmpty)
-        {
-            throw new InvalidOperationException();
-        }
 
         var previousEventIdsList = previousEventIds.ToList();
         if (previousEventIdsList.Count == 0)
         {
-            throw new InvalidOperationException();
+            return ImmutableDictionary<RoomStateKey, string>.Empty;
         }
         if (previousEventIdsList.Count == 1)
         {

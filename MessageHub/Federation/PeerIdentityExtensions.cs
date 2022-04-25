@@ -12,6 +12,7 @@ public static class PeerIdentityExtensions
         string destination,
         string requestMethod,
         string requestTarget,
+        long? timestamp = null,
         object? content = null)
     {
         ArgumentNullException.ThrowIfNull(identity);
@@ -24,6 +25,7 @@ public static class PeerIdentityExtensions
             Method = requestMethod,
             Uri = requestTarget,
             Origin = identity.Id,
+            OriginServerTimestamp = timestamp ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             Destination = destination
         };
         if (content is not null)

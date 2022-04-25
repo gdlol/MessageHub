@@ -111,6 +111,7 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
             Method = Request.Method.ToUpperInvariant(),
             Uri = Request.Path,
             Origin = sender,
+            OriginServerTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             Destination = identity.Id,
             Content = content,
             Signatures = JsonSerializer.SerializeToElement(signatures)

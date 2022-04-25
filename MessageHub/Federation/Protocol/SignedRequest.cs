@@ -19,6 +19,10 @@ public class SignedRequest
     public string Origin { get; set; } = default!;
 
     [Required]
+    [JsonPropertyName("origin_server_ts")]
+    public long OriginServerTimestamp { get; set; }
+
+    [Required]
     [JsonPropertyName("destination")]
     public string Destination { get; set; } = default!;
 
