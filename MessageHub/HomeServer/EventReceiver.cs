@@ -4,23 +4,23 @@ public class EventReceiver : IEventReceiver
 {
     private readonly IPeerIdentity identity;
     private readonly IPeerStore peerStore;
-    private readonly IEventStore eventStore;
+    private readonly IRooms rooms;
     private readonly IEventSaver eventSaver;
 
     public EventReceiver(
         IPeerIdentity identity,
         IPeerStore peerStore,
-        IEventStore eventStore,
+        IRooms rooms,
         IEventSaver eventSaver)
     {
         ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(identity);
-        ArgumentNullException.ThrowIfNull(eventStore);
+        ArgumentNullException.ThrowIfNull(rooms);
         ArgumentNullException.ThrowIfNull(eventSaver);
 
         this.identity = identity;
         this.peerStore = peerStore;
-        this.eventStore = eventStore;
+        this.rooms = rooms;
         this.eventSaver = eventSaver;
     }
 
@@ -40,7 +40,7 @@ public class EventReceiver : IEventReceiver
             {
                 continue;
             }
-            if (!eventStore.HasRoom(pdu.RoomId))
+            if (!rooms.HasRoom(pdu.RoomId))
             {
                 errors[eventId] = $"{nameof(pdu.RoomId)}: {pdu.RoomId}";
             }
@@ -52,7 +52,8 @@ public class EventReceiver : IEventReceiver
         }
         foreach (var (roomId, pduList) in roomPdus)
         {
-            var roomEventStore = await eventStore.GetRoomEventStoreAsync(roomId);
+            var room = await rooms.GetRoomAsync(roomId);
+            var roomEventStore = room.EventStore;
             var roomReceiver = new RoomEventsReceiver(roomId, identity, peerStore, roomEventStore, eventSaver);
             var roomErrors = await roomReceiver.ReceiveEvents(pduList.ToArray());
             foreach (var (eventId, error) in roomErrors)

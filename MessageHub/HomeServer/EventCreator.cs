@@ -83,7 +83,7 @@ public class EventCreator
         ImmutableDictionary<RoomStateKey, string> states;
         if (eventType == EventTypes.Create)
         {
-            if (stateKey != string.Empty || rooms.ContainsKey(eventType))
+            if (stateKey != string.Empty || rooms.ContainsKey(roomId))
             {
                 throw new InvalidOperationException();
             }
