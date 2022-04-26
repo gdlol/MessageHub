@@ -124,7 +124,10 @@ public class EventCreator
         };
         EventHash.UpdateHash(result);
         var element = result.ToJsonElement();
-        element = identity.SignJson(element);
+        if (!identity.IsReadOnly)
+        {
+            element = identity.SignJson(element);
+        }
         return element;
     }
 

@@ -21,6 +21,27 @@ public class AuthorizationEventsController : ControllerBase
         this.rooms = rooms;
     }
 
+    public static async Task<PersistentDataUnit[]> GetAuthChainAsync(IRoom room, PersistentDataUnit pdu)
+    {
+        var roomEventStore = room.EventStore;
+        var authEventIds = pdu.AuthorizationEvents.ToList();
+        var eventMap = new Dictionary<string, PersistentDataUnit>();
+        var eventIds = new List<string>();
+        while (authEventIds.Count > 0)
+        {
+            var newAuthEventIds = new HashSet<string>();
+            foreach (string authEventId in authEventIds)
+            {
+                pdu = await roomEventStore.LoadEventAsync(authEventId);
+                eventMap[authEventId] = pdu;
+                eventIds.Add(authEventId);
+                newAuthEventIds.UnionWith(pdu.AuthorizationEvents);
+            }
+            authEventIds = newAuthEventIds.Except(eventMap.Keys).ToList();
+        }
+        return eventIds.Select(x => eventMap[x]).ToArray();
+    }
+
     [Route("event_auth/{roomId}/{eventId}")]
     [HttpGet]
     public async Task<IActionResult> GetAuthorizationEvents(string roomId, string eventId)
@@ -44,24 +65,10 @@ public class AuthorizationEventsController : ControllerBase
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(eventId)));
         }
         var pdu = await roomEventStore.LoadEventAsync(eventId);
-        var authEventIds = pdu.AuthorizationEvents.ToList();
-        var eventMap = new Dictionary<string, PersistentDataUnit>();
-        var eventIds = new List<string>();
-        while (authEventIds.Count > 0)
-        {
-            var newAuthEventIds = new HashSet<string>();
-            foreach (string authEventId in authEventIds)
-            {
-                pdu = await roomEventStore.LoadEventAsync(authEventId);
-                eventMap[authEventId] = pdu;
-                eventIds.Add(authEventId);
-                newAuthEventIds.UnionWith(pdu.AuthorizationEvents);
-            }
-            authEventIds = newAuthEventIds.Except(eventMap.Keys).ToList();
-        }
+        var authChain = await GetAuthChainAsync(room, pdu);
         return new JsonResult(new
         {
-            auth_chain = eventIds.Select(x => eventMap[x]).ToArray()
+            auth_chain = authChain
         });
     }
 }
