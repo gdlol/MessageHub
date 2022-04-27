@@ -1,6 +1,4 @@
 using System.Collections.Immutable;
-using System.Text.Json;
-using MessageHub.ClientServer.Protocol.Events.Room;
 using MessageHub.HomeServer.Formatting;
 using MessageHub.HomeServer.RoomVersions.V9;
 
@@ -69,96 +67,6 @@ public class RoomEventsReceiver
             return false;
         }
         return true;
-    }
-
-    private async ValueTask<bool> AuthorizeEventAsync(PersistentDataUnit pdu)
-    {
-        if (pdu.PreviousEvents.Length == 0)
-        {
-            return false;
-        }
-        ImmutableDictionary<RoomStateKey, string> states;
-        if (pdu.PreviousEvents.Length == 1)
-        {
-            states = await roomEventStore.LoadStatesAsync(pdu.PreviousEvents[0]);
-        }
-        else
-        {
-            var branchStates = new List<ImmutableDictionary<RoomStateKey, string>>();
-            foreach (string eventId in pdu.PreviousEvents)
-            {
-
-            }
-        }
-        return true;
-    }
-
-    private async ValueTask<string?> ReceiveResolvedEvent(PersistentDataUnit pdu)
-    {
-        // Check auth events.
-        if (pdu.PreviousEvents.Length == 0)
-        {
-            return $"{nameof(pdu.PreviousEvents)}: {JsonSerializer.Serialize(pdu.PreviousEvents)}";
-        }
-        if (pdu.PreviousEvents.Length == 1)
-        {
-            var previousEventId = pdu.PreviousEvents[0];
-            var previousStates = await roomEventStore.LoadStatesAsync(previousEventId);
-            var createEventId = previousStates[new RoomStateKey(EventTypes.Create, string.Empty)];
-            if (!pdu.AuthorizationEvents.Contains(createEventId))
-            {
-                return $"{nameof(createEventId)}: {createEventId}";
-            }
-            if (previousStates.TryGetValue(
-                new RoomStateKey(EventTypes.PowerLevels, string.Empty),
-                out string? powerLevelEventId)
-                && !pdu.AuthorizationEvents.Contains(powerLevelEventId))
-            {
-                return $"{nameof(powerLevelEventId)}: {powerLevelEventId}";
-            }
-            if (previousStates.TryGetValue(
-                new RoomStateKey(EventTypes.Member, pdu.Sender),
-                out string? memberEventId)
-                && !pdu.AuthorizationEvents.Contains(memberEventId))
-            {
-                return $"{nameof(memberEventId)}: {memberEventId}";
-            }
-            if (pdu.EventType == EventTypes.Member)
-            {
-                if (pdu.StateKey is null)
-                {
-                    return nameof(pdu.StateKey);
-                }
-                if (previousStates.TryGetValue(
-                    new RoomStateKey(EventTypes.Member, pdu.StateKey),
-                    out string? targetMemberEventId)
-                    && !pdu.AuthorizationEvents.Contains(targetMemberEventId))
-                {
-                    return $"{nameof(targetMemberEventId)}: {targetMemberEventId}";
-                }
-                if (targetMemberEventId is not null)
-                {
-                    var targetMemberEvent = await roomEventStore.LoadEventAsync(targetMemberEventId);
-                    var targetMemberEventContent = JsonSerializer.Deserialize<MemberEvent>(targetMemberEvent.Content)!;
-                    if (targetMemberEventContent.MemberShip == MembershipStates.Join
-                        || targetMemberEventContent.MemberShip == MembershipStates.Invite)
-                    {
-                        if (previousStates.TryGetValue(
-                            new RoomStateKey(EventTypes.JoinRules, string.Empty),
-                            out string? joinRulesEventId)
-                            && !pdu.AuthorizationEvents.Contains(joinRulesEventId))
-                        {
-                            return $"{nameof(joinRulesEventId)}: {joinRulesEventId}";
-                        }
-                    }
-                }
-            }
-        }
-        else
-        {
-            // ...
-        }
-        return null;
     }
 
     public async Task<Dictionary<string, string?>> ReceiveEvents(IEnumerable<PersistentDataUnit> pdus)

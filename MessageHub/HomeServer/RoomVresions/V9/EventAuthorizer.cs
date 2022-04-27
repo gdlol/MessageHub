@@ -26,7 +26,7 @@ public class EventAuthorizer
         States = states.ToImmutableDictionary();
     }
 
-    private bool HasCreateEvent => States.ContainsKey(new RoomStateKey(EventTypes.Create, string.Empty));
+    public bool HasCreateEvent => States.ContainsKey(new RoomStateKey(EventTypes.Create, string.Empty));
 
     private T? TryGetEvent<T>(string eventType, string stateKey)
     {
@@ -39,19 +39,21 @@ public class EventAuthorizer
 
     private T? TryGetEvent<T>(string eventType) => TryGetEvent<T>(eventType, string.Empty);
 
-    private CreateEvent? TryGetCreateEvent() => TryGetEvent<CreateEvent>(EventTypes.Create);
+    public CreateEvent? TryGetCreateEvent() => TryGetEvent<CreateEvent>(EventTypes.Create);
 
-    private MemberEvent? TryGetMemberEvent(UserIdentifier userId) =>
+    public MemberEvent? TryGetMemberEvent(UserIdentifier userId) =>
         TryGetEvent<MemberEvent>(EventTypes.Member, userId.ToString());
 
-    private JoinRulesEvent? TryGetJoinRulesEvent() => TryGetEvent<JoinRulesEvent>(EventTypes.JoinRules);
+    public JoinRulesEvent? TryGetJoinRulesEvent() => TryGetEvent<JoinRulesEvent>(EventTypes.JoinRules);
 
-    private PowerLevelsEvent? TryGetPowerLevelsEvent() => TryGetEvent<PowerLevelsEvent>(EventTypes.PowerLevels);
+    public PowerLevelsEvent? TryGetPowerLevelsEvent() => TryGetEvent<PowerLevelsEvent>(EventTypes.PowerLevels);
 
-    private PowerLevelsEvent GetPowerLevelsEventOrDefault() => TryGetPowerLevelsEvent() ?? new PowerLevelsEvent();
+    public PowerLevelsEvent GetPowerLevelsEventOrDefault() => TryGetPowerLevelsEvent() ?? new PowerLevelsEvent();
 
-    private int GetPowerLevel(UserIdentifier userId)
+    public int GetPowerLevel(UserIdentifier userId)
     {
+        ArgumentNullException.ThrowIfNull(userId);
+
         if (TryGetPowerLevelsEvent() is PowerLevelsEvent powerLevelsEvent)
         {
             if (powerLevelsEvent.Users?.TryGetValue(userId.ToString(), out int powerLevel) == true)
@@ -67,8 +69,10 @@ public class EventAuthorizer
         return createEvent.Creator == userId.ToString() ? 100 : 0;
     }
 
-    private int GetRequiredPowerLevel(string eventType, string? stateKey)
+    public int GetRequiredPowerLevel(string eventType, string? stateKey)
     {
+        ArgumentNullException.ThrowIfNull(eventType);
+
         var powerLevelsEvent = TryGetPowerLevelsEvent();
         if (powerLevelsEvent is not null)
         {
