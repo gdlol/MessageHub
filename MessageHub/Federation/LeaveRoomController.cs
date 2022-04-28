@@ -14,7 +14,7 @@ namespace MessageHub.Federation;
 
 [Route("_matrix/federation/{version}")]
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Federation)]
-public class JoinRoomController : ControllerBase
+public class LeaveRoomController : ControllerBase
 {
     private readonly IPeerIdentity peerIdentity;
     private readonly IPeerStore peerStore;
@@ -22,7 +22,7 @@ public class JoinRoomController : ControllerBase
     private readonly IEventReceiver eventReceiver;
     private readonly IEventPublisher eventPublisher;
 
-    public JoinRoomController(
+    public LeaveRoomController(
         IPeerIdentity peerIdentity,
         IPeerStore peerStore,
         IRooms rooms,
@@ -42,9 +42,9 @@ public class JoinRoomController : ControllerBase
         this.eventPublisher = eventPublisher;
     }
 
-    [Route("make_join/{roomId}/{userId}")]
+    [Route("make_leave/{roomId}/{userId}")]
     [HttpGet]
-    public async Task<IActionResult> MakeJoin(string roomId, string userId)
+    public async Task<IActionResult> MakeLeave(string roomId, string userId)
     {
         SignedRequest request = (SignedRequest)Request.HttpContext.Items[nameof(request)]!;
         if (!peerStore.TryGetPeer(request.Origin, out var senderIdentity))
@@ -68,20 +68,10 @@ public class JoinRoomController : ControllerBase
             sender: UserIdentifier.FromId(peerIdentity.Id),
             content: new MemberEvent
             {
-                MemberShip = MembershipStates.Join
+                MemberShip = MembershipStates.Leave
             }))
         {
-            if (eventAuthorizer.TryGetJoinRulesEvent()?.JoinRule == JoinRules.Public)
-            {
-                return new JsonResult(MatrixError.Create(MatrixErrorCode.Forbidden))
-                {
-                    StatusCode = StatusCodes.Status403Forbidden
-                };
-            }
-            else
-            {
-                return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));
-            }
+            return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));
         }
         var eventCreator = new EventCreator(
             new Dictionary<string, IRoom>
@@ -94,7 +84,7 @@ public class JoinRoomController : ControllerBase
             EventTypes.Member,
             userId,
             JsonSerializer.SerializeToElement(
-                new MemberEvent { MemberShip = MembershipStates.Join },
+                new MemberEvent { MemberShip = MembershipStates.Leave },
                 new JsonSerializerOptions
                 {
                     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
@@ -103,43 +93,9 @@ public class JoinRoomController : ControllerBase
         return new JsonResult(result);
     }
 
-    private static async ValueTask<PersistentDataUnit[]> LoadAuthChainAsync(
-        IRoomEventStore roomEventStore,
-        IEnumerable<PersistentDataUnit> states)
-    {
-        var authEventIds = new HashSet<string>();
-        foreach (var stateEvent in states)
-        {
-            foreach (string authEventId in stateEvent.AuthorizationEvents)
-            {
-                authEventIds.Add(authEventId);
-            }
-        }
-        var authChainIds = new HashSet<string>(authEventIds);
-        var authChain = new List<PersistentDataUnit>();
-        while (authEventIds.Count > 0)
-        {
-            var newAuthEventIds = new HashSet<string>();
-            foreach (string authEventId in authEventIds)
-            {
-                var pdu = await roomEventStore.LoadEventAsync(authEventId);
-                authChain.Add(pdu);
-                foreach (string newAuthEventId in pdu.AuthorizationEvents)
-                {
-                    if (authChainIds.Add(newAuthEventId))
-                    {
-                        newAuthEventIds.Add(newAuthEventId);
-                    }
-                }
-            }
-            authEventIds = newAuthEventIds;
-        }
-        return authChain.ToArray();
-    }
-
-    [Route("send_join/{roomId}/{eventId}")]
+    [Route("send_leave/{roomId}/{eventId}")]
     [HttpPut]
-    public async Task<IActionResult> SendJoin(
+    public async Task<IActionResult> SendLeave(
         [FromRoute] string roomId,
         [FromRoute] string eventId,
         [FromBody] PersistentDataUnit pdu)
@@ -158,20 +114,10 @@ public class JoinRoomController : ControllerBase
             sender: UserIdentifier.FromId(peerIdentity.Id),
             content: new MemberEvent
             {
-                MemberShip = MembershipStates.Join
+                MemberShip = MembershipStates.Leave
             }))
         {
-            if (eventAuthorizer.TryGetJoinRulesEvent()?.JoinRule == JoinRules.Public)
-            {
-                return new JsonResult(MatrixError.Create(MatrixErrorCode.Forbidden))
-                {
-                    StatusCode = StatusCodes.Status403Forbidden
-                };
-            }
-            else
-            {
-                return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));
-            }
+            return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));
         }
         if (string.IsNullOrEmpty(eventId) || EventHash.TryGetEventId(pdu) != eventId)
         {
@@ -183,21 +129,6 @@ public class JoinRoomController : ControllerBase
             return BadRequest(MatrixError.Create(MatrixErrorCode.BadState, error));
         }
         await eventPublisher.PublishAsync(pdu);
-        var roomEventStore = room.EventStore;
-        var roomStateResolver = new RoomStateResolver(roomEventStore);
-        var states = await roomStateResolver.ResolveStateAsync(pdu.PreviousEvents);
-        var statePdus = new List<PersistentDataUnit>();
-        foreach (string stateEventId in states.Values)
-        {
-            var statePdu = await roomEventStore.LoadEventAsync(stateEventId);
-            statePdus.Add(statePdu);
-        }
-        var authChain = await LoadAuthChainAsync(roomEventStore, statePdus);
-        return new JsonResult(new
-        {
-            auth_chain = authChain,
-            origin = peerIdentity.Id,
-            state = statePdus
-        });
+        return new JsonResult(new object());
     }
 }
