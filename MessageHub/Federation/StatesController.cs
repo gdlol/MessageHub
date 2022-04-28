@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace MessageHub.Federation;
 
-[Route("_matrix/key/{version}")]
+[Route("_matrix/federation/{version}")]
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Federation)]
 public class StatesController : ControllerBase
 {
