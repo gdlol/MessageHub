@@ -1,8 +1,8 @@
 using System.Collections.Immutable;
 using System.Text.Json;
-using MessageHub.ClientServer.Protocol.Events.Room;
+using MessageHub.HomeServer.Events;
 
-namespace MessageHub.HomeServer;
+namespace MessageHub.HomeServer.Rooms;
 
 public class RoomEventStoreBuilder : IRoomEventStore
 {
@@ -10,11 +10,11 @@ public class RoomEventStoreBuilder : IRoomEventStore
 
     private readonly Dictionary<string, JsonElement> newEvents = new();
     private readonly Dictionary<string, ImmutableDictionary<RoomStateKey, string>> newStates = new();
-    private RoomIdentifier? roomId;
-    private CreateEvent? createEvent;
 
     public IReadOnlyDictionary<string, JsonElement> NewEvents => newEvents;
     public IReadOnlyDictionary<string, ImmutableDictionary<RoomStateKey, string>> NewStates => newStates;
+
+    public string Creator => BaseStore.Creator;
 
     public RoomEventStoreBuilder(IRoomEventStore baseStore)
     {
@@ -23,39 +23,9 @@ public class RoomEventStoreBuilder : IRoomEventStore
         BaseStore = baseStore;
     }
 
-    public bool IsEmpty => BaseStore.IsEmpty && newEvents.Count == 0;
-
-    public CreateEvent GetCreateEvent()
-    {
-        if (createEvent is not null)
-        {
-            return createEvent;
-        }
-        if (!BaseStore.IsEmpty)
-        {
-            createEvent = BaseStore.GetCreateEvent();
-            return createEvent;
-        }
-        throw new InvalidOperationException();
-    }
-
     public Task<string[]> GetMissingEventIdsAsync(IEnumerable<string> eventIds)
     {
         return BaseStore.GetMissingEventIdsAsync(eventIds.Except(newEvents.Keys));
-    }
-
-    public RoomIdentifier GetRoomId()
-    {
-        if (roomId is not null)
-        {
-            return roomId;
-        }
-        if (!BaseStore.IsEmpty)
-        {
-            roomId = BaseStore.GetRoomId();
-            return roomId;
-        }
-        throw new InvalidOperationException();
     }
 
     public async ValueTask<PersistentDataUnit> LoadEventAsync(string eventId)

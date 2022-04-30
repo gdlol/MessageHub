@@ -1,8 +1,11 @@
+using System.Text.Json;
 using MessageHub.Authentication;
 using MessageHub.ClientServer.Protocol;
 using MessageHub.ClientServer.Protocol.Events.Room;
 using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer;
+using MessageHub.HomeServer.Events;
+using MessageHub.HomeServer.Rooms;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -21,11 +24,12 @@ public class StatesController : ControllerBase
         this.rooms = rooms;
     }
 
-    private async Task<(PersistentDataUnit[], PersistentDataUnit[])> GetStatesAsync(IRoom room, string eventId)
+    private async Task<(PersistentDataUnit[], PersistentDataUnit[])> GetStatesAsync(
+        IRoomEventStore roomEventStore,
+        string eventId)
     {
-        var roomEventStore = room.EventStore;
         var pdu = await roomEventStore.LoadEventAsync(eventId);
-        var authChain = await AuthorizationEventsController.GetAuthChainAsync(room, pdu);
+        var authChain = await AuthorizationEventsController.GetAuthChainAsync(roomEventStore, pdu);
         var states = await roomEventStore.LoadStatesAsync(eventId);
         var statePdus = new List<PersistentDataUnit>();
         foreach (string stateEventId in states.Values)
@@ -47,8 +51,11 @@ public class StatesController : ControllerBase
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));
         }
-        var room = await rooms.GetRoomAsync(roomId);
-        if (!room.Members.TryGetValue(UserIdentifier.FromId(request.Origin).ToString(), out var memberEvent)
+        var roomSnapshot = await rooms.GetRoomSnapshotAsync(roomId);
+        if (!roomSnapshot.StateContents.TryGetValue(
+                new RoomStateKey(EventTypes.Member, UserIdentifier.FromId(request.Origin).ToString()),
+                out var content)
+            || JsonSerializer.Deserialize<MemberEvent>(content) is not MemberEvent memberEvent
             || memberEvent.MemberShip != MembershipStates.Join)
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));
@@ -58,13 +65,13 @@ public class StatesController : ControllerBase
             return BadRequest(MatrixError.Create(MatrixErrorCode.MissingParameter, nameof(eventId)));
         }
 
-        var roomEventStore = room.EventStore;
+        var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
         var missingEventIds = await roomEventStore.GetMissingEventIdsAsync(new[] { eventId });
         if (missingEventIds.Length > 0)
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(eventId)));
         }
-        var (authChain, statePdus) = await GetStatesAsync(room, eventId);
+        var (authChain, statePdus) = await GetStatesAsync(roomEventStore, eventId);
         return new JsonResult(new
         {
             auth_chain = authChain,
@@ -84,8 +91,11 @@ public class StatesController : ControllerBase
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));
         }
-        var room = await rooms.GetRoomAsync(roomId);
-        if (!room.Members.TryGetValue(UserIdentifier.FromId(request.Origin).ToString(), out var memberEvent)
+        var roomSnapshot = await rooms.GetRoomSnapshotAsync(roomId);
+        if (!roomSnapshot.StateContents.TryGetValue(
+                new RoomStateKey(EventTypes.Member, UserIdentifier.FromId(request.Origin).ToString()),
+                out var content)
+            || JsonSerializer.Deserialize<MemberEvent>(content) is not MemberEvent memberEvent
             || memberEvent.MemberShip != MembershipStates.Join)
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));
@@ -95,13 +105,13 @@ public class StatesController : ControllerBase
             return BadRequest(MatrixError.Create(MatrixErrorCode.MissingParameter, nameof(eventId)));
         }
 
-        var roomEventStore = room.EventStore;
+        var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
         var missingEventIds = await roomEventStore.GetMissingEventIdsAsync(new[] { eventId });
         if (missingEventIds.Length > 0)
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(eventId)));
         }
-        var (authChain, statePdus) = await GetStatesAsync(room, eventId);
+        var (authChain, statePdus) = await GetStatesAsync(roomEventStore, eventId);
         return new JsonResult(new
         {
             auth_chain_ids = authChain.Select(x => EventHash.GetEventId(x)).ToArray(),

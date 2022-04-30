@@ -22,20 +22,20 @@ public class FullyReadController : ControllerBase
     }
 
     private readonly IRoomLoader roomLoader;
-    private readonly IPersistenceService persistenceService;
+    private readonly IAccountData accountData;
     private readonly IEventSender eventSender;
 
     public FullyReadController(
         IRoomLoader roomLoader,
-        IPersistenceService persistenceService,
+        IAccountData accountData,
         IEventSender eventSender)
     {
         ArgumentNullException.ThrowIfNull(roomLoader);
-        ArgumentNullException.ThrowIfNull(persistenceService);
+        ArgumentNullException.ThrowIfNull(accountData);
         ArgumentNullException.ThrowIfNull(eventSender);
 
         this.roomLoader = roomLoader;
-        this.persistenceService = persistenceService;
+        this.accountData = accountData;
         this.eventSender = eventSender;
     }
 
@@ -58,7 +58,7 @@ public class FullyReadController : ControllerBase
         {
             EventId = requestBody.FullyRead
         };
-        await persistenceService.SaveAccountDataAsync(
+        await accountData.SaveAccountDataAsync(
             roomId,
             FullyReadEvent.EventType,
             JsonSerializer.SerializeToElement(fullyReadContent));

@@ -31,4 +31,19 @@ public class ClientEventWithoutRoomID
 
     [JsonPropertyName("unsigned")]
     public JsonElement? Unsigned { get; set; }
+
+    public ClientEvent ToClientEvent(string roomId)
+    {
+        return new ClientEvent
+        {
+            Content = Content,
+            EventId = EventId,
+            OriginServerTimestamp = OriginServerTimestamp,
+            RoomId = roomId,
+            Sender = Sender,
+            StateKey = StateKey,
+            EventType = EventType,
+            Unsigned = Unsigned
+        };
+    }
 }

@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace MessageHub.HomeServer;
 
-public interface IPersistenceService
+public interface IAccountData
 {
     Task SaveAccountDataAsync(string? roomId, string eventType, JsonElement? value);
     Task<JsonElement?> LoadAccountDataAsync(string? roomId, string eventType);

@@ -1,8 +1,9 @@
 using System.Collections.Immutable;
 using System.Text.Json;
-using MessageHub.ClientServer.Protocol.Events.Room;
+using MessageHub.HomeServer.Events;
+using MessageHub.HomeServer.Events.Room;
 
-namespace MessageHub.HomeServer.RoomVersions.V9;
+namespace MessageHub.HomeServer.Rooms;
 
 public class RoomStateResolver
 {
@@ -53,7 +54,7 @@ public class RoomStateResolver
                 return powerLevelsEvent.UsersDefault ?? 0;
             }
         }
-        return pdu.Sender == roomEventStore.GetCreateEvent().Creator ? 100 : 0;
+        return pdu.Sender == roomEventStore.Creator ? 100 : 0;
     }
 
     private async ValueTask<HashSet<string>> LoadAuthChainAsync(string eventId)
@@ -323,13 +324,13 @@ public class RoomStateResolver
         var resultBuilder = ImmutableDictionary.CreateBuilder<RoomStateKey, string>();
         resultBuilder.AddRange(unconflictedStates);
 
-        var stateContents = new Dictionary<RoomStateKey, object>();
+        var stateContents = new Dictionary<RoomStateKey, JsonElement>();
         foreach (var (roomStateKey, eventId) in unconflictedStates)
         {
             var pdu = await roomEventStore.LoadEventAsync(eventId);
-            stateContents[roomStateKey] = ControlEventContentSerializer.TryDeserialize(pdu.EventType, pdu.Content);
+            stateContents[roomStateKey] = pdu.Content;
         }
-        var eventAuthorizer = new EventAuthorizer(roomEventStore.GetRoomId(), stateContents);
+        var eventAuthorizer = new EventAuthorizer(stateContents);
         foreach (string eventId in sortedControlEvents)
         {
             var controlEvent = controlEvents[eventId];
@@ -341,7 +342,7 @@ public class RoomStateResolver
             (var isAllowed, eventAuthorizer) = eventAuthorizer.TryUpdateState(
                 roomStateKey,
                 UserIdentifier.Parse(controlEvent.Sender),
-                ControlEventContentSerializer.TryDeserialize(controlEvent.EventType, controlEvent.Content));
+                controlEvent.Content);
             if (isAllowed)
             {
                 resultBuilder[roomStateKey] = eventId;
@@ -408,7 +409,7 @@ public class RoomStateResolver
             (var isAllowed, eventAuthorizer) = eventAuthorizer.TryUpdateState(
                 roomStateKey,
                 UserIdentifier.Parse(remainingEvent.Sender),
-                ControlEventContentSerializer.TryDeserialize(remainingEvent.EventType, remainingEvent.Content));
+                remainingEvent.Content);
             if (isAllowed)
             {
                 resultBuilder[roomStateKey] = eventId;

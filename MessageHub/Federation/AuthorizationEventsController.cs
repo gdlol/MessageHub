@@ -1,8 +1,11 @@
+using System.Text.Json;
 using MessageHub.Authentication;
 using MessageHub.ClientServer.Protocol;
 using MessageHub.ClientServer.Protocol.Events.Room;
 using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer;
+using MessageHub.HomeServer.Events;
+using MessageHub.HomeServer.Rooms;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -21,9 +24,10 @@ public class AuthorizationEventsController : ControllerBase
         this.rooms = rooms;
     }
 
-    public static async Task<PersistentDataUnit[]> GetAuthChainAsync(IRoom room, PersistentDataUnit pdu)
+    public static async Task<PersistentDataUnit[]> GetAuthChainAsync(
+        IRoomEventStore roomEventStore,
+        PersistentDataUnit pdu)
     {
-        var roomEventStore = room.EventStore;
         var authEventIds = pdu.AuthorizationEvents.ToList();
         var eventMap = new Dictionary<string, PersistentDataUnit>();
         var eventIds = new List<string>();
@@ -51,21 +55,24 @@ public class AuthorizationEventsController : ControllerBase
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));
         }
-        var room = await rooms.GetRoomAsync(roomId);
-        if (!room.Members.TryGetValue(UserIdentifier.FromId(request.Origin).ToString(), out var memberEvent)
+        var roomSnapshot = await rooms.GetRoomSnapshotAsync(roomId);
+        if (!roomSnapshot.StateContents.TryGetValue(
+                new RoomStateKey(EventTypes.Member, UserIdentifier.FromId(request.Origin).ToString()),
+                out var content)
+            || JsonSerializer.Deserialize<MemberEvent>(content) is not MemberEvent memberEvent
             || memberEvent.MemberShip != MembershipStates.Join)
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));
         }
 
-        var roomEventStore = room.EventStore;
+        var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
         var missingEventIds = await roomEventStore.GetMissingEventIdsAsync(new[] { eventId });
         if (missingEventIds.Length > 0)
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(eventId)));
         }
         var pdu = await roomEventStore.LoadEventAsync(eventId);
-        var authChain = await GetAuthChainAsync(room, pdu);
+        var authChain = await GetAuthChainAsync(roomEventStore, pdu);
         return new JsonResult(new
         {
             auth_chain = authChain

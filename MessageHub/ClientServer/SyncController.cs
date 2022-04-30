@@ -14,13 +14,13 @@ public class SyncController : ControllerBase
     private readonly AccountDataLoader accountDataLoader;
     private readonly RoomLoader roomLoader;
 
-    public SyncController(IPersistenceService persistenceService, IRoomLoader roomLoader)
+    public SyncController(IAccountData accountData, IRoomLoader roomLoader)
     {
-        ArgumentNullException.ThrowIfNull(persistenceService);
+        ArgumentNullException.ThrowIfNull(accountData);
         ArgumentNullException.ThrowIfNull(roomLoader);
 
-        filterLoader = new FilterLoader(persistenceService);
-        accountDataLoader = new AccountDataLoader(persistenceService);
+        filterLoader = new FilterLoader(accountData);
+        accountDataLoader = new AccountDataLoader(accountData);
         this.roomLoader = new RoomLoader(roomLoader, accountDataLoader);
     }
 

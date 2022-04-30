@@ -1,3 +1,6 @@
+using MessageHub.HomeServer.Events;
+using MessageHub.HomeServer.Rooms;
+
 namespace MessageHub.HomeServer;
 
 public class EventReceiver : IEventReceiver
@@ -52,8 +55,7 @@ public class EventReceiver : IEventReceiver
         }
         foreach (var (roomId, pduList) in roomPdus)
         {
-            var room = await rooms.GetRoomAsync(roomId);
-            var roomEventStore = room.EventStore;
+            var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
             var roomReceiver = new RoomEventsReceiver(roomId, identity, peerStore, roomEventStore, eventSaver);
             var roomErrors = await roomReceiver.ReceiveEvents(pduList.ToArray());
             foreach (var (eventId, error) in roomErrors)

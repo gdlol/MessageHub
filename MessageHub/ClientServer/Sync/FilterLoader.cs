@@ -6,13 +6,13 @@ namespace MessageHub.ClientServer.Sync;
 
 public class FilterLoader
 {
-    private readonly IPersistenceService persistenceService;
+    private readonly IAccountData accountData;
 
-    public FilterLoader(IPersistenceService persistenceService)
+    public FilterLoader(IAccountData accountData)
     {
-        ArgumentNullException.ThrowIfNull(persistenceService);
+        ArgumentNullException.ThrowIfNull(accountData);
 
-        this.persistenceService = persistenceService;
+        this.accountData = accountData;
     }
 
     public async Task<(Filter?, MatrixError?)> LoadFilterAsync(string? filter)
@@ -44,7 +44,7 @@ public class FilterLoader
         }
         else
         {
-            string? filterJson = await persistenceService.LoadFilterAsync(filter);
+            string? filterJson = await accountData.LoadFilterAsync(filter);
             if (filterJson is null)
             {
                 error = MatrixError.Create(MatrixErrorCode.NotFound);

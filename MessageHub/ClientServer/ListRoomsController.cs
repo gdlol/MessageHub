@@ -9,29 +9,29 @@ namespace MessageHub.ClientServer;
 [Route("_matrix/client/{version}")]
 public class ListRoomsController : ControllerBase
 {
-    private readonly IHostInfo hostInfo;
+    private readonly IPeerIdentity peerIdentity;
     private readonly IRoomLoader roomLoader;
-    private readonly IPersistenceService persistenceService;
+    private readonly IAccountData accountData;
 
     public ListRoomsController(
-        IHostInfo hostInfo,
+        IPeerIdentity peerIdentity,
         IRoomLoader roomLoader,
-        IPersistenceService persistenceService)
+        IAccountData accountData)
     {
-        ArgumentNullException.ThrowIfNull(hostInfo);
+        ArgumentNullException.ThrowIfNull(peerIdentity);
         ArgumentNullException.ThrowIfNull(roomLoader);
-        ArgumentNullException.ThrowIfNull(persistenceService);
+        ArgumentNullException.ThrowIfNull(accountData);
 
-        this.hostInfo = hostInfo;
+        this.peerIdentity = peerIdentity;
         this.roomLoader = roomLoader;
-        this.persistenceService = persistenceService;
+        this.accountData = accountData;
     }
 
     [Route("directory/list/room/{roomId}")]
     [HttpGet]
     public async Task<IActionResult> GetVisibility(string roomId)
     {
-        string? visibility = await persistenceService.GetRoomVisibilityAsync(roomId);
+        string? visibility = await accountData.GetRoomVisibilityAsync(roomId);
         if (visibility is null)
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));
@@ -45,7 +45,7 @@ public class ListRoomsController : ControllerBase
         [FromRoute] string roomId,
         [FromBody] SetVisibilityParameters parameters)
     {
-        bool result = await persistenceService.SetRoomVisibilityAsync(roomId, parameters.Visibility);
+        bool result = await accountData.SetRoomVisibilityAsync(roomId, parameters.Visibility);
         if (result is false)
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));
@@ -160,7 +160,7 @@ public class ListRoomsController : ControllerBase
         [FromBody] GetPublicRoomsParameters parameters)
     {
         GetPublicRoomsResponse result;
-        if (server is not null && server != hostInfo.ServerName)
+        if (server is not null && server != peerIdentity.Id)
         {
             result = new GetPublicRoomsResponse
             {
@@ -176,7 +176,7 @@ public class ListRoomsController : ControllerBase
         }
         else
         {
-            var publicRoomIds = await persistenceService.GetPublicRoomListAsync();
+            var publicRoomIds = await accountData.GetPublicRoomListAsync();
             if (parameters.Since is string since)
             {
                 publicRoomIds = publicRoomIds.SkipWhile(x => x != since).ToArray();

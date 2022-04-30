@@ -8,6 +8,7 @@ using MessageHub.ClientServer.Protocol;
 using MessageHub.Federation;
 using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer;
+using MessageHub.HomeServer.Events;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;

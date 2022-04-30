@@ -11,22 +11,25 @@ namespace MessageHub.ClientServer;
 [Route("_matrix/client/{version}")]
 public class CreateRoomController : ControllerBase
 {
-    private readonly IHostInfo hostInfo;
-    private readonly IPersistenceService persistenceService;
+    private readonly IPeerIdentity peerIdentity;
+    private readonly IAccountData accountData;
     private readonly IEventSender eventSender;
     private readonly JsonSerializerOptions ignoreNullOptions = new()
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    public CreateRoomController(IHostInfo hostInfo, IPersistenceService persistenceService, IEventSender eventSender)
+    public CreateRoomController(
+        IPeerIdentity peerIdentity,
+        IAccountData accountData,
+        IEventSender eventSender)
     {
+        ArgumentNullException.ThrowIfNull(peerIdentity);
         ArgumentNullException.ThrowIfNull(eventSender);
-        ArgumentNullException.ThrowIfNull(persistenceService);
-        ArgumentNullException.ThrowIfNull(hostInfo);
+        ArgumentNullException.ThrowIfNull(accountData);
 
-        this.hostInfo = hostInfo;
-        this.persistenceService = persistenceService;
+        this.peerIdentity = peerIdentity;
+        this.accountData = accountData;
         this.eventSender = eventSender;
     }
 
@@ -110,7 +113,7 @@ public class CreateRoomController : ControllerBase
             return new JsonResult(MatrixError.Create(MatrixErrorCode.MissingParameter));
         }
 
-        string roomId = $"!{Guid.NewGuid()}:{hostInfo.ServerName}";
+        string roomId = $"!{Guid.NewGuid()}:{peerIdentity.Id}";
 
         // m.room.create event.
         if (parameters.CreationContent is not null
@@ -293,7 +296,7 @@ public class CreateRoomController : ControllerBase
         // Set visibility.
         if (parameters.Visibility is not null)
         {
-            await persistenceService.SetRoomVisibilityAsync(roomId, parameters.Visibility);
+            await accountData.SetRoomVisibilityAsync(roomId, parameters.Visibility);
         }
 
         return new JsonResult(new

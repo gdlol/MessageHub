@@ -1,3 +1,5 @@
+using MessageHub.HomeServer.Events;
+
 namespace MessageHub.HomeServer;
 
 public interface IEventPublisher

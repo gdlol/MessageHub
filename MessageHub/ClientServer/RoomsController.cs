@@ -4,7 +4,6 @@ using MessageHub.ClientServer.Sync;
 using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.ModelBinding;
 using M = MessageHub.ClientServer.Protocol.Events;
 
 namespace MessageHub.ClientServer;

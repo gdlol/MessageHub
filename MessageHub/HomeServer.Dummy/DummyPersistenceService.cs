@@ -5,7 +5,7 @@ namespace MessageHub.HomeServer.Dummy;
 
 using DataMap = ConcurrentDictionary<string, JsonElement>;
 
-public class DummyPersistenceService : IPersistenceService
+public class DummyAccountData : IAccountData
 {
     private readonly DataMap accountData = new();
     private readonly ConcurrentDictionary<string, DataMap> roomData = new();

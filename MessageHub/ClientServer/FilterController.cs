@@ -8,13 +8,13 @@ namespace MessageHub.ClientServer;
 [Route("_matrix/client/{version}")]
 public class FilterController : ControllerBase
 {
-    private readonly IPersistenceService persistence;
+    private readonly IAccountData accountData;
 
-    public FilterController(IPersistenceService persistence)
+    public FilterController(IAccountData accountData)
     {
-        ArgumentNullException.ThrowIfNull(persistence);
+        ArgumentNullException.ThrowIfNull(accountData);
 
-        this.persistence = persistence;
+        this.accountData = accountData;
     }
 
     [Route("user/{userId}/filter")]
@@ -38,7 +38,7 @@ public class FilterController : ControllerBase
         string filterJson = JsonSerializer.Serialize(filter);
         return new
         {
-            filter_id = await persistence.SaveFilterAsync(filterJson)
+            filter_id = await accountData.SaveFilterAsync(filterJson)
         };
     }
 
@@ -60,7 +60,7 @@ public class FilterController : ControllerBase
             };
         }
 
-        string? filter = await persistence.LoadFilterAsync(filterId);
+        string? filter = await accountData.LoadFilterAsync(filterId);
         if (filter is null)
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));

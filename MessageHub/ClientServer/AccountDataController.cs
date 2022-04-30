@@ -8,13 +8,13 @@ namespace MessageHub.ClientServer;
 [Route("_matrix/client/{version}/user")]
 public class AccountDataController : ControllerBase
 {
-    private readonly IPersistenceService persistenceService;
+    private readonly IAccountData accountData;
 
-    public AccountDataController(IPersistenceService persistenceService)
+    public AccountDataController(IAccountData accountData)
     {
-        ArgumentNullException.ThrowIfNull(persistenceService);
+        ArgumentNullException.ThrowIfNull(accountData);
 
-        this.persistenceService = persistenceService;
+        this.accountData = accountData;
     }
 
     [Route("{userId}/account_data/{type}")]
@@ -28,7 +28,7 @@ public class AccountDataController : ControllerBase
                 StatusCode = StatusCodes.Status403Forbidden
             };
         }
-        var result = await persistenceService.LoadAccountDataAsync(null, type);
+        var result = await accountData.LoadAccountDataAsync(null, type);
         if (result is null)
         {
             return new JsonResult(MatrixError.Create(MatrixErrorCode.NotFound));
@@ -53,7 +53,7 @@ public class AccountDataController : ControllerBase
                 StatusCode = StatusCodes.Status403Forbidden
             };
         }
-        await persistenceService.SaveAccountDataAsync(null, type, body);
+        await accountData.SaveAccountDataAsync(null, type, body);
         return new JsonResult(new object());
     }
 
@@ -68,7 +68,7 @@ public class AccountDataController : ControllerBase
                 StatusCode = StatusCodes.Status403Forbidden
             };
         }
-        var result = await persistenceService.LoadAccountDataAsync(roomId, type);
+        var result = await accountData.LoadAccountDataAsync(roomId, type);
         if (result is null)
         {
             return new JsonResult(MatrixError.Create(MatrixErrorCode.NotFound));
@@ -94,7 +94,7 @@ public class AccountDataController : ControllerBase
                 StatusCode = StatusCodes.Status403Forbidden
             };
         }
-        await persistenceService.SaveAccountDataAsync(roomId, type, body);
+        await accountData.SaveAccountDataAsync(roomId, type, body);
         return new JsonResult(new object());
     }
 }

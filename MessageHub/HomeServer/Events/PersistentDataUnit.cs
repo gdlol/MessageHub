@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace MessageHub.HomeServer;
+namespace MessageHub.HomeServer.Events;
 
 public class ServerSignatures : Dictionary<KeyIdentifier, string> { }
 
@@ -67,14 +67,4 @@ public class PersistentDataUnit
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     });
-
-    public string GetEventId()
-    {
-        var hash = Hashes.Values.SingleOrDefault();
-        if (hash is null)
-        {
-            throw new InvalidOperationException();
-        }
-        return '$' + hash.Replace('+', '-').Replace('/', '_');
-    }
 }

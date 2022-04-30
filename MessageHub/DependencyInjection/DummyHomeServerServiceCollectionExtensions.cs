@@ -9,9 +9,8 @@ public static class DummyHomeServerServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton<IHostInfo, DummyHostInfo>();
         services.AddSingleton<IAuthenticator, DummyAuthenticator>();
-        services.AddSingleton<IPersistenceService, DummyPersistenceService>();
+        services.AddSingleton<IAccountData, DummyAccountData>();
         services.AddSingleton<IContentRepository, DummyContentRepository>();
         services.AddSingleton<IUserProfile, DummyUserProfile>();
         services.AddSingleton<IRoomLoader, DummyRoomLoader>();

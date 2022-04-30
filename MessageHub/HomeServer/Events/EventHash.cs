@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using MessageHub.HomeServer.Formatting;
 
-namespace MessageHub.HomeServer;
+namespace MessageHub.HomeServer.Events;
 
 public static class EventHash
 {

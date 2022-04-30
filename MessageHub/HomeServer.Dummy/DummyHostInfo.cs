@@ -1,6 +1,6 @@
 namespace MessageHub.HomeServer.Dummy;
 
-public class DummyHostInfo : IHostInfo
+public class DummyHostInfo
 {
     public string ServerName => "dummy";
 

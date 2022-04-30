@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace MessageHub.HomeServer;
+namespace MessageHub.HomeServer.Events;
 
 public class EphemeralDataUnit
 {

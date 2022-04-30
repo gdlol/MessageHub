@@ -1,6 +1,8 @@
 using System.Collections.Immutable;
+using System.Text.Json;
+using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Formatting;
-using MessageHub.HomeServer.RoomVersions.V9;
+using MessageHub.HomeServer.Rooms;
 
 namespace MessageHub.HomeServer;
 
@@ -166,27 +168,22 @@ public class RoomEventsReceiver
         var acceptedEvents = new List<string>();
         var rejectedEvents = new HashSet<string>();
         async ValueTask<bool> authorizeOnStatesAsync(
-            string eventId,
-            PersistentDataUnit pdu,
-            object content,
-            ImmutableDictionary<RoomStateKey, string> states)
+            ImmutableDictionary<RoomStateKey, string> states,
+            PersistentDataUnit pdu)
         {
-            var stateContentBuilder = ImmutableDictionary.CreateBuilder<RoomStateKey, object>();
+            var stateContentBuilder = ImmutableDictionary.CreateBuilder<RoomStateKey, JsonElement>();
             foreach (var (roomStateKey, stateEventId) in states)
             {
                 var statePdu = await builder.LoadEventAsync(stateEventId);
-                stateContentBuilder[roomStateKey] = ControlEventContentSerializer.TryDeserialize(
-                    statePdu.EventType,
-                    statePdu.Content);
+                stateContentBuilder[roomStateKey] = statePdu.Content;
             }
-            var authorizer = new EventAuthorizer(RoomIdentifier.Parse(pdu.RoomId), stateContentBuilder.ToImmutable());
-            return authorizer.Authorize(pdu.EventType, pdu.StateKey, UserIdentifier.Parse(pdu.Sender), content);
+            var authorizer = new EventAuthorizer(stateContentBuilder.ToImmutable());
+            return authorizer.Authorize(pdu.EventType, pdu.StateKey, UserIdentifier.Parse(pdu.Sender), pdu.Content);
         }
         async ValueTask<(bool, ImmutableDictionary<RoomStateKey, string>)> authorizeAsync(
             string eventId,
             PersistentDataUnit pdu)
         {
-            var content = ControlEventContentSerializer.TryDeserialize(pdu.EventType, pdu.Content);
             var newStates = ImmutableDictionary<RoomStateKey, string>.Empty;
             if (pdu.AuthorizationEvents.Any(rejectedEvents.Contains)
                 || pdu.PreviousEvents.Any(rejectedEvents.Contains))
@@ -202,7 +199,7 @@ public class RoomEventsReceiver
                 return (false, newStates);
             }
             var statesBefore = await roomStateResolver.ResolveStateAsync(pdu.AuthorizationEvents);
-            var expectedAuthEventIds = EventCreator.GetAuthorizationEventIds(
+            var expectedAuthEventIds = EventCreation.GetAuthorizationEventIds(
                 statesBefore,
                 pdu.EventType,
                 pdu.StateKey,
@@ -212,14 +209,14 @@ public class RoomEventsReceiver
             {
                 return (false, newStates);
             }
-            bool isAuthorized = await authorizeOnStatesAsync(eventId, pdu, content, statesBefore);
+            bool isAuthorized = await authorizeOnStatesAsync(statesBefore, pdu);
             if (!isAuthorized)
             {
                 return (false, newStates);
             }
 
             statesBefore = await roomStateResolver.ResolveStateAsync(pdu.PreviousEvents);
-            expectedAuthEventIds = EventCreator.GetAuthorizationEventIds(
+            expectedAuthEventIds = EventCreation.GetAuthorizationEventIds(
                 statesBefore,
                 pdu.EventType,
                 pdu.StateKey,
@@ -229,7 +226,7 @@ public class RoomEventsReceiver
             {
                 return (false, newStates);
             }
-            isAuthorized = await authorizeOnStatesAsync(eventId, pdu, content, statesBefore);
+            isAuthorized = await authorizeOnStatesAsync(statesBefore, pdu);
             if (isAuthorized && pdu.StateKey != null)
             {
                 newStates = statesBefore.SetItem(new RoomStateKey(pdu.EventType, pdu.StateKey), eventId);

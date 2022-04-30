@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Text.Json;
 using MessageHub.ClientServer.Protocol;
+using MessageHub.HomeServer.Events;
 
 namespace MessageHub.HomeServer.Dummy;
 

@@ -1,28 +1,17 @@
 using System.Collections.Immutable;
-using MessageHub.ClientServer.Protocol.Events.Room;
+using System.Text.Json;
+using MessageHub.HomeServer.Events.Room;
 
-namespace MessageHub.HomeServer.RoomVersions.V9;
+namespace MessageHub.HomeServer.Events;
 
 public class EventAuthorizer
 {
-    public RoomIdentifier RoomId { get; }
+    public ImmutableDictionary<RoomStateKey, JsonElement> States { get; }
 
-    public ImmutableDictionary<RoomStateKey, object> States { get; }
-
-    public EventAuthorizer(RoomIdentifier roomId)
+    public EventAuthorizer(IReadOnlyDictionary<RoomStateKey, JsonElement> states)
     {
-        ArgumentNullException.ThrowIfNull(roomId);
-
-        RoomId = roomId;
-        States = ImmutableDictionary<RoomStateKey, object>.Empty;
-    }
-
-    public EventAuthorizer(RoomIdentifier roomId, IReadOnlyDictionary<RoomStateKey, object> states)
-    {
-        ArgumentNullException.ThrowIfNull(roomId);
         ArgumentNullException.ThrowIfNull(states);
 
-        RoomId = roomId;
         States = states.ToImmutableDictionary();
     }
 
@@ -32,7 +21,7 @@ public class EventAuthorizer
     {
         if (States.TryGetValue(new RoomStateKey(eventType, stateKey), out var content))
         {
-            return (T)content;
+            return JsonSerializer.Deserialize<T>(content);
         }
         return default;
     }
@@ -88,8 +77,9 @@ public class EventAuthorizer
         }
     }
 
-    public bool Authorize(string eventType, string? stateKey, UserIdentifier sender, object content)
+    public bool Authorize(string eventType, string? stateKey, UserIdentifier sender, JsonElement content)
     {
+        _ = ControlEventContentSerializer.TryDeserialize(eventType, content, out var controlEventContent);
         if (!HasCreateEvent && eventType != EventTypes.Create)
         {
             return false;
@@ -100,15 +90,7 @@ public class EventAuthorizer
             {
                 return false;
             }
-            if (TryGetCreateEvent() is not null)
-            {
-                return false;
-            }
-            if (RoomId.PeerId != sender.PeerId)
-            {
-                return false;
-            }
-            if (content is not CreateEvent createEvent)
+            if (controlEventContent is not CreateEvent createEvent)
             {
                 return false;
             }
@@ -124,7 +106,7 @@ public class EventAuthorizer
             {
                 return false;
             }
-            if (content is not MemberEvent memberEvent)
+            if (controlEventContent is not MemberEvent memberEvent)
             {
                 return false;
             }
@@ -278,7 +260,7 @@ public class EventAuthorizer
         }
         if (eventType == EventTypes.PowerLevels)
         {
-            if (content is not PowerLevelsEvent powerLevelsEvent)
+            if (controlEventContent is not PowerLevelsEvent powerLevelsEvent)
             {
                 return false;
             }
@@ -373,12 +355,12 @@ public class EventAuthorizer
         return false;
     }
 
-    public (bool, EventAuthorizer) TryUpdateState(RoomStateKey roomStateKey, UserIdentifier sender, object content)
+    public (bool, EventAuthorizer) TryUpdateState(RoomStateKey roomStateKey, UserIdentifier sender, JsonElement content)
     {
         if (Authorize(roomStateKey.EventType, roomStateKey.StateKey, sender, content))
         {
             var newStates = States.SetItem(roomStateKey, content);
-            return (true, new EventAuthorizer(RoomId, newStates));
+            return (true, new EventAuthorizer(newStates));
         }
         else
         {
@@ -386,3 +368,4 @@ public class EventAuthorizer
         }
     }
 }
+

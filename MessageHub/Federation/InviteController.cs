@@ -6,6 +6,7 @@ using MessageHub.ClientServer.Protocol;
 using MessageHub.ClientServer.Protocol.Events.Room;
 using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer;
+using MessageHub.HomeServer.Events;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -30,29 +31,12 @@ public class InviteController : ControllerBase
     }
 
     private readonly IPeerIdentity peerIdentity;
-    private readonly IPeerStore peerStore;
-    private readonly IRooms rooms;
-    private readonly IEventReceiver eventReceiver;
-    private readonly IEventPublisher eventPublisher;
 
-    public InviteController(
-        IPeerIdentity peerIdentity,
-        IPeerStore peerStore,
-        IRooms rooms,
-        IEventReceiver eventReceiver,
-        IEventPublisher eventPublisher)
+    public InviteController(IPeerIdentity peerIdentity)
     {
         ArgumentNullException.ThrowIfNull(peerIdentity);
-        ArgumentNullException.ThrowIfNull(peerStore);
-        ArgumentNullException.ThrowIfNull(rooms);
-        ArgumentNullException.ThrowIfNull(eventReceiver);
-        ArgumentNullException.ThrowIfNull(eventPublisher);
 
         this.peerIdentity = peerIdentity;
-        this.peerStore = peerStore;
-        this.rooms = rooms;
-        this.eventReceiver = eventReceiver;
-        this.eventPublisher = eventPublisher;
     }
 
     [Route("invite/{roomId}/{eventId}")]

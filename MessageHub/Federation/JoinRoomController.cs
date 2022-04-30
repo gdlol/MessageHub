@@ -1,4 +1,3 @@
-using System.Collections.Immutable;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using MessageHub.Authentication;
@@ -6,7 +5,8 @@ using MessageHub.ClientServer.Protocol;
 using MessageHub.ClientServer.Protocol.Events.Room;
 using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer;
-using MessageHub.HomeServer.RoomVersions.V9;
+using MessageHub.HomeServer.Events;
+using MessageHub.HomeServer.Rooms;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -17,26 +17,22 @@ namespace MessageHub.Federation;
 public class JoinRoomController : ControllerBase
 {
     private readonly IPeerIdentity peerIdentity;
-    private readonly IPeerStore peerStore;
     private readonly IRooms rooms;
     private readonly IEventReceiver eventReceiver;
     private readonly IEventPublisher eventPublisher;
 
     public JoinRoomController(
         IPeerIdentity peerIdentity,
-        IPeerStore peerStore,
         IRooms rooms,
         IEventReceiver eventReceiver,
         IEventPublisher eventPublisher)
     {
         ArgumentNullException.ThrowIfNull(peerIdentity);
-        ArgumentNullException.ThrowIfNull(peerStore);
         ArgumentNullException.ThrowIfNull(rooms);
         ArgumentNullException.ThrowIfNull(eventReceiver);
         ArgumentNullException.ThrowIfNull(eventPublisher);
 
         this.peerIdentity = peerIdentity;
-        this.peerStore = peerStore;
         this.rooms = rooms;
         this.eventReceiver = eventReceiver;
         this.eventPublisher = eventPublisher;
@@ -47,12 +43,8 @@ public class JoinRoomController : ControllerBase
     public async Task<IActionResult> MakeJoin(string roomId, string userId)
     {
         SignedRequest request = (SignedRequest)Request.HttpContext.Items[nameof(request)]!;
-        if (!peerStore.TryGetPeer(request.Origin, out var senderIdentity))
-        {
-            return BadRequest(MatrixError.Create(MatrixErrorCode.BadState));
-        }
-        var userIdentifier = UserIdentifier.FromId(request.Origin);
-        if (userIdentifier.ToString() != userId)
+        var senderId = UserIdentifier.FromId(request.Origin);
+        if (senderId.ToString() != userId)
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(userId)));
         }
@@ -60,16 +52,15 @@ public class JoinRoomController : ControllerBase
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));
         }
-        var room = await rooms.GetRoomAsync(roomId);
-        var eventAuthorizer = new EventAuthorizer(RoomIdentifier.Parse(roomId), room.StateContents);
+        var roomSnapshot = await rooms.GetRoomSnapshotAsync(roomId);
+        var eventAuthorizer = new EventAuthorizer(roomSnapshot.StateContents);
         if (!eventAuthorizer.Authorize(
             eventType: EventTypes.Member,
             stateKey: userId,
-            sender: UserIdentifier.FromId(peerIdentity.Id),
-            content: new MemberEvent
-            {
-                MemberShip = MembershipStates.Join
-            }))
+            sender: senderId,
+            content: JsonSerializer.SerializeToElement(
+                new MemberEvent { MemberShip = MembershipStates.Join },
+                new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull })))
         {
             if (eventAuthorizer.TryGetJoinRulesEvent()?.JoinRule == JoinRules.Public)
             {
@@ -83,24 +74,17 @@ public class JoinRoomController : ControllerBase
                 return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));
             }
         }
-        var eventCreator = new EventCreator(
-            new Dictionary<string, IRoom>
-            {
-                [roomId] = room
-            }.ToImmutableDictionary(),
-            senderIdentity);
-        var result = await eventCreator.CreateEventJsonAsync(
-            roomId,
-            EventTypes.Member,
-            userId,
-            JsonSerializer.SerializeToElement(
+        var (_, pdu) = EventCreation.CreateEvent(
+            roomId: roomId,
+            snapshot: roomSnapshot,
+            eventType: EventTypes.Member,
+            stateKey: userId,
+            sender: senderId,
+            content: JsonSerializer.SerializeToElement(
                 new MemberEvent { MemberShip = MembershipStates.Join },
-                new JsonSerializerOptions
-                {
-                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-                }),
-            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-        return new JsonResult(result);
+                new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull }),
+            timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+        return new JsonResult(pdu.ToJsonElement());
     }
 
     private static async ValueTask<PersistentDataUnit[]> LoadAuthChainAsync(
@@ -145,21 +129,21 @@ public class JoinRoomController : ControllerBase
         [FromBody] PersistentDataUnit pdu)
     {
         SignedRequest request = (SignedRequest)Request.HttpContext.Items[nameof(request)]!;
+        var senderId = UserIdentifier.FromId(request.Origin);
         if (!rooms.HasRoom(roomId))
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));
         }
-        var room = await rooms.GetRoomAsync(roomId);
-        var userIdentifier = UserIdentifier.FromId(request.Origin);
-        var eventAuthorizer = new EventAuthorizer(RoomIdentifier.Parse(roomId), room.StateContents);
+        var roomSnapshot = await rooms.GetRoomSnapshotAsync(roomId);
+        var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
+        var eventAuthorizer = new EventAuthorizer(roomSnapshot.StateContents);
         if (!eventAuthorizer.Authorize(
             eventType: EventTypes.Member,
-            stateKey: userIdentifier.ToString(),
-            sender: UserIdentifier.FromId(peerIdentity.Id),
-            content: new MemberEvent
-            {
-                MemberShip = MembershipStates.Join
-            }))
+            stateKey: senderId.ToString(),
+            sender: senderId,
+            content: JsonSerializer.SerializeToElement(
+                new MemberEvent { MemberShip = MembershipStates.Join },
+                new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull })))
         {
             if (eventAuthorizer.TryGetJoinRulesEvent()?.JoinRule == JoinRules.Public)
             {
@@ -183,7 +167,6 @@ public class JoinRoomController : ControllerBase
             return BadRequest(MatrixError.Create(MatrixErrorCode.BadState, error));
         }
         await eventPublisher.PublishAsync(pdu);
-        var roomEventStore = room.EventStore;
         var roomStateResolver = new RoomStateResolver(roomEventStore);
         var states = await roomStateResolver.ResolveStateAsync(pdu.PreviousEvents);
         var statePdus = new List<PersistentDataUnit>();

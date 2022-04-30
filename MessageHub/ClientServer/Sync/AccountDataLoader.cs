@@ -6,13 +6,13 @@ namespace MessageHub.ClientServer.Sync;
 
 public class AccountDataLoader
 {
-    private readonly IPersistenceService persistenceService;
+    private readonly IAccountData accountData;
 
-    public AccountDataLoader(IPersistenceService persistenceService)
+    public AccountDataLoader(IAccountData accountData)
     {
-        ArgumentNullException.ThrowIfNull(persistenceService);
+        ArgumentNullException.ThrowIfNull(accountData);
 
-        this.persistenceService = persistenceService;
+        this.accountData = accountData;
     }
 
     private async Task<AccountData> InternalLoadAccountDataAsync(
@@ -59,7 +59,7 @@ public class AccountDataLoader
             }
             filterFunc = (eventType, _) => filters.All(x => x(eventType, _));
         }
-        var accoutData = await persistenceService.LoadAccountDataAsync(roomId, filterFunc, limit);
+        var accoutData = await accountData.LoadAccountDataAsync(roomId, filterFunc, limit);
         var events = new List<Event>();
         foreach (var (eventType, content) in accoutData)
         {

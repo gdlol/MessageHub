@@ -1,10 +1,13 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using MessageHub.Authentication;
 using MessageHub.ClientServer.Protocol;
 using MessageHub.ClientServer.Protocol.Events.Room;
 using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer;
+using MessageHub.HomeServer.Events;
+using MessageHub.HomeServer.Rooms;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -55,8 +58,11 @@ public class BackfillingController : ControllerBase
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));
         }
-        var room = await rooms.GetRoomAsync(roomId);
-        if (!room.Members.TryGetValue(UserIdentifier.FromId(request.Origin).ToString(), out var memberEvent)
+        var roomSnapshot = await rooms.GetRoomSnapshotAsync(roomId);
+        if (!roomSnapshot.StateContents.TryGetValue(
+                new RoomStateKey(EventTypes.Member, UserIdentifier.FromId(request.Origin).ToString()),
+                out var content)
+            || JsonSerializer.Deserialize<MemberEvent>(content) is not MemberEvent memberEvent
             || memberEvent.MemberShip != MembershipStates.Join)
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));
@@ -74,7 +80,7 @@ public class BackfillingController : ControllerBase
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, "v"));
         }
         eventIds = eventIds.Distinct().ToArray();
-        var roomEventStore = room.EventStore;
+        var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
         limit = Math.Min(limit.Value, 100);
         var missingEventIds = await roomEventStore.GetMissingEventIdsAsync(eventIds);
         var latestEventIds = eventIds.Except(missingEventIds).ToList();
@@ -116,8 +122,11 @@ public class BackfillingController : ControllerBase
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));
         }
-        var room = await rooms.GetRoomAsync(roomId);
-        if (!room.Members.TryGetValue(UserIdentifier.FromId(request.Origin).ToString(), out var memberEvent)
+        var roomSnapshot = await rooms.GetRoomSnapshotAsync(roomId);
+        if (!roomSnapshot.StateContents.TryGetValue(
+                new RoomStateKey(EventTypes.Member, UserIdentifier.FromId(request.Origin).ToString()),
+                out var content)
+            || JsonSerializer.Deserialize<MemberEvent>(content) is not MemberEvent memberEvent
             || memberEvent.MemberShip != MembershipStates.Join)
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));
@@ -126,7 +135,7 @@ public class BackfillingController : ControllerBase
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(parameters.MinDepth)));
         }
-        var roomEventStore = room.EventStore;
+        var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
         int limit = Math.Min(parameters.Limit, 100);
         var earliestEvents = parameters.EarliestEvents.Where(x => x is not null).ToHashSet();
         var eventMap = new Dictionary<string, PersistentDataUnit>();
