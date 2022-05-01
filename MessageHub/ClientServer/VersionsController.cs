@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace MessageHub.Client;
+namespace MessageHub.ClientServer;
 
 [Route("_matrix/client")]
 [AllowAnonymous]

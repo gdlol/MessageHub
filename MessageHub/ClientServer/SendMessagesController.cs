@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using MessageHub.HomeServer.Rooms.Timeline;
 using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Events;
+using MessageHub.HomeServer.Events.Room;
 
 namespace MessageHub.ClientServer;
 
@@ -117,5 +118,67 @@ public class SendMessagesController : ControllerBase
         element = peerIdentity.SignJson(element);
         await eventSaver.SaveAsync(roomId, eventId, element, snapshot.States);
         return new JsonResult(new { event_id = eventId });
+    }
+
+    [Route("{roomId}/redact/{eventId}/{txnId}")]
+    [HttpPut]
+    public async Task<IActionResult> Redact(
+        [FromRoute] string roomId,
+        [FromRoute] string eventId,
+        [FromRoute(Name = "txnId")] string transactionId,
+        [FromBody] JsonElement body)
+    {
+        string? userId = Request.HttpContext.User.Identity?.Name;
+        if (userId is null)
+        {
+            throw new InvalidOperationException();
+        }
+        var senderId = UserIdentifier.Parse(userId);
+        if (!rooms.HasRoom(roomId))
+        {
+            return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(roomId)}: {roomId}"));
+        }
+
+        var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
+        var redactedEvent = await roomEventStore.TryLoadEventAsync(eventId);
+        if (redactedEvent is null)
+        {
+            return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(eventId)}: {eventId}"));
+        }
+        var snapshot = await rooms.GetRoomSnapshotAsync(roomId);
+        var authorizer = new EventAuthorizer(snapshot.StateContents);
+        if (!authorizer.Authorize(EventTypes.Redact, null, senderId, body))
+        {
+            return Unauthorized(MatrixError.Create(MatrixErrorCode.Unauthorized));
+        }
+        if (redactedEvent.Sender != userId)
+        {
+            int powerLevel = authorizer.GetPowerLevel(senderId);
+            int redactPowerLevel = authorizer.GetPowerLevelsEventOrDefault().Redact;
+            if (powerLevel < redactPowerLevel)
+            {
+                return Unauthorized(MatrixError.Create(MatrixErrorCode.Unauthorized));
+            }
+        }
+        (snapshot, var pdu) = EventCreation.CreateEvent(
+            roomId: roomId,
+            snapshot: snapshot,
+            eventType: EventTypes.Redact,
+            stateKey: null,
+            sender: senderId,
+            content: body,
+            timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            redacts: eventId,
+            unsigned: JsonSerializer.SerializeToElement(
+                new UnsignedData
+                {
+                    TransactionId = transactionId
+                },
+                ignoreNullOptions));
+        string redactEventId = EventHash.GetEventId(pdu);
+        var element = pdu.ToJsonElement();
+        element = peerIdentity.SignJson(element);
+        await eventSaver.SaveAsync(roomId, redactEventId, element, snapshot.States);
+        return new JsonResult(new { event_id = redactEventId });
     }
 }

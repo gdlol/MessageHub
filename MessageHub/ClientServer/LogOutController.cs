@@ -1,7 +1,7 @@
 using MessageHub.HomeServer;
 using Microsoft.AspNetCore.Mvc;
 
-namespace MessageHub.Client;
+namespace MessageHub.ClientServer;
 
 [Route("_matrix/client/{version}")]
 public class LogOutController : ControllerBase

@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 
-namespace MessageHub.Client;
+namespace MessageHub.ClientServer;
 
 [Route("_matrix/client/{version}/voip")]
 public class VoIPController : ControllerBase

@@ -16,4 +16,5 @@ public static class EventTypes
     public const string Encrypted = "m.room.encrypted";
     public const string HistoryVisibility = "m.room.history_visibility";
     public const string Tombstone = "m.room.tombstone";
+    public const string Redact = "m.room.redaction";
 }
