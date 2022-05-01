@@ -48,14 +48,17 @@ public class SearchUserController : ControllerBase
         public User[] Results { get; set; } = default!;
     }
 
+    private readonly IPeerStore peerStore;
     private readonly ITimelineLoader timelineLoader;
     private readonly IRooms rooms;
 
-    public SearchUserController(ITimelineLoader timelineLoader, IRooms rooms)
+    public SearchUserController(IPeerStore peerStore, ITimelineLoader timelineLoader, IRooms rooms)
     {
+        ArgumentNullException.ThrowIfNull(peerStore);
         ArgumentNullException.ThrowIfNull(timelineLoader);
         ArgumentNullException.ThrowIfNull(rooms);
 
+        this.peerStore = peerStore;
         this.timelineLoader = timelineLoader;
         this.rooms = rooms;
     }
@@ -71,7 +74,7 @@ public class SearchUserController : ControllerBase
 
         var avatarUrls = new ConcurrentDictionary<string, (string url, long timestamp)>();
         var displayNames = new ConcurrentDictionary<string, (string name, long timestamp)>();
-        var userIds = new HashSet<string>();
+        var userIds = new HashSet<string>(peerStore.PeerIds.Select(id => UserIdentifier.FromId(id).ToString()));
         void updateUserInfo(PersistentDataUnit stateEvent)
         {
             if (stateEvent.EventType != EventTypes.Member || stateEvent.StateKey is null)

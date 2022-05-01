@@ -1,4 +1,5 @@
 using MessageHub.HomeServer;
+using MessageHub.HomeServer.Remote;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -7,13 +8,22 @@ namespace MessageHub.ClientServer;
 [Route("_matrix/media/{version}")]
 public class ContentRepositoryController : ControllerBase
 {
+    private readonly IPeerIdentity peerIdentity;
     private readonly IContentRepository contentRepository;
+    private readonly IRemoteContentRepository remoteContentRepository;
 
-    public ContentRepositoryController(IContentRepository contentRepository)
+    public ContentRepositoryController(
+        IPeerIdentity peerIdentity,
+        IContentRepository contentRepository,
+        IRemoteContentRepository remoteContentRepository)
     {
+        ArgumentNullException.ThrowIfNull(peerIdentity);
         ArgumentNullException.ThrowIfNull(contentRepository);
+        ArgumentNullException.ThrowIfNull(remoteContentRepository);
 
+        this.peerIdentity = peerIdentity;
         this.contentRepository = contentRepository;
+        this.remoteContentRepository = remoteContentRepository;
     }
 
     [Route("config")]
@@ -31,15 +41,30 @@ public class ContentRepositoryController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> Download(string serverName, string mediaId)
     {
-        string url = $"mxc://{serverName}/{mediaId}";
-        var stream = await contentRepository.DownloadFileAsync(url);
-        if (stream is null)
+        if (serverName == peerIdentity.Id)
         {
-            return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));
+            string url = $"mxc://{serverName}/{mediaId}";
+            var stream = await contentRepository.DownloadFileAsync(url);
+            if (stream is null)
+            {
+                return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));
+            }
+            else
+            {
+                return File(stream, "application/octet-stream", mediaId);
+            }
         }
         else
         {
-            return File(stream, "application/octet-stream", mediaId);
+            var stream = await remoteContentRepository.DownloadFileAsync(serverName, mediaId);
+            if (stream is null)
+            {
+                return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));
+            }
+            else
+            {
+                return File(stream, "application/octet-stream", mediaId);
+            }
         }
     }
 
@@ -48,15 +73,30 @@ public class ContentRepositoryController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> Download(string serverName, string mediaId, string fileName)
     {
-        string url = $"mxc://{serverName}/{mediaId}";
-        var stream = await contentRepository.DownloadFileAsync(url);
-        if (stream is null)
+        if (serverName == peerIdentity.Id)
         {
-            return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));
+            string url = $"mxc://{serverName}/{mediaId}";
+            var stream = await contentRepository.DownloadFileAsync(url);
+            if (stream is null)
+            {
+                return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));
+            }
+            else
+            {
+                return File(stream, "application/octet-stream", fileName);
+            }
         }
         else
         {
-            return File(stream, "application/octet-stream", fileName);
+            var stream = await remoteContentRepository.DownloadFileAsync(serverName, mediaId);
+            if (stream is null)
+            {
+                return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));
+            }
+            else
+            {
+                return File(stream, "application/octet-stream", fileName);
+            }
         }
     }
 

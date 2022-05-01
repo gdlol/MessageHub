@@ -5,6 +5,7 @@ using MessageHub.HomeServer;
 using Microsoft.AspNetCore.Mvc;
 using MessageHub.HomeServer.Rooms.Timeline;
 using MessageHub.HomeServer.Rooms;
+using MessageHub.HomeServer.Events;
 
 namespace MessageHub.ClientServer;
 
@@ -103,13 +104,13 @@ public class GetMessagesController : ControllerBase
             {
                 return BadRequest(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(from)}: {from}"));
             }
-            Func<ValueTask<bool>> move = direction switch
+            Func<ValueTask<bool>> tryMove = direction switch
             {
                 "b" => iterator.TryMoveBackwardAsync,
                 "f" => iterator.TryMoveForwardAsync,
                 _ => default!
             };
-            var timelineEvents = new List<ClientEventWithoutRoomID>();
+            var timelineEvents = new List<PersistentDataUnit>();
             var timelineEventFilter = RoomsLoader.GetTimelineEventFilter(roomEventFilter);
             while (true)
             {
@@ -120,16 +121,15 @@ public class GetMessagesController : ControllerBase
                 var currentEvent = await roomEventStore.LoadEventAsync(iterator.CurrentEventId);
                 if (timelineEventFilter(currentEvent))
                 {
-                    var clientEvent = ClientEventWithoutRoomID.FromPersistentDataUnit(currentEvent);
-                    timelineEvents.Add(clientEvent);
+                    timelineEvents.Add(currentEvent);
                 }
-                if (!await move())
+                if (!await tryMove())
                 {
                     break;
                 }
             }
             end = iterator.CurrentEventId;
-            chunk = timelineEvents.Select(x => x.ToClientEvent(roomId)).ToArray();
+            chunk = timelineEvents.Select(ClientEvent.FromPersistentDataUnit).ToArray();
         }
         return new JsonResult(new
         {

@@ -1,6 +1,6 @@
 using MessageHub.HomeServer.Events;
 
-namespace MessageHub.HomeServer;
+namespace MessageHub.HomeServer.Remote;
 
 public interface IEventPublisher
 {

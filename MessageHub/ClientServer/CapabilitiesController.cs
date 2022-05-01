@@ -16,10 +16,10 @@ public class CapabilitiesController : ControllerBase
                 ["m.change_password"] = new { enabled = false },
                 ["m.room_versions"] = new Dictionary<string, object>
                 {
-                    ["default"] = 1,
+                    ["default"] = 9,
                     ["available"] = new Dictionary<string, string>
                     {
-                        ["1"] = "stable"
+                        ["9"] = "stable"
                     }
                 }
                 ["m.set_displayname"] = new { enabled = true },
