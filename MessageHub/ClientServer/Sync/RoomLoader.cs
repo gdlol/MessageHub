@@ -1,19 +1,21 @@
 using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
+using MessageHub.HomeServer.Events;
+using MessageHub.HomeServer.Rooms.Timeline;
 
 namespace MessageHub.ClientServer.Sync;
 
-public class RoomLoader
+public class RoomsLoader
 {
-    private readonly IRoomLoader roomLoader;
+    private readonly ITimelineLoader timelineLoader;
     private readonly AccountDataLoader accountDataLoader;
 
-    public RoomLoader(IRoomLoader roomLoader, AccountDataLoader accountDataLoader)
+    public RoomsLoader(ITimelineLoader timelineLoader, AccountDataLoader accountDataLoader)
     {
-        ArgumentNullException.ThrowIfNull(roomLoader);
+        ArgumentNullException.ThrowIfNull(timelineLoader);
         ArgumentNullException.ThrowIfNull(accountDataLoader);
 
-        this.roomLoader = roomLoader;
+        this.timelineLoader = timelineLoader;
         this.accountDataLoader = accountDataLoader;
     }
 
@@ -67,34 +69,34 @@ public class RoomLoader
         return true;
     }
 
-    internal static Func<ClientEventWithoutRoomID, bool> GetTimelineEventFilter(RoomEventFilter? filter)
+    internal static Func<PersistentDataUnit, bool> GetTimelineEventFilter(RoomEventFilter? filter)
     {
         if (filter is null)
         {
             return _ => true;
         }
-        return clientEvent =>
+        return pdu =>
         {
             if (filter.ContainsUrl is not null
-                && clientEvent.Content.TryGetProperty("url", out var _) != filter.ContainsUrl.Value)
+                && pdu.Content.TryGetProperty("url", out var _) != filter.ContainsUrl.Value)
             {
                 return false;
             }
-            if (filter.Senders is not null && !filter.Senders.Contains(clientEvent.Sender))
+            if (filter.Senders is not null && !filter.Senders.Contains(pdu.Sender))
             {
                 return false;
             }
-            if (filter.NotSenders is not null && filter.NotSenders.Contains(clientEvent.Sender))
+            if (filter.NotSenders is not null && filter.NotSenders.Contains(pdu.Sender))
             {
                 return false;
             }
             if (filter.Types is not null
-                && !filter.Types.Any(pattern => Filter.StringMatch(clientEvent.EventType, pattern)))
+                && !filter.Types.Any(pattern => Filter.StringMatch(pdu.EventType, pattern)))
             {
                 return false;
             }
             if (filter.NotTypes is not null
-                && filter.NotTypes.Any(pattern => Filter.StringMatch(clientEvent.EventType, pattern)))
+                && filter.NotTypes.Any(pattern => Filter.StringMatch(pdu.EventType, pattern)))
             {
                 return false;
             }
@@ -102,59 +104,60 @@ public class RoomLoader
         };
     }
 
-    private static ClientEventWithoutRoomID[] FilterStateEvents(
-        IEnumerable<ClientEventWithoutRoomID> stateEvents,
+    private static PersistentDataUnit[] FilterStateEvents(
+        IEnumerable<PersistentDataUnit> stateEvents,
         StateFilter? filter)
     {
         if (filter is null)
         {
             return stateEvents.ToArray();
         }
-        var result = new List<ClientEventWithoutRoomID>();
-        foreach (var clientEvent in stateEvents)
+        var result = new List<PersistentDataUnit>();
+        foreach (var pdu in stateEvents)
         {
             if (filter.Limit is not null && filter.Limit >= result.Count)
             {
                 break;
             }
             if (filter.ContainsUrl is not null
-                && clientEvent.Content.TryGetProperty("url", out var _) != filter.ContainsUrl.Value)
+                && pdu.Content.TryGetProperty("url", out var _) != filter.ContainsUrl.Value)
             {
                 continue;
             }
-            if (filter.Senders is not null && !filter.Senders.Contains(clientEvent.Sender))
+            if (filter.Senders is not null && !filter.Senders.Contains(pdu.Sender))
             {
                 continue;
             }
-            if (filter.NotSenders is not null && filter.NotSenders.Contains(clientEvent.Sender))
+            if (filter.NotSenders is not null && filter.NotSenders.Contains(pdu.Sender))
             {
                 continue;
             }
             if (filter.Types is not null
-                && !filter.Types.Any(pattern => Filter.StringMatch(clientEvent.EventType, pattern)))
+                && !filter.Types.Any(pattern => Filter.StringMatch(pdu.EventType, pattern)))
             {
                 continue;
             }
             if (filter.NotTypes is not null
-                && filter.NotTypes.Any(pattern => Filter.StringMatch(clientEvent.EventType, pattern)))
+                && filter.NotTypes.Any(pattern => Filter.StringMatch(pdu.EventType, pattern)))
             {
                 continue;
             }
-            result.Add(clientEvent);
+            result.Add(pdu);
         }
         return result.ToArray();
     }
 
-    private static ClientEventWithoutRoomID[] ComputeStateDelta(
-        IEnumerable<ClientEventWithoutRoomID> sinceStateEvents,
-        IEnumerable<ClientEventWithoutRoomID> previousStateEvents)
+    private static PersistentDataUnit[] ComputeStateDelta(
+        IEnumerable<PersistentDataUnit> sinceStateEvents,
+        IEnumerable<PersistentDataUnit> previousStateEvents)
     {
         var sinceState = sinceStateEvents.ToDictionary(x => new RoomStateKey(x.EventType, x.StateKey!), x => x);
         var previousState = previousStateEvents.ToDictionary(x => new RoomStateKey(x.EventType, x.StateKey!), x => x);
-        var delta = new List<ClientEventWithoutRoomID>();
+        var delta = new List<PersistentDataUnit>();
         foreach (var (key, event1) in previousState)
         {
-            if (sinceState.TryGetValue(key, out var event2) && event1.EventId == event2.EventId)
+            if (sinceState.TryGetValue(key, out var event2)
+                && EventHash.GetEventId(event1) == EventHash.GetEventId(event2))
             {
                 continue;
             }
@@ -163,7 +166,7 @@ public class RoomLoader
         return delta.ToArray();
     }
 
-    public string CurrentBatchId => roomLoader.CurrentBatchId;
+    public string CurrentBatchId => timelineLoader.CurrentBatchId;
 
     public async Task<(string nextBatch, Rooms rooms)> LoadRoomsAsync(
         string userId,
@@ -179,13 +182,13 @@ public class RoomLoader
             Knock = new Dictionary<string, KnockedRoom>(),
             Leave = includeLeave ? new Dictionary<string, LeftRoom>() : null
         };
-        if (string.IsNullOrEmpty(since) && roomLoader.IsEmpty)
+        if (string.IsNullOrEmpty(since) && timelineLoader.IsEmpty)
         {
             return (string.Empty, rooms);
         }
 
         var roomIdFilter = GetRoomIdFilter(filter?.Rooms, filter?.NotRooms);
-        var roomStates = await roomLoader.LoadRoomStatesAsync(roomIdFilter, includeLeave);
+        var roomStates = await timelineLoader.LoadRoomStatesAsync(roomIdFilter, includeLeave);
         foreach (string roomId in roomStates.InvitedRoomIds)
         {
             rooms.Invite[roomId] = new InvitedRoom
@@ -229,21 +232,28 @@ public class RoomLoader
             return (since, rooms);
         }
 
-        var roomEventIds = await roomLoader.GetRoomEventIds(since);
+        var sinceEventIds = await timelineLoader.GetRoomEventIds(since);
+        var currentEventIds = await timelineLoader.GetRoomEventIds(roomStates.BatchId);
         var timelineEventFilter = GetTimelineEventFilter(filter?.Timeline);
         async Task<(Timeline? timeline, State? stateUpdate)> LoadRecentEvents(string roomId)
         {
-            roomEventIds.TryGetValue(roomId, out string? sinceEventId);
-            var iterator = await roomStates.GetTimelineIteratorAsync(roomId);
-            var timelineEvents = new List<ClientEventWithoutRoomID>();
+            sinceEventIds.TryGetValue(roomId, out string? sinceEventId);
+            string currentEventId = currentEventIds[roomId];
+            var iterator = await timelineLoader.GetTimelineIteratorAsync(roomId, currentEventId);
+            if (iterator is null)
+            {
+                throw new InvalidOperationException();
+            }
+            var timelineEvents = new List<PersistentDataUnit>();
             bool? limited = null;
             string? previousEventId = null;
-            ClientEventWithoutRoomID[] previousStateEvents;
+            PersistentDataUnit[] previousStateEvents;
             if (ShouldGetTimeline(roomId, filter?.Timeline))
             {
                 while (true)
                 {
-                    if (iterator.CurrentEvent.EventId == sinceEventId)
+                    string eventId = EventHash.GetEventId(iterator.CurrentEvent);
+                    if (eventId == sinceEventId)
                     {
                         previousEventId = sinceEventId;
                         previousStateEvents = iterator.GetStateEvents();
@@ -252,7 +262,7 @@ public class RoomLoader
                     if (filter?.Timeline?.Limit is int limit && timelineEvents.Count >= limit)
                     {
                         limited = true;
-                        previousEventId = iterator.CurrentEvent.EventId;
+                        previousEventId = eventId;
                         previousStateEvents = iterator.GetStateEvents();
                         break;
                     }
@@ -262,7 +272,7 @@ public class RoomLoader
                     }
                     if (!await iterator.TryMoveBackwardAsync())
                     {
-                        previousStateEvents = Array.Empty<ClientEventWithoutRoomID>();
+                        previousStateEvents = Array.Empty<PersistentDataUnit>();
                         break;
                     }
                 }
@@ -270,32 +280,41 @@ public class RoomLoader
             }
             else
             {
-                previousEventId = iterator.CurrentEvent.EventId;
+                previousEventId = EventHash.GetEventId(iterator.CurrentEvent);
                 previousStateEvents = iterator.GetStateEvents();
             }
             var timeline = new Timeline
             {
-                Events = timelineEvents.ToArray(),
+                Events = timelineEvents.Select(ClientEventWithoutRoomID.FromPersistentDataUnit).ToArray(),
                 Limited = limited,
                 PreviousBatch = previousEventId
             };
             State? stateUpdate = null;
             if (ShouldGetStateUpdate(roomId, filter?.State))
             {
-                if (fullState)
+                if (fullState || sinceEventId is null)
                 {
                     stateUpdate = new State
                     {
                         Events = FilterStateEvents(previousStateEvents, filter?.State)
+                            .Select(ClientEventWithoutRoomID.FromPersistentDataUnit)
+                            .ToArray()
                     };
                 }
                 else
                 {
-                    var sinceStateEvents = await roomLoader.GetRoomStateEvents(roomId, sinceEventId);
+                    iterator = await timelineLoader.GetTimelineIteratorAsync(roomId, sinceEventId);
+                    if (iterator is null)
+                    {
+                        throw new InvalidOperationException();
+                    }
+                    var sinceStateEvents = iterator!.GetStateEvents();
                     var delta = ComputeStateDelta(sinceStateEvents, previousStateEvents);
                     stateUpdate = new State
                     {
                         Events = FilterStateEvents(delta, filter?.State)
+                            .Select(ClientEventWithoutRoomID.FromPersistentDataUnit)
+                            .ToArray()
                     };
                 }
             }

@@ -63,13 +63,6 @@ internal class RoomStates
         return result.ToArray();
     }
 
-    public Task<ITimelineIterator> GetTimelineIteratorAsync(string roomId)
-    {
-        var room = Rooms[roomId];
-        ITimelineIterator iterator = new TimelineIterator(room);
-        return Task.FromResult(iterator);
-    }
-
     public RoomStates Filter(Func<string, bool> roomIdFilter, bool includeLeave)
     {
         var rooms = Rooms

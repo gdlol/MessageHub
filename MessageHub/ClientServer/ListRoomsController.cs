@@ -1,7 +1,9 @@
 using System.Text.Json;
 using MessageHub.ClientServer.Protocol;
-using MessageHub.ClientServer.Protocol.Events.Room;
 using MessageHub.HomeServer;
+using MessageHub.HomeServer.Events;
+using MessageHub.HomeServer.Events.Room;
+using MessageHub.HomeServer.Rooms;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MessageHub.ClientServer;
@@ -10,20 +12,20 @@ namespace MessageHub.ClientServer;
 public class ListRoomsController : ControllerBase
 {
     private readonly IPeerIdentity peerIdentity;
-    private readonly IRoomLoader roomLoader;
+    private readonly IRooms rooms;
     private readonly IAccountData accountData;
 
     public ListRoomsController(
         IPeerIdentity peerIdentity,
-        IRoomLoader roomLoader,
+        IRooms rooms,
         IAccountData accountData)
     {
         ArgumentNullException.ThrowIfNull(peerIdentity);
-        ArgumentNullException.ThrowIfNull(roomLoader);
+        ArgumentNullException.ThrowIfNull(rooms);
         ArgumentNullException.ThrowIfNull(accountData);
 
         this.peerIdentity = peerIdentity;
-        this.roomLoader = roomLoader;
+        this.rooms = rooms;
         this.accountData = accountData;
     }
 
@@ -56,7 +58,7 @@ public class ListRoomsController : ControllerBase
         }
     }
 
-    private static PublicRoomsChunk GetPublicRoomsChunk(string roomId, ClientEventWithoutRoomID[] stateEvents)
+    private static PublicRoomsChunk GetPublicRoomsChunk(string roomId, IEnumerable<PersistentDataUnit> stateEvents)
     {
         var chunk = new PublicRoomsChunk
         {
@@ -184,7 +186,14 @@ public class ListRoomsController : ControllerBase
             var chunks = new List<PublicRoomsChunk>();
             foreach (string roomId in publicRoomIds)
             {
-                var stateEvents = await roomLoader.GetRoomStateEvents(roomId, null);
+                var snapshot = await rooms.GetRoomSnapshotAsync(roomId);
+                var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
+                var stateEvents = new List<PersistentDataUnit>();
+                foreach (string eventId in snapshot.States.Values)
+                {
+                    var pdu = await roomEventStore.LoadEventAsync(eventId);
+                    stateEvents.Add(pdu);
+                }
                 var chunk = GetPublicRoomsChunk(roomId, stateEvents);
                 chunks.Add(chunk);
             }

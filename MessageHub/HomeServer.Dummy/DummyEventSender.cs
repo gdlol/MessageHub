@@ -1,6 +1,6 @@
 using System.Text.Json;
-using MessageHub.ClientServer.Protocol.Events.Room;
 using MessageHub.HomeServer.Events;
+using MessageHub.HomeServer.Events.Room;
 
 namespace MessageHub.HomeServer.Dummy;
 

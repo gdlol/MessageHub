@@ -8,5 +8,5 @@ public class TopicEvent
 {
     [Required]
     [JsonPropertyName("topic")]
-    public string Topic { get; set; } = default!;
+    public string Topic { get; init; } = default!;
 }

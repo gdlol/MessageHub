@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
-using MessageHub.ClientServer.Protocol.Events.Room;
+using MessageHub.HomeServer.Events.Room;
 
 namespace MessageHub.HomeServer.Events;
 

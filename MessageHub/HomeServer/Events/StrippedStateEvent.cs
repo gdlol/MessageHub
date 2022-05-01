@@ -16,7 +16,7 @@ public class StrippedStateEvent
 
     [Required]
     [JsonPropertyName("state_key")]
-    public string? StateKey { get; init; }
+    public string StateKey { get; init; } = default!;
 
     [Required]
     [JsonPropertyName("type")]

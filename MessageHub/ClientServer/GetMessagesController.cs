@@ -106,7 +106,7 @@ public class GetMessagesController : ControllerBase
                 _ => default!
             };
             var timelineEvents = new List<ClientEventWithoutRoomID>();
-            var timelineEventFilter = RoomLoader.GetTimelineEventFilter(roomEventFilter);
+            var timelineEventFilter = RoomsLoader.GetTimelineEventFilter(roomEventFilter);
             while (true)
             {
                 string eventId = EventHash.GetEventId(iterator.CurrentEvent);
@@ -114,9 +114,9 @@ public class GetMessagesController : ControllerBase
                 {
                     break;
                 }
-                var clientEvent = ClientEventWithoutRoomID.FromPersistentDataUnit(iterator.CurrentEvent);
-                if (timelineEventFilter(clientEvent))
+                if (timelineEventFilter(iterator.CurrentEvent))
                 {
+                    var clientEvent = ClientEventWithoutRoomID.FromPersistentDataUnit(iterator.CurrentEvent);
                     timelineEvents.Add(clientEvent);
                 }
                 if (!await move())

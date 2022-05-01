@@ -16,5 +16,5 @@ public class HistoryVisibilityEvent
 {
     [Required]
     [JsonPropertyName("history_visibility")]
-    public string HistoryVisibility { get; set; } = default!;
+    public string HistoryVisibility { get; init; } = default!;
 }

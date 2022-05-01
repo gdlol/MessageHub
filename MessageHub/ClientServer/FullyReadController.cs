@@ -1,8 +1,9 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using MessageHub.ClientServer.Protocol.Events;
 using MessageHub.HomeServer;
+using MessageHub.HomeServer.Events.General;
+using MessageHub.HomeServer.Rooms;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MessageHub.ClientServer;
@@ -20,15 +21,15 @@ public class FullyReadController : ControllerBase
         public string? Read { get; set; }
     }
 
-    private readonly IRoomLoader roomLoader;
+    private readonly IRooms rooms;
     private readonly IAccountData accountData;
 
-    public FullyReadController(IRoomLoader roomLoader, IAccountData accountData)
+    public FullyReadController(IRooms rooms, IAccountData accountData)
     {
-        ArgumentNullException.ThrowIfNull(roomLoader);
+        ArgumentNullException.ThrowIfNull(rooms);
         ArgumentNullException.ThrowIfNull(accountData);
 
-        this.roomLoader = roomLoader;
+        this.rooms = rooms;
         this.accountData = accountData;
     }
 
@@ -43,7 +44,7 @@ public class FullyReadController : ControllerBase
         {
             throw new InvalidOperationException();
         }
-        if (!roomLoader.HasRoom(roomId))
+        if (!rooms.HasRoom(roomId))
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(roomId)}: {roomId}"));
         }

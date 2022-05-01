@@ -2,9 +2,10 @@ using System.Collections.Concurrent;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using MessageHub.ClientServer.Protocol;
-using MessageHub.ClientServer.Protocol.Events.Room;
 using MessageHub.HomeServer;
+using MessageHub.HomeServer.Events;
+using MessageHub.HomeServer.Events.Room;
+using MessageHub.HomeServer.Rooms.Timeline;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MessageHub.ClientServer;
@@ -46,13 +47,13 @@ public class SearchUserController : ControllerBase
         public User[] Results { get; set; } = default!;
     }
 
-    private readonly IRoomLoader roomLoader;
+    private readonly ITimelineLoader timelineLoader;
 
-    public SearchUserController(IRoomLoader roomLoader)
+    public SearchUserController(ITimelineLoader timelineLoader)
     {
-        ArgumentNullException.ThrowIfNull(roomLoader);
+        ArgumentNullException.ThrowIfNull(timelineLoader);
 
-        this.roomLoader = roomLoader;
+        this.timelineLoader = timelineLoader;
     }
 
     [Route("user_directory/search")]
@@ -67,7 +68,7 @@ public class SearchUserController : ControllerBase
         var avatarUrls = new ConcurrentDictionary<string, (string url, long timestamp)>();
         var displayNames = new ConcurrentDictionary<string, (string name, long timestamp)>();
         var userIds = new HashSet<string>();
-        void updateUserInfo(ClientEventWithoutRoomID stateEvent)
+        void updateUserInfo(PersistentDataUnit stateEvent)
         {
             if (stateEvent.EventType != EventTypes.Member || stateEvent.StateKey is null)
             {
@@ -111,10 +112,17 @@ public class SearchUserController : ControllerBase
                     });
             }
         }
-        var roomStates = await roomLoader.LoadRoomStatesAsync(_ => true, includeLeave: false);
+        var roomStates = await timelineLoader.LoadRoomStatesAsync(_ => true, includeLeave: false);
+        var roomEventIds = await timelineLoader.GetRoomEventIds(roomStates.BatchId);
         foreach (string roomId in roomStates.JoinedRoomIds)
         {
-            var stateEvents = await roomLoader.GetRoomStateEvents(roomId, null);
+            string eventId = roomEventIds[roomId];
+            var iterator = await timelineLoader.GetTimelineIteratorAsync(roomId, eventId);
+            if (iterator is null)
+            {
+                throw new InvalidOperationException();
+            }
+            var stateEvents = iterator.GetStateEvents();
             foreach (var stateEvent in stateEvents)
             {
                 updateUserInfo(stateEvent);

@@ -1,4 +1,4 @@
-using MessageHub.HomeServer;
+using MessageHub.HomeServer.Rooms.Timeline;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MessageHub.Client;
@@ -6,20 +6,20 @@ namespace MessageHub.Client;
 [Route("_matrix/client/{version}")]
 public class RoomMembershipController : ControllerBase
 {
-    private readonly IRoomLoader roomLoader;
+    private readonly ITimelineLoader timelineLoader;
 
-    public RoomMembershipController(IRoomLoader roomLoader)
+    public RoomMembershipController(ITimelineLoader timelineLoader)
     {
-        ArgumentNullException.ThrowIfNull(roomLoader);
+        ArgumentNullException.ThrowIfNull(timelineLoader);
 
-        this.roomLoader = roomLoader;
+        this.timelineLoader = timelineLoader;
     }
 
     [Route("joined_rooms")]
     [HttpGet]
     public async Task<IActionResult> GetJoinedRooms()
     {
-        var roomState = await roomLoader.LoadRoomStatesAsync(_ => true, includeLeave: false);
+        var roomState = await timelineLoader.LoadRoomStatesAsync(_ => true, includeLeave: false);
         return new JsonResult(new
         {
             joined_rooms = roomState.JoinedRoomIds.ToArray()

@@ -25,7 +25,7 @@ public class PowerLevelsEvent
     public ImmutableDictionary<string, int>? Notifications { get; init; }
 
     [JsonPropertyName("redact")]
-    public int Redact { get; set; } = 50;
+    public int Redact { get; init; } = 50;
 
     [JsonPropertyName("state_default")]
     public int StateDefault { get; init; } = 50;

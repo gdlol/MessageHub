@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
-namespace MessageHub.ClientServer.Protocol.Events;
+namespace MessageHub.HomeServer.Events.General;
 
 [EventType(EventType)]
 public class FullyReadEvent
@@ -10,5 +10,5 @@ public class FullyReadEvent
 
     [Required]
     [JsonPropertyName("event_id")]
-    public string EventId { get; set; } = default!;
+    public string EventId { get; init; } = default!;
 }

@@ -2,7 +2,7 @@ using MessageHub.ClientServer.Protocol;
 
 namespace MessageHub.HomeServer.Dummy;
 
-internal class TimelineIterator : ITimelineIterator
+internal class TimelineIterator
 {
     private readonly Room room;
 

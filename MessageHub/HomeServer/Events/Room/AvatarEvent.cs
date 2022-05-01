@@ -1,13 +1,14 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace MessageHub.ClientServer.Protocol.Events.Room;
+namespace MessageHub.HomeServer.Events.Room;
 
 [EventType(EventTypes.Avatar)]
 public class AvatarEvent
 {
     [JsonPropertyName("info")]
-    public ImageInfo? Info { get; init; }
+    public JsonElement? Info { get; init; }
 
     [Required]
     [JsonPropertyName("url")]

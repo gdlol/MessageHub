@@ -8,5 +8,5 @@ public class NameEvent
 {
     [Required]
     [JsonPropertyName("name")]
-    public string Name { get; set; } = default!;
+    public string Name { get; init; } = default!;
 }
