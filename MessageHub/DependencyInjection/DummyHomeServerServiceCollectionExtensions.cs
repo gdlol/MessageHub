@@ -13,8 +13,6 @@ public static class DummyHomeServerServiceCollectionExtensions
         services.AddSingleton<IAccountData, DummyAccountData>();
         services.AddSingleton<IContentRepository, DummyContentRepository>();
         services.AddSingleton<IUserProfile, DummyUserProfile>();
-        services.AddSingleton<IRoomLoader, DummyRoomLoader>();
-        services.AddSingleton<IEventSender, DummyEventSender>();
         return services;
     }
 }

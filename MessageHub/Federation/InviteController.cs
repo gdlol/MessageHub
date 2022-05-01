@@ -2,11 +2,10 @@ using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using MessageHub.Authentication;
-using MessageHub.ClientServer.Protocol;
-using MessageHub.ClientServer.Protocol.Events.Room;
 using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events;
+using MessageHub.HomeServer.Events.Room;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 

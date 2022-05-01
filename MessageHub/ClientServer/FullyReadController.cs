@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using MessageHub.ClientServer.Protocol;
 using MessageHub.ClientServer.Protocol.Events;
 using MessageHub.HomeServer;
 using Microsoft.AspNetCore.Mvc;
@@ -23,20 +22,14 @@ public class FullyReadController : ControllerBase
 
     private readonly IRoomLoader roomLoader;
     private readonly IAccountData accountData;
-    private readonly IEventSender eventSender;
 
-    public FullyReadController(
-        IRoomLoader roomLoader,
-        IAccountData accountData,
-        IEventSender eventSender)
+    public FullyReadController(IRoomLoader roomLoader, IAccountData accountData)
     {
         ArgumentNullException.ThrowIfNull(roomLoader);
         ArgumentNullException.ThrowIfNull(accountData);
-        ArgumentNullException.ThrowIfNull(eventSender);
 
         this.roomLoader = roomLoader;
         this.accountData = accountData;
-        this.eventSender = eventSender;
     }
 
     [Route("rooms/{roomId}/read_markers")]
@@ -62,10 +55,6 @@ public class FullyReadController : ControllerBase
             roomId,
             FullyReadEvent.EventType,
             JsonSerializer.SerializeToElement(fullyReadContent));
-        if (requestBody.Read is not null)
-        {
-            _ = eventSender;
-        }
         return new JsonResult(new object());
     }
 }

@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MessageHub.HomeServer.Events;
 
 namespace MessageHub.ClientServer.Protocol;
 
@@ -44,6 +45,20 @@ public class ClientEventWithoutRoomID
             StateKey = StateKey,
             EventType = EventType,
             Unsigned = Unsigned
+        };
+    }
+
+    public static ClientEventWithoutRoomID FromPersistentDataUnit(PersistentDataUnit pdu)
+    {
+        return new ClientEventWithoutRoomID
+        {
+            Content = pdu.Content,
+            EventId = EventHash.GetEventId(pdu),
+            OriginServerTimestamp = pdu.OriginServerTimestamp,
+            Sender = pdu.Sender,
+            StateKey = pdu.StateKey,
+            EventType = pdu.EventType,
+            Unsigned = pdu.Unsigned
         };
     }
 }

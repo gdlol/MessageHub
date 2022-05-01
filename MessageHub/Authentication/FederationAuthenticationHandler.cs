@@ -1,10 +1,8 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
-using MessageHub.ClientServer.Protocol;
 using MessageHub.Federation;
 using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer;

@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using System.Text.Json;
 
-namespace MessageHub.HomeServer;
+namespace MessageHub.HomeServer.Rooms.Timeline;
 
 public interface IEventSaver
 {

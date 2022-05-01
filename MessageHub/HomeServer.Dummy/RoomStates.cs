@@ -1,11 +1,10 @@
 using System.Collections.Immutable;
 using System.Text.Json;
-using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer.Events;
 
 namespace MessageHub.HomeServer.Dummy;
 
-internal class RoomStates : IRoomStates
+internal class RoomStates
 {
     public ImmutableDictionary<string, Room> Rooms { get; }
 
@@ -18,14 +17,6 @@ internal class RoomStates : IRoomStates
     public ImmutableList<string> KnockedRoomIds { get; }
 
     public ImmutableList<string> LeftRoomIds { get; }
-
-    IReadOnlyList<string> IRoomStates.InvitedRoomIds => InvitedRoomIds;
-
-    IReadOnlyList<string> IRoomStates.JoinedRoomIds => JoinedRoomIds;
-
-    IReadOnlyList<string> IRoomStates.KnockedRoomIds => KnockedRoomIds;
-
-    IReadOnlyList<string> IRoomStates.LeftRoomIds => LeftRoomIds;
 
     private RoomStates(ImmutableDictionary<string, Room> rooms, string batchId)
     {

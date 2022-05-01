@@ -4,40 +4,60 @@ using MessageHub.ClientServer.Sync;
 using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
 using Microsoft.AspNetCore.Mvc;
-using M = MessageHub.ClientServer.Protocol.Events;
+using MessageHub.HomeServer.Rooms.Timeline;
+using MessageHub.HomeServer.Rooms;
+using MessageHub.HomeServer.Events.Room;
+using MessageHub.HomeServer.Events;
 
 namespace MessageHub.ClientServer;
 
 [Route("_matrix/client/{version}/rooms")]
 public class RoomsController : ControllerBase
 {
-    private readonly IRoomLoader roomLoader;
-    private readonly IEventSender eventSender;
-
-    public RoomsController(IRoomLoader roomLoader, IEventSender eventSender)
+    private static readonly JsonSerializerOptions ignoreNullOptions = new()
     {
-        ArgumentNullException.ThrowIfNull(roomLoader);
-        ArgumentNullException.ThrowIfNull(eventSender);
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
 
-        this.roomLoader = roomLoader;
-        this.eventSender = eventSender;
+    private readonly IPeerIdentity peerIdentity;
+    private readonly IRooms rooms;
+    private readonly ITimelineLoader timelineLoader;
+    private readonly IEventSaver eventSaver;
+
+    public RoomsController(
+        IPeerIdentity peerIdentity,
+        IRooms rooms,
+        ITimelineLoader timelineLoader,
+        IEventSaver eventSaver)
+    {
+        ArgumentNullException.ThrowIfNull(peerIdentity);
+        ArgumentNullException.ThrowIfNull(rooms);
+        ArgumentNullException.ThrowIfNull(timelineLoader);
+        ArgumentNullException.ThrowIfNull(eventSaver);
+
+        this.peerIdentity = peerIdentity;
+        this.rooms = rooms;
+        this.timelineLoader = timelineLoader;
+        this.eventSaver = eventSaver;
     }
 
     [Route("{roomId}/event/{eventId}")]
     [HttpGet]
     public async Task<IActionResult> GetEvent(string roomId, string eventId)
     {
-        var clientEvent = await roomLoader.LoadEventAsync(roomId, eventId);
-        if (clientEvent is null)
+        if (!rooms.HasRoom(roomId))
         {
-            return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));
+            return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(roomId)}: {roomId}"));
+        }
+        var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
+        var pdu = await roomEventStore.TryLoadEventAsync(eventId);
+        if (pdu is null)
+        {
+            return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(eventId)}: {eventId}"));
         }
         else
         {
-            return new JsonResult(clientEvent, new JsonSerializerOptions
-            {
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-            });
+            return new JsonResult(ClientEvent.FromPersistentDataUnit(pdu), ignoreNullOptions);
         }
     }
 
@@ -45,28 +65,28 @@ public class RoomsController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetJoinedMembers(string roomId)
     {
-        var clientEvents = await roomLoader.LoadRoomMembersAsync(roomId, null);
-        if (clientEvents is null)
+        if (!rooms.HasRoom(roomId))
         {
-            return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));
+            return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(roomId)}: {roomId}"));
         }
-        else
+        var snapshot = await rooms.GetRoomSnapshotAsync(roomId);
+        var joined = new Dictionary<string, RoomMember>();
+        foreach (var (roomStateKey, content) in snapshot.StateContents)
         {
-            return new JsonResult(new
+            if (roomStateKey.EventType == EventTypes.Member)
             {
-                joined = clientEvents.ToDictionary(
-                    clientEvent => clientEvent.StateKey!,
-                    clientEvent =>
+                var memberEvent = content.Deserialize<MemberEvent>()!;
+                if (memberEvent.MemberShip == MembershipStates.Join)
+                {
+                    joined[roomStateKey.StateKey] = new RoomMember
                     {
-                        var memberEvent = JsonSerializer.Deserialize<M.Room.MemberEvent>(clientEvent.Content);
-                        return new RoomMember
-                        {
-                            AvatarUrl = memberEvent?.AvatarUrl,
-                            DisplayName = memberEvent?.DisplayName
-                        };
-                    })
-            });
+                        AvatarUrl = memberEvent.AvatarUrl,
+                        DisplayName = memberEvent.DisplayName
+                    };
+                }
+            }
         }
+        return new JsonResult(new { joined }, ignoreNullOptions);
     }
 
     [Route("{roomId}/members")]
@@ -77,80 +97,90 @@ public class RoomsController : ControllerBase
         [FromQuery(Name = "membership")] string? membership,
         [FromQuery(Name = "not_membership")] string? notMembership)
     {
-        var clientEvents = await roomLoader.LoadRoomMembersAsync(roomId, at);
-        if (clientEvents is null)
+        if (!rooms.HasRoom(roomId))
         {
-            return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));
+            return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(roomId)}: {roomId}"));
+        }
+        var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
+        RoomSnapshot snapshot;
+        if (at is null)
+        {
+            snapshot = await rooms.GetRoomSnapshotAsync(roomId);
         }
         else
         {
-            var filter = (ClientEvent clientEvent) =>
-            {
-                var memberEvent = JsonSerializer.Deserialize<M.Room.MemberEvent>(clientEvent.Content);
-                if (membership is null && notMembership is null)
-                {
-                    return true;
-                }
-                if (membership is not null && memberEvent?.MemberShip == membership)
-                {
-                    return true;
-                }
-                if (notMembership is not null && memberEvent?.MemberShip != notMembership)
-                {
-                    return true;
-                }
-                return false;
-            };
-            return new JsonResult(new
-            {
-                chunk = clientEvents.Where(filter).ToArray()
-            },
-            new JsonSerializerOptions
-            {
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-            });
+            snapshot = await roomEventStore.LoadSnapshotAsync(at);
         }
+
+        var clientEvents = new List<ClientEvent>();
+        var filter = (ClientEvent clientEvent) =>
+        {
+            if (membership is null && notMembership is null)
+            {
+                return true;
+            }
+            var memberEvent = JsonSerializer.Deserialize<MemberEvent>(clientEvent.Content)!;
+            if (membership is not null && memberEvent?.MemberShip == membership)
+            {
+                return true;
+            }
+            if (notMembership is not null && memberEvent?.MemberShip != notMembership)
+            {
+                return true;
+            }
+            return false;
+        };
+        foreach (var (roomStateKey, eventId) in snapshot.States)
+        {
+            if (roomStateKey.EventType == EventTypes.Member)
+            {
+                var pdu = await roomEventStore.LoadEventAsync(eventId);
+                var clientEvent = ClientEvent.FromPersistentDataUnit(pdu);
+                if (filter(clientEvent))
+                {
+                    clientEvents.Add(clientEvent);
+                }
+            }
+        }
+        return new JsonResult(new { chunk = clientEvents }, ignoreNullOptions);
     }
 
     [Route("{roomId}/state")]
     [HttpGet]
     public async Task<IActionResult> GetStates(string roomId)
     {
-        if (!roomLoader.HasRoom(roomId))
+        if (!rooms.HasRoom(roomId))
         {
-            return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));
+            return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(roomId)}: {roomId}"));
         }
-        else
+        var snapshot = await rooms.GetRoomSnapshotAsync(roomId);
+        var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
+        var stateEvents = new List<ClientEvent>();
+        foreach (var eventId in snapshot.States.Values)
         {
-            var stateEventsWithoutRoomId = await roomLoader.GetRoomStateEvents(roomId, null);
-            var stateEvents = stateEventsWithoutRoomId.Select(x => x.ToClientEvent(roomId));
-            return new JsonResult(stateEvents, new JsonSerializerOptions
-            {
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-            });
+            var pdu = await roomEventStore.LoadEventAsync(eventId);
+            var clientEvent = ClientEvent.FromPersistentDataUnit(pdu);
+            stateEvents.Add(clientEvent);
         }
+        return new JsonResult(stateEvents, ignoreNullOptions);
     }
 
     [Route("{roomId}/state/{eventType}/{stateKey?}")]
     [HttpGet]
     public async Task<IActionResult> GetState(string roomId, string eventType, string? stateKey)
     {
-        stateKey ??= string.Empty;
-        if (!roomLoader.HasRoom(roomId))
+        if (!rooms.HasRoom(roomId))
         {
-            return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));
+            return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(roomId)}: {roomId}"));
+        }
+        var snapshot = await rooms.GetRoomSnapshotAsync(roomId);
+        if (snapshot.StateContents.TryGetValue(new RoomStateKey(eventType, stateKey ?? string.Empty), out var content))
+        {
+            return new JsonResult(content);
         }
         else
         {
-            var state = await roomLoader.LoadStateAsync(roomId, new RoomStateKey(eventType, stateKey));
-            if (state is null)
-            {
-                return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));
-            }
-            else
-            {
-                return new JsonResult(state);
-            }
+            return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));
         }
     }
 
@@ -168,13 +198,13 @@ public class RoomsController : ControllerBase
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.MissingParameter, nameof(direction)));
         }
-        if (!roomLoader.HasRoom(roomId))
+        if (!timelineLoader.HasRoom(roomId))
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(roomId)}: {roomId}"));
         }
         if (from is null)
         {
-            var eventIds = await roomLoader.GetRoomEventIds(null);
+            var eventIds = await timelineLoader.GetRoomEventIds(null);
             if (!eventIds.TryGetValue(roomId, out string? eventId))
             {
                 return new JsonResult(new
@@ -228,7 +258,7 @@ public class RoomsController : ControllerBase
         }
         if (chunk is null)
         {
-            var iterator = await roomLoader.GetTimelineIteratorAsync(roomId, from);
+            var iterator = await timelineLoader.GetTimelineIteratorAsync(roomId, from);
             if (iterator is null)
             {
                 return BadRequest(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(from)}: {from}"));
@@ -243,20 +273,22 @@ public class RoomsController : ControllerBase
             var timelineEventFilter = RoomLoader.GetTimelineEventFilter(roomEventFilter);
             while (true)
             {
-                if (iterator.CurrentEvent.EventId == to || timelineEvents.Count >= chunkLimit)
+                string eventId = EventHash.GetEventId(iterator.CurrentEvent);
+                if (eventId == to || timelineEvents.Count >= chunkLimit)
                 {
                     break;
                 }
-                if (timelineEventFilter(iterator.CurrentEvent))
+                var clientEvent = ClientEventWithoutRoomID.FromPersistentDataUnit(iterator.CurrentEvent);
+                if (timelineEventFilter(clientEvent))
                 {
-                    timelineEvents.Add(iterator.CurrentEvent);
+                    timelineEvents.Add(clientEvent);
                 }
                 if (!await move())
                 {
                     break;
                 }
             }
-            end = iterator.CurrentEvent.EventId;
+            end = EventHash.GetEventId(iterator.CurrentEvent);
             chunk = timelineEvents.Select(x => x.ToClientEvent(roomId)).ToArray();
         }
         return new JsonResult(new
@@ -281,20 +313,30 @@ public class RoomsController : ControllerBase
         {
             throw new InvalidOperationException();
         }
-        if (body.ValueKind != JsonValueKind.Object)
+        var senderId = UserIdentifier.Parse(userId);
+        if (!rooms.HasRoom(roomId))
         {
-            return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, $"{nameof(body)}: {body}"));
+            return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(roomId)}: {roomId}"));
         }
 
-        var (eventId, error) = await eventSender.SendStateEventAsync(
-            userId,
-            roomId,
-            new RoomStateKey(eventType, stateKey),
-            body);
-        if (error is not null)
+        var snapshot = await rooms.GetRoomSnapshotAsync(roomId);
+        var authorizer = new EventAuthorizer(snapshot.StateContents);
+        if (!authorizer.Authorize(eventType, stateKey, senderId, body))
         {
-            return BadRequest(error);
+            return Unauthorized(MatrixError.Create(MatrixErrorCode.Unauthorized));
         }
+        (snapshot, var pdu) = EventCreation.CreateEvent(
+            roomId: roomId,
+            snapshot: snapshot,
+            eventType: eventType,
+            stateKey: stateKey,
+            sender: senderId,
+            content: body,
+            timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+        string eventId = EventHash.GetEventId(pdu);
+        var element = pdu.ToJsonElement();
+        element = peerIdentity.SignJson(element);
+        await eventSaver.SaveAsync(roomId, eventId, element, snapshot.States);
         return new JsonResult(new { event_id = eventId });
     }
 
@@ -311,21 +353,36 @@ public class RoomsController : ControllerBase
         {
             throw new InvalidOperationException();
         }
-        if (body.ValueKind != JsonValueKind.Object)
+        var senderId = UserIdentifier.Parse(userId);
+        if (!rooms.HasRoom(roomId))
         {
-            return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, $"{nameof(body)}: {body}"));
+            return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(roomId)}: {roomId}"));
         }
 
-        var (eventId, error) = await eventSender.SendMessageEventAsync(
-            userId,
-            roomId,
-            eventType,
-            transactionId,
-            body);
-        if (error is not null)
+        var snapshot = await rooms.GetRoomSnapshotAsync(roomId);
+        var authorizer = new EventAuthorizer(snapshot.StateContents);
+        if (!authorizer.Authorize(eventType, null, senderId, body))
         {
-            return BadRequest(error);
+            return Unauthorized(MatrixError.Create(MatrixErrorCode.Unauthorized));
         }
+        (snapshot, var pdu) = EventCreation.CreateEvent(
+            roomId: roomId,
+            snapshot: snapshot,
+            eventType: eventType,
+            stateKey: null,
+            sender: senderId,
+            content: body,
+            timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            unsigned: JsonSerializer.SerializeToElement(
+                new UnsignedData
+                {
+                    TransactionId = transactionId
+                },
+                ignoreNullOptions));
+        string eventId = EventHash.GetEventId(pdu);
+        var element = pdu.ToJsonElement();
+        element = peerIdentity.SignJson(element);
+        await eventSaver.SaveAsync(roomId, eventId, element, snapshot.States);
         return new JsonResult(new { event_id = eventId });
     }
 }

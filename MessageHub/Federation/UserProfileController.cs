@@ -1,5 +1,4 @@
 using MessageHub.Authentication;
-using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

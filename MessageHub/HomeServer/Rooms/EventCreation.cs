@@ -86,7 +86,7 @@ public static class EventCreation
         {
             AuthorizationEvents = authorizationEvents,
             Content = content,
-            Depth = snapshot.GraphDepth,
+            Depth = snapshot.GraphDepth + 1,
             Origin = sender.PeerId,
             OriginServerTimestamp = timestamp,
             PreviousEvents = snapshot.LatestEventIds.ToArray(),
@@ -108,7 +108,7 @@ public static class EventCreation
         var newSnapshot = new RoomSnapshot
         {
             LatestEventIds = new[] { eventId }.ToImmutableList(),
-            GraphDepth = pdu.Depth + 1,
+            GraphDepth = pdu.Depth,
             States = newStates,
             StateContents = newStateContents
         };

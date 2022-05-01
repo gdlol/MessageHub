@@ -1,5 +1,6 @@
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Rooms;
+using MessageHub.HomeServer.Rooms.Timeline;
 
 namespace MessageHub.HomeServer;
 

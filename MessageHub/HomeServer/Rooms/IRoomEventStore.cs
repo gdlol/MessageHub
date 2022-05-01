@@ -11,6 +11,17 @@ public interface IRoomEventStore
     ValueTask<PersistentDataUnit> LoadEventAsync(string eventId);
     ValueTask<ImmutableDictionary<RoomStateKey, string>> LoadStatesAsync(string eventId);
 
+    public async Task<PersistentDataUnit?> TryLoadEventAsync(string eventId)
+    {
+        var missingEventIds = await GetMissingEventIdsAsync(new[] { eventId });
+        if (missingEventIds.Length > 0)
+        {
+            return null;
+        }
+        var pdu = await LoadEventAsync(eventId);
+        return pdu;
+    }
+
     public async ValueTask<RoomSnapshot> LoadSnapshotAsync(string eventId)
     {
         var pdu = await LoadEventAsync(eventId);
@@ -24,7 +35,7 @@ public interface IRoomEventStore
         return new RoomSnapshot
         {
             LatestEventIds = ImmutableList.Create(eventId),
-            GraphDepth = pdu.Depth + 1,
+            GraphDepth = pdu.Depth,
             States = states,
             StateContents = stateContentsBuilder.ToImmutable()
         };

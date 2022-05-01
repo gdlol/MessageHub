@@ -1,7 +1,6 @@
 using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
-using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;

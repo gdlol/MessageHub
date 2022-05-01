@@ -3,6 +3,7 @@ using System.Text.Json;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Formatting;
 using MessageHub.HomeServer.Rooms;
+using MessageHub.HomeServer.Rooms.Timeline;
 
 namespace MessageHub.HomeServer;
 

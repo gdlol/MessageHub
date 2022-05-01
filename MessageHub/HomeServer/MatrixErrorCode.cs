@@ -1,4 +1,4 @@
-namespace MessageHub.ClientServer.Protocol;
+namespace MessageHub.HomeServer;
 
 public enum MatrixErrorCode
 {

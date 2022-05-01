@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace MessageHub.ClientServer.Protocol;
+namespace MessageHub.HomeServer;
 
 public class MatrixError
 {

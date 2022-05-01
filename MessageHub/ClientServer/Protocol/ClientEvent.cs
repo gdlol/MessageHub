@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MessageHub.HomeServer.Events;
 
 namespace MessageHub.ClientServer.Protocol;
 
@@ -35,4 +36,19 @@ public class ClientEvent
 
     [JsonPropertyName("unsigned")]
     public JsonElement? Unsigned { get; set; }
+
+    public static ClientEvent FromPersistentDataUnit(PersistentDataUnit pdu)
+    {
+        return new ClientEvent
+        {
+            Content = pdu.Content,
+            EventId = EventHash.GetEventId(pdu),
+            OriginServerTimestamp = pdu.OriginServerTimestamp,
+            RoomId = pdu.RoomId,
+            Sender = pdu.Sender,
+            StateKey = pdu.StateKey,
+            EventType = pdu.EventType,
+            Unsigned = pdu.Unsigned
+        };
+    }
 }
