@@ -4,7 +4,7 @@ using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
 using Microsoft.AspNetCore.Mvc;
 using MessageHub.HomeServer.Rooms.Timeline;
-using MessageHub.HomeServer.Events;
+using MessageHub.HomeServer.Rooms;
 
 namespace MessageHub.ClientServer;
 
@@ -12,12 +12,15 @@ namespace MessageHub.ClientServer;
 public class GetMessagesController : ControllerBase
 {
     private readonly ITimelineLoader timelineLoader;
+    private readonly IRooms rooms;
 
-    public GetMessagesController(ITimelineLoader timelineLoader)
+    public GetMessagesController(ITimelineLoader timelineLoader, IRooms rooms)
     {
         ArgumentNullException.ThrowIfNull(timelineLoader);
+        ArgumentNullException.ThrowIfNull(rooms);
 
         this.timelineLoader = timelineLoader;
+        this.rooms = rooms;
     }
 
     [Route("{roomId}/messages")]
@@ -94,6 +97,7 @@ public class GetMessagesController : ControllerBase
         }
         if (chunk is null)
         {
+            var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
             var iterator = await timelineLoader.GetTimelineIteratorAsync(roomId, from);
             if (iterator is null)
             {
@@ -109,14 +113,14 @@ public class GetMessagesController : ControllerBase
             var timelineEventFilter = RoomsLoader.GetTimelineEventFilter(roomEventFilter);
             while (true)
             {
-                string eventId = EventHash.GetEventId(iterator.CurrentEvent);
-                if (eventId == to || timelineEvents.Count >= chunkLimit)
+                if (iterator.CurrentEventId == to || timelineEvents.Count >= chunkLimit)
                 {
                     break;
                 }
-                if (timelineEventFilter(iterator.CurrentEvent))
+                var currentEvent = await roomEventStore.LoadEventAsync(iterator.CurrentEventId);
+                if (timelineEventFilter(currentEvent))
                 {
-                    var clientEvent = ClientEventWithoutRoomID.FromPersistentDataUnit(iterator.CurrentEvent);
+                    var clientEvent = ClientEventWithoutRoomID.FromPersistentDataUnit(currentEvent);
                     timelineEvents.Add(clientEvent);
                 }
                 if (!await move())
@@ -124,7 +128,7 @@ public class GetMessagesController : ControllerBase
                     break;
                 }
             }
-            end = EventHash.GetEventId(iterator.CurrentEvent);
+            end = iterator.CurrentEventId;
             chunk = timelineEvents.Select(x => x.ToClientEvent(roomId)).ToArray();
         }
         return new JsonResult(new

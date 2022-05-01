@@ -9,5 +9,6 @@ public interface IRoomStates
     IReadOnlyList<string> JoinedRoomIds { get; }
     IReadOnlyList<string> KnockedRoomIds { get; }
     IReadOnlyList<string> LeftRoomIds { get; }
+    IReadOnlyDictionary<string, string> RoomEventIds { get; }
     StrippedStateEvent[] GetStrippedStateEvents(string roomId);
 }

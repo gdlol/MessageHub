@@ -29,14 +29,8 @@ public class StatesController : ControllerBase
     {
         var pdu = await roomEventStore.LoadEventAsync(eventId);
         var authChain = await AuthorizationEventsController.GetAuthChainAsync(roomEventStore, pdu);
-        var states = await roomEventStore.LoadStatesAsync(eventId);
-        var statePdus = new List<PersistentDataUnit>();
-        foreach (string stateEventId in states.Values)
-        {
-            pdu = await roomEventStore.LoadEventAsync(stateEventId);
-            statePdus.Add(pdu);
-        }
-        return (authChain, statePdus.ToArray());
+        var stateEvents = await roomEventStore.LoadStateEventsAsync(eventId);
+        return (authChain, stateEvents.Values.ToArray());
     }
 
     [Route("state/{roomId}")]

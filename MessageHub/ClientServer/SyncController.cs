@@ -5,6 +5,7 @@ using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
 using Microsoft.AspNetCore.Mvc;
 using MessageHub.HomeServer.Rooms.Timeline;
+using MessageHub.HomeServer.Rooms;
 
 namespace MessageHub.ClientServer;
 
@@ -15,14 +16,15 @@ public class SyncController : ControllerBase
     private readonly AccountDataLoader accountDataLoader;
     private readonly RoomsLoader roomLoader;
 
-    public SyncController(IAccountData accountData, ITimelineLoader timelineLoader)
+    public SyncController(IAccountData accountData, ITimelineLoader timelineLoader, IRooms rooms)
     {
         ArgumentNullException.ThrowIfNull(accountData);
         ArgumentNullException.ThrowIfNull(timelineLoader);
+        ArgumentNullException.ThrowIfNull(rooms);
 
         filterLoader = new FilterLoader(accountData);
         accountDataLoader = new AccountDataLoader(accountData);
-        roomLoader = new RoomsLoader(timelineLoader, accountDataLoader);
+        roomLoader = new RoomsLoader(timelineLoader, rooms, accountDataLoader);
     }
 
     [Route("sync")]

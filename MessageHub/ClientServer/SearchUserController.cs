@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Events.Room;
+using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Rooms.Timeline;
 using Microsoft.AspNetCore.Mvc;
 
@@ -48,12 +49,15 @@ public class SearchUserController : ControllerBase
     }
 
     private readonly ITimelineLoader timelineLoader;
+    private readonly IRooms rooms;
 
-    public SearchUserController(ITimelineLoader timelineLoader)
+    public SearchUserController(ITimelineLoader timelineLoader, IRooms rooms)
     {
         ArgumentNullException.ThrowIfNull(timelineLoader);
+        ArgumentNullException.ThrowIfNull(rooms);
 
         this.timelineLoader = timelineLoader;
+        this.rooms = rooms;
     }
 
     [Route("user_directory/search")]
@@ -113,17 +117,12 @@ public class SearchUserController : ControllerBase
             }
         }
         var roomStates = await timelineLoader.LoadRoomStatesAsync(_ => true, includeLeave: false);
-        var roomEventIds = await timelineLoader.GetRoomEventIds(roomStates.BatchId);
         foreach (string roomId in roomStates.JoinedRoomIds)
         {
-            string eventId = roomEventIds[roomId];
-            var iterator = await timelineLoader.GetTimelineIteratorAsync(roomId, eventId);
-            if (iterator is null)
-            {
-                throw new InvalidOperationException();
-            }
-            var stateEvents = iterator.GetStateEvents();
-            foreach (var stateEvent in stateEvents)
+            string eventId = roomStates.RoomEventIds[roomId];
+            var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
+            var stateEvents = await roomEventStore.LoadStateEventsAsync(eventId);
+            foreach (var stateEvent in stateEvents.Values)
             {
                 updateUserInfo(stateEvent);
             }

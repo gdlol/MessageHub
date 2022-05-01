@@ -1,6 +1,7 @@
 using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events;
+using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Rooms.Timeline;
 
 namespace MessageHub.ClientServer.Sync;
@@ -8,14 +9,17 @@ namespace MessageHub.ClientServer.Sync;
 public class RoomsLoader
 {
     private readonly ITimelineLoader timelineLoader;
+    private readonly IRooms rooms;
     private readonly AccountDataLoader accountDataLoader;
 
-    public RoomsLoader(ITimelineLoader timelineLoader, AccountDataLoader accountDataLoader)
+    public RoomsLoader(ITimelineLoader timelineLoader, IRooms rooms, AccountDataLoader accountDataLoader)
     {
         ArgumentNullException.ThrowIfNull(timelineLoader);
+        ArgumentNullException.ThrowIfNull(rooms);
         ArgumentNullException.ThrowIfNull(accountDataLoader);
 
         this.timelineLoader = timelineLoader;
+        this.rooms = rooms;
         this.accountDataLoader = accountDataLoader;
     }
 
@@ -244,6 +248,8 @@ public class RoomsLoader
             {
                 throw new InvalidOperationException();
             }
+            var roomEventStore = await this.rooms.GetRoomEventStoreAsync(roomId);
+
             var timelineEvents = new List<PersistentDataUnit>();
             bool? limited = null;
             string? previousEventId = null;
@@ -252,23 +258,25 @@ public class RoomsLoader
             {
                 while (true)
                 {
-                    string eventId = EventHash.GetEventId(iterator.CurrentEvent);
-                    if (eventId == sinceEventId)
+                    if (iterator.CurrentEventId == sinceEventId)
                     {
                         previousEventId = sinceEventId;
-                        previousStateEvents = iterator.GetStateEvents();
+                        var stateEvents = await roomEventStore.LoadStateEventsAsync(iterator.CurrentEventId);
+                        previousStateEvents = stateEvents.Values.ToArray();
                         break;
                     }
                     if (filter?.Timeline?.Limit is int limit && timelineEvents.Count >= limit)
                     {
                         limited = true;
-                        previousEventId = eventId;
-                        previousStateEvents = iterator.GetStateEvents();
+                        previousEventId = iterator.CurrentEventId;
+                        var stateEvents = await roomEventStore.LoadStateEventsAsync(iterator.CurrentEventId);
+                        previousStateEvents = stateEvents.Values.ToArray();
                         break;
                     }
-                    if (timelineEventFilter(iterator.CurrentEvent))
+                    var currentEvent = await roomEventStore.LoadEventAsync(iterator.CurrentEventId);
+                    if (timelineEventFilter(currentEvent))
                     {
-                        timelineEvents.Add(iterator.CurrentEvent);
+                        timelineEvents.Add(currentEvent);
                     }
                     if (!await iterator.TryMoveBackwardAsync())
                     {
@@ -280,8 +288,9 @@ public class RoomsLoader
             }
             else
             {
-                previousEventId = EventHash.GetEventId(iterator.CurrentEvent);
-                previousStateEvents = iterator.GetStateEvents();
+                previousEventId = iterator.CurrentEventId;
+                var stateEvents = await roomEventStore.LoadStateEventsAsync(iterator.CurrentEventId);
+                previousStateEvents = stateEvents.Values.ToArray();
             }
             var timeline = new Timeline
             {
@@ -303,13 +312,8 @@ public class RoomsLoader
                 }
                 else
                 {
-                    iterator = await timelineLoader.GetTimelineIteratorAsync(roomId, sinceEventId);
-                    if (iterator is null)
-                    {
-                        throw new InvalidOperationException();
-                    }
-                    var sinceStateEvents = iterator!.GetStateEvents();
-                    var delta = ComputeStateDelta(sinceStateEvents, previousStateEvents);
+                    var sinceStateEvents = await roomEventStore.LoadStateEventsAsync(sinceEventId);
+                    var delta = ComputeStateDelta(sinceStateEvents.Values, previousStateEvents);
                     stateUpdate = new State
                     {
                         Events = FilterStateEvents(delta, filter?.State)
