@@ -139,13 +139,13 @@ public class CreateRoomController : ControllerBase
         var roomSnapshot = new RoomSnapshot();
         PersistentDataUnit pdu;
         var eventIds = new List<string>();
-        var events = new Dictionary<string, JsonElement>();
+        var events = new Dictionary<string, PersistentDataUnit>();
         var statesMap = new Dictionary<string, ImmutableDictionary<RoomStateKey, string>>();
         void AddEvent(PersistentDataUnit pdu, ImmutableDictionary<RoomStateKey, string> states)
         {
             string eventId = EventHash.GetEventId(pdu);
             eventIds.Add(eventId);
-            events[eventId] = pdu.ToJsonElement();
+            events[eventId] = pdu;
             statesMap[eventId] = states;
         }
 

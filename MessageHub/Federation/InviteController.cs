@@ -1,11 +1,11 @@
-using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.Authentication;
 using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Events.Room;
+using MessageHub.HomeServer.Rooms;
+using MessageHub.HomeServer.Rooms.Timeline;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -15,32 +15,24 @@ namespace MessageHub.Federation;
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Federation)]
 public class InviteController : ControllerBase
 {
-    public class InviteParameters
-    {
-        [Required]
-        [JsonPropertyName("event")]
-        public PersistentDataUnit Event { get; set; } = default!;
-
-        [JsonPropertyName("invite_room_state")]
-        public StrippedStateEvent[]? InviteRoomState { get; set; }
-
-        [Required]
-        [JsonPropertyName("room_version")]
-        public int RoomVersion { get; set; }
-    }
-
     private readonly IPeerIdentity peerIdentity;
+    private readonly IRooms rooms;
+    private readonly IEventSaver eventSaver;
 
-    public InviteController(IPeerIdentity peerIdentity)
+    public InviteController(IPeerIdentity peerIdentity, IRooms rooms, IEventSaver eventSaver)
     {
         ArgumentNullException.ThrowIfNull(peerIdentity);
+        ArgumentNullException.ThrowIfNull(rooms);
+        ArgumentNullException.ThrowIfNull(eventSaver);
 
         this.peerIdentity = peerIdentity;
+        this.rooms = rooms;
+        this.eventSaver = eventSaver;
     }
 
     [Route("invite/{roomId}/{eventId}")]
     [HttpPut]
-    public IActionResult Invite(
+    public async Task<IActionResult> Invite(
         [FromRoute] string roomId,
         [FromRoute] string eventId,
         [FromBody] InviteParameters parameters)
@@ -48,6 +40,10 @@ public class InviteController : ControllerBase
         SignedRequest request = (SignedRequest)Request.HttpContext.Items[nameof(request)]!;
         var pdu = parameters.Event;
         if (string.IsNullOrEmpty(roomId) || roomId != pdu.RoomId)
+        {
+            return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(roomId)));
+        }
+        if (rooms.HasRoom(roomId))
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(roomId)));
         }
@@ -85,6 +81,8 @@ public class InviteController : ControllerBase
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(pdu.Content)));
         }
+        await eventSaver.SaveInviteAsync(roomId, parameters.InviteRoomState);
+
         var signedEvent = peerIdentity.SignJson(pdu.ToJsonElement());
         return new JsonResult(new Dictionary<string, object>
         {

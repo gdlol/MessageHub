@@ -56,7 +56,8 @@ public class ServerKeysController : ControllerBase
             {
                 [peerIdentity.Id] = new ServerSignatures
                 {
-                    [new KeyIdentifier(peerIdentity.SignatureAlgorithm, peerIdentity.Id)] = peerIdentity.Signature
+                    [new KeyIdentifier(peerIdentity.SignatureAlgorithm, peerIdentity.Id).ToString()]
+                        = peerIdentity.Signature
                 }
             },
             valid_until_ts = peerIdentity.VerifyKeys.ExpireTimestamp,

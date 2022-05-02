@@ -14,24 +14,6 @@ namespace MessageHub.Federation;
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Federation)]
 public class TransactionsController : ControllerBase
 {
-    public class PushMessagesRequest
-    {
-        [JsonPropertyName("edus")]
-        public EphemeralDataUnit[]? Edus { get; set; }
-
-        [Required]
-        [JsonPropertyName("origin")]
-        public string Origin { get; set; } = default!;
-
-        [Required]
-        [JsonPropertyName("origin_server_ts")]
-        public long OriginServerTimestamp { get; set; }
-
-        [Required]
-        [JsonPropertyName("pdus")]
-        public PersistentDataUnit[] Pdus { get; set; } = default!;
-    }
-
     private readonly IPeerIdentity identity;
     private readonly IEventReceiver eventReceiver;
 

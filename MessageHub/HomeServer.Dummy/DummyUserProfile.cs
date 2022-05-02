@@ -1,18 +1,9 @@
-using System.Text.Json;
-using MessageHub.HomeServer.Events.Room;
-
 namespace MessageHub.HomeServer.Dummy;
 
 public class DummyUserProfile : IUserProfile
 {
     private string? avatarUrl;
     private string? displayName;
-    private readonly DummyEventSender eventSender;
-
-    public DummyUserProfile()
-    {
-        eventSender = new DummyEventSender();
-    }
 
     public Task<string?> GetAvatarUrlAsync(string userId)
     {
@@ -24,47 +15,15 @@ public class DummyUserProfile : IUserProfile
         return Task.FromResult(displayName);
     }
 
-    public async Task SetAvatarUrlAsync(string userId, string url)
+    public Task SetAvatarUrlAsync(string userId, string url)
     {
         avatarUrl = url;
-        var roomStates = RoomHistory.RoomStatesList[^1];
-        foreach (var roomId in roomStates.JoinedRoomIds)
-        {
-            var room = roomStates.Rooms[roomId];
-            var state = room.States[room.EventIds[^1]];
-            if (state.TryGetValue(new RoomStateKey(EventTypes.Member, userId), out string? eventId))
-            {
-                var stateEvent = room.LoadClientEventWithoutRoomId(eventId);
-                var content = stateEvent.Content.Deserialize<MemberEvent>()!;
-                content = content with { AvatarUrl = url };
-                await eventSender.SendStateEventAsync(
-                    userId,
-                    roomId,
-                    new RoomStateKey(EventTypes.Member, userId),
-                    JsonSerializer.SerializeToElement(content));
-            }
-        }
+        return Task.CompletedTask;
     }
 
-    public async Task SetDisplayNameAsync(string userId, string name)
+    public Task SetDisplayNameAsync(string userId, string name)
     {
         displayName = name;
-        var roomStates = RoomHistory.RoomStatesList[^1];
-        foreach (var roomId in roomStates.JoinedRoomIds)
-        {
-            var room = roomStates.Rooms[roomId];
-            var state = room.States[room.EventIds[^1]];
-            if (state.TryGetValue(new RoomStateKey(EventTypes.Member, userId), out string? eventId))
-            {
-                var stateEvent = room.LoadClientEventWithoutRoomId(eventId);
-                var content = stateEvent.Content.Deserialize<MemberEvent>()!;
-                content = content with { DisplayName = name };
-                await eventSender.SendStateEventAsync(
-                    userId,
-                    roomId,
-                    new RoomStateKey(EventTypes.Member, userId),
-                    JsonSerializer.SerializeToElement(content));
-            }
-        }
+        return Task.CompletedTask;
     }
 }

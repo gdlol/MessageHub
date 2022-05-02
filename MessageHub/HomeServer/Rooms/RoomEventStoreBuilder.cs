@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.Text.Json;
 using MessageHub.HomeServer.Events;
 
 namespace MessageHub.HomeServer.Rooms;
@@ -8,10 +7,10 @@ public class RoomEventStoreBuilder : IRoomEventStore
 {
     public IRoomEventStore BaseStore { get; }
 
-    private readonly Dictionary<string, JsonElement> newEvents = new();
+    private readonly Dictionary<string, PersistentDataUnit> newEvents = new();
     private readonly Dictionary<string, ImmutableDictionary<RoomStateKey, string>> newStates = new();
 
-    public IReadOnlyDictionary<string, JsonElement> NewEvents => newEvents;
+    public IReadOnlyDictionary<string, PersistentDataUnit> NewEvents => newEvents;
     public IReadOnlyDictionary<string, ImmutableDictionary<RoomStateKey, string>> NewStates => newStates;
 
     public string Creator => BaseStore.Creator;
@@ -30,11 +29,11 @@ public class RoomEventStoreBuilder : IRoomEventStore
 
     public async ValueTask<PersistentDataUnit> LoadEventAsync(string eventId)
     {
-        if (newEvents.TryGetValue(eventId, out var element))
+        if (newEvents.TryGetValue(eventId, out var pdu))
         {
-            return JsonSerializer.Deserialize<PersistentDataUnit>(element)!;
+            return pdu!;
         }
-        var pdu = await BaseStore.LoadEventAsync(eventId);
+        pdu = await BaseStore.LoadEventAsync(eventId);
         return pdu;
     }
 
@@ -50,7 +49,7 @@ public class RoomEventStoreBuilder : IRoomEventStore
 
     public void AddEvent(string eventId, PersistentDataUnit pdu, ImmutableDictionary<RoomStateKey, string> states)
     {
-        newEvents.Add(eventId, pdu.ToJsonElement());
+        newEvents.Add(eventId, pdu);
         newStates.Add(eventId, states);
     }
 }

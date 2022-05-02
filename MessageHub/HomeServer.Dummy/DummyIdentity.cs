@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Security.Cryptography;
+using System.Text;
 
 namespace MessageHub.HomeServer.Dummy;
 
@@ -46,9 +47,9 @@ public class DummyIdentity : IPeerIdentity
         {
             throw new InvalidOperationException();
         }
-        string key = $"dummy-key-{Id}-private";
+        var key = Encoding.UTF8.GetBytes($"dummy-key-{Id}-private");
         var hash = SHA256.HashData(data);
-        var signature = key + Convert.ToHexString(hash);
+        var signature = Convert.ToHexString(key.Concat(hash).ToArray());
         return Convert.FromHexString(signature);
     }
 
@@ -60,6 +61,7 @@ public class DummyIdentity : IPeerIdentity
         }
         var hash = SHA256.HashData(data);
         string signatureString = Convert.ToHexString(signature);
-        return signatureString == $"{key}-private" + Convert.ToHexString(hash);
+        var keyBytes = Encoding.UTF8.GetBytes($"{key}-private");
+        return signatureString == Convert.ToHexString(keyBytes.Concat(hash).ToArray());
     }
 }

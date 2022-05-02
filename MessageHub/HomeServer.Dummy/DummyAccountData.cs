@@ -107,10 +107,6 @@ public class DummyAccountData : IAccountData
 
     public Task<bool> SetRoomVisibilityAsync(string roomId, string visibility)
     {
-        if (!RoomHistory.RoomStatesList[^1].Rooms.ContainsKey(roomId))
-        {
-            return Task.FromResult(false);
-        }
         roomVisibilities.AddOrUpdate(roomId, visibility, (_, _) => visibility);
         return Task.FromResult(true);
     }

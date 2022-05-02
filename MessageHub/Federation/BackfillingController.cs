@@ -72,13 +72,13 @@ public class BackfillingController : ControllerBase
         }
         if (eventIds is null)
         {
-            return BadRequest(MatrixError.Create(MatrixErrorCode.MissingParameter, "v"));
+            eventIds = roomSnapshot.LatestEventIds.ToArray();
         }
-        if (eventIds.Any(x => x is null))
+        else if (eventIds.Any(x => x is null))
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, "v"));
         }
-        eventIds = eventIds.Distinct().ToArray();
+        eventIds = eventIds.Distinct().Take(20).ToArray();
         var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
         limit = Math.Min(limit.Value, 100);
         var missingEventIds = await roomEventStore.GetMissingEventIdsAsync(eventIds);

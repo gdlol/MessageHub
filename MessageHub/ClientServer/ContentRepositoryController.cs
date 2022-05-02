@@ -45,27 +45,20 @@ public class ContentRepositoryController : ControllerBase
         {
             string url = $"mxc://{serverName}/{mediaId}";
             var stream = await contentRepository.DownloadFileAsync(url);
-            if (stream is null)
-            {
-                return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));
-            }
-            else
+            if (stream is not null)
             {
                 return File(stream, "application/octet-stream", mediaId);
             }
         }
-        else
+        else if (Request.HttpContext.User.Identity?.IsAuthenticated == true)
         {
             var stream = await remoteContentRepository.DownloadFileAsync(serverName, mediaId);
-            if (stream is null)
-            {
-                return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));
-            }
-            else
+            if (stream is not null)
             {
                 return File(stream, "application/octet-stream", mediaId);
             }
         }
+        return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));
     }
 
     [Route("download/{serverName}/{mediaId}/{fileName}")]
@@ -77,27 +70,20 @@ public class ContentRepositoryController : ControllerBase
         {
             string url = $"mxc://{serverName}/{mediaId}";
             var stream = await contentRepository.DownloadFileAsync(url);
-            if (stream is null)
-            {
-                return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));
-            }
-            else
+            if (stream is not null)
             {
                 return File(stream, "application/octet-stream", fileName);
             }
         }
-        else
+        else if (Request.HttpContext.User.Identity?.IsAuthenticated == true)
         {
             var stream = await remoteContentRepository.DownloadFileAsync(serverName, mediaId);
-            if (stream is null)
-            {
-                return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));
-            }
-            else
+            if (stream is not null)
             {
                 return File(stream, "application/octet-stream", fileName);
             }
         }
+        return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));
     }
 
     [Route("thumbnail/{serverName}/{mediaId}")]

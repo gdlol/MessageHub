@@ -35,7 +35,7 @@ public static class PeerIdentityExtensions
             var (algorithm, keyName) = keyIdentifier;
             var signature = identity.CreateSignature(algorithm, keyName, jsonBytes);
             var signatureString = UnpaddedBase64Encoder.Encode(signature);
-            signatures[keyIdentifier] = signatureString;
+            signatures[keyIdentifier.ToString()] = signatureString;
         }
         jsonObject[nameof(signatures)] = JsonObject.Create(
             JsonSerializer.SerializeToElement(new Signatures
@@ -47,6 +47,15 @@ public static class PeerIdentityExtensions
             jsonObject[nameof(unsigned)] = unsigned;
         }
         return JsonSerializer.SerializeToElement(jsonObject);
+    }
+
+    public static PersistentDataUnit SignEvent(this IPeerIdentity identity, PersistentDataUnit pdu)
+    {
+        ArgumentNullException.ThrowIfNull(identity);
+        ArgumentNullException.ThrowIfNull(pdu);
+
+        var signedElement = identity.SignJson(pdu.ToJsonElement());
+        return signedElement.Deserialize<PersistentDataUnit>()!;
     }
 
     public static bool VerifyJson(this IPeerIdentity self, IPeerIdentity identity, JsonElement element)

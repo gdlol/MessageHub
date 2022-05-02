@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 
 namespace MessageHub.HomeServer.Events;
 
-public class ServerSignatures : Dictionary<KeyIdentifier, string> { }
+public class ServerSignatures : Dictionary<string, string> { }
 
 public class Signatures : Dictionary<string, ServerSignatures> { }
 

@@ -6,6 +6,15 @@ public class DummyRoomDiscoveryService : IRoomDiscoveryService
 {
     private readonly ConcurrentDictionary<string, string> aliases = new();
 
+    private readonly IPeerIdentity peerIdentity;
+
+    public DummyRoomDiscoveryService(IPeerIdentity peerIdentity)
+    {
+        ArgumentNullException.ThrowIfNull(peerIdentity);
+
+        this.peerIdentity = peerIdentity;
+    }
+
     public Task<string?> GetRoomIdAsync(string alias)
     {
         ArgumentNullException.ThrowIfNull(alias);
@@ -18,7 +27,7 @@ public class DummyRoomDiscoveryService : IRoomDiscoveryService
     {
         ArgumentNullException.ThrowIfNull(roomId);
 
-        var result = new[] { DummyHostInfo.Instance.ServerName };
+        var result = new[] { peerIdentity.Id };
         return Task.FromResult(result);
     }
 
@@ -28,14 +37,7 @@ public class DummyRoomDiscoveryService : IRoomDiscoveryService
         ArgumentNullException.ThrowIfNull(alias);
 
         bool? result;
-        if (RoomHistory.RoomStatesList[^1].Rooms.ContainsKey(roomId))
-        {
-            result = aliases.TryAdd(alias, roomId);
-        }
-        else
-        {
-            result = null;
-        }
+        result = aliases.TryAdd(alias, roomId);
         return Task.FromResult(result);
     }
 

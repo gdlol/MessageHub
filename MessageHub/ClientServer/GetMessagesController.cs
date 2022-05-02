@@ -38,7 +38,8 @@ public class GetMessagesController : ControllerBase
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.MissingParameter, nameof(direction)));
         }
-        if (!timelineLoader.HasRoom(roomId))
+        var roomStates = await timelineLoader.LoadRoomStatesAsync(_ => true, true);
+        if (!roomStates.JoinedRoomIds.Contains(roomId) && !roomStates.LeftRoomIds.Contains(roomId))
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(roomId)}: {roomId}"));
         }

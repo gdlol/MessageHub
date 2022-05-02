@@ -3,10 +3,10 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
-using MessageHub.Federation;
 using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events;
+using MessageHub.HomeServer.Rooms;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;
@@ -17,6 +17,7 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
 {
     private readonly IPeerIdentity identity;
     private readonly IPeerStore peerStore;
+    private readonly IRooms rooms;
 
     public FederationAuthenticationHandler(
         IOptionsMonitor<FederationAuthenticationSchemeOptions> options,
@@ -24,13 +25,16 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
         UrlEncoder encoder,
         ISystemClock clock,
         IPeerIdentity identity,
-        IPeerStore peerStore) : base(options, logger, encoder, clock)
+        IPeerStore peerStore,
+        IRooms rooms) : base(options, logger, encoder, clock)
     {
         ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(peerStore);
+        ArgumentNullException.ThrowIfNull(rooms);
 
         this.identity = identity;
         this.peerStore = peerStore;
+        this.rooms = rooms;
     }
 
     private static bool TryParseAuthorizationHeader(string s, out Dictionary<string, string> header)
@@ -76,7 +80,7 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
                         {
                             signatures[origin] = originSignatures = new ServerSignatures();
                         }
-                        originSignatures[keyIdentifier] = signature;
+                        originSignatures[keyIdentifier.ToString()] = signature;
                     }
                 }
             }
@@ -111,11 +115,17 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
             Uri = Request.Path,
             Origin = sender,
             OriginServerTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-            Destination = identity.Id,
+            Destination = Request.Host.ToString(),
             Content = content,
             Signatures = JsonSerializer.SerializeToElement(signatures)
         };
-        if (peerStore.TryGetPeer(sender, out var peer) && identity.VerifyRequest(peer, request))
+        if (request.Destination != identity.Id && !rooms.HasRoom(request.Destination))
+        {
+            var error = MatrixError.Create(MatrixErrorCode.Unauthorized);
+            return AuthenticateResult.Fail(error.ToString());
+        }
+        if (peerStore.TryGetPeer(sender, out var peer) 
+            && identity.VerifyJson(peer, JsonSerializer.SerializeToElement(request)))
         {
             Request.HttpContext.Items[nameof(request)] = request;
             var claims = new[] { new Claim(ClaimTypes.Name, peer.Id) };

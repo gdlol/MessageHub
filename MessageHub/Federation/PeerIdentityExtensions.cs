@@ -7,6 +7,11 @@ namespace MessageHub.Federation;
 
 public static class PeerIdentityExtensions
 {
+    private static readonly JsonSerializerOptions ignoreNullOptions = new()
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
+
     public static JsonElement SignRequest(
         this IPeerIdentity identity,
         string destination,
@@ -26,16 +31,14 @@ public static class PeerIdentityExtensions
             Uri = requestTarget,
             Origin = identity.Id,
             OriginServerTimestamp = timestamp ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-            Destination = destination
+            Destination = destination,
+            Signatures = JsonSerializer.SerializeToElement<object?>(null)
         };
         if (content is not null)
         {
-            request.Content = JsonSerializer.SerializeToElement(content);
+            request.Content = JsonSerializer.SerializeToElement(content, ignoreNullOptions);
         }
-        var element = JsonSerializer.SerializeToElement(request, new JsonSerializerOptions
-        {
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-        });
+        var element = JsonSerializer.SerializeToElement(request);
         return identity.SignJson(element);
     }
 
@@ -48,22 +51,9 @@ public static class PeerIdentityExtensions
         var response = new SignedResponse
         {
             Request = request,
-            Content = JsonSerializer.SerializeToElement(content)
+            Content = JsonSerializer.SerializeToElement(content, ignoreNullOptions)
         };
-        var element = JsonSerializer.SerializeToElement(response);
+        var element = JsonSerializer.SerializeToElement(response, ignoreNullOptions);
         return identity.SignJson(element);
-    }
-
-    public static bool VerifyRequest(this IPeerIdentity self, IPeerIdentity entity, SignedRequest request)
-    {
-        if (request.Origin != entity.Id)
-        {
-            return false;
-        }
-        if (request.Destination != self.Id)
-        {
-            return false;
-        }
-        return self.VerifyJson(entity, JsonSerializer.SerializeToElement(request));
     }
 }

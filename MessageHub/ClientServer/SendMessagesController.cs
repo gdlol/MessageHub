@@ -68,9 +68,8 @@ public class SendMessagesController : ControllerBase
             content: body,
             timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
         string eventId = EventHash.GetEventId(pdu);
-        var element = pdu.ToJsonElement();
-        element = peerIdentity.SignJson(element);
-        await eventSaver.SaveAsync(roomId, eventId, element, snapshot.States);
+        var signedPdu = peerIdentity.SignEvent(pdu);
+        await eventSaver.SaveAsync(roomId, eventId, signedPdu, snapshot.States);
         return new JsonResult(new { event_id = eventId });
     }
 
@@ -114,9 +113,8 @@ public class SendMessagesController : ControllerBase
                 },
                 ignoreNullOptions));
         string eventId = EventHash.GetEventId(pdu);
-        var element = pdu.ToJsonElement();
-        element = peerIdentity.SignJson(element);
-        await eventSaver.SaveAsync(roomId, eventId, element, snapshot.States);
+        var signedPdu = peerIdentity.SignEvent(pdu);
+        await eventSaver.SaveAsync(roomId, eventId, signedPdu, snapshot.States);
         return new JsonResult(new { event_id = eventId });
     }
 
@@ -176,9 +174,8 @@ public class SendMessagesController : ControllerBase
                 },
                 ignoreNullOptions));
         string redactEventId = EventHash.GetEventId(pdu);
-        var element = pdu.ToJsonElement();
-        element = peerIdentity.SignJson(element);
-        await eventSaver.SaveAsync(roomId, redactEventId, element, snapshot.States);
+        var signedPdu = peerIdentity.SignEvent(pdu);
+        await eventSaver.SaveAsync(roomId, redactEventId, signedPdu, snapshot.States);
         return new JsonResult(new { event_id = redactEventId });
     }
 }
