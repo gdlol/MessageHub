@@ -1,14 +1,17 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MessageHub.Authentication;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events.General;
 using MessageHub.HomeServer.Rooms;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MessageHub.ClientServer;
 
 [Route("_matrix/client/{version}")]
+[Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
 public class FullyReadController : ControllerBase
 {
     public class SetReadMarkerRequest

@@ -34,7 +34,7 @@ public class DummyRooms : IRooms
         return Task.FromResult(result);
     }
 
-    public async Task AddEventAsync(
+    public async ValueTask AddEventAsync(
         string eventId,
         PersistentDataUnit pdu,
         ImmutableDictionary<RoomStateKey, string> states)
@@ -71,7 +71,7 @@ public class DummyRooms : IRooms
         roomSnapshot = new RoomSnapshot
         {
             LatestEventIds = latestEventIds.ToImmutableList(),
-            GraphDepth = pdus.Select(x => x.Depth).DefaultIfEmpty(0).Max() + 1,
+            GraphDepth = pdus.Select(x => x.Depth).Max(),
             States = newStates,
             StateContents = stateContents.ToImmutableDictionary()
         };

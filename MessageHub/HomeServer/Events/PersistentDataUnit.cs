@@ -67,4 +67,9 @@ public class PersistentDataUnit
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     });
+
+    public override string ToString()
+    {
+        return ToJsonElement().ToString();
+    }
 }

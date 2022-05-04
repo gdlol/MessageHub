@@ -1,3 +1,4 @@
+using MessageHub.Authentication;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Remote;
 using Microsoft.AspNetCore.Authorization;
@@ -28,6 +29,7 @@ public class ContentRepositoryController : ControllerBase
 
     [Route("config")]
     [HttpGet]
+    [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
     public IActionResult GetConfig()
     {
         return new JsonResult(new Dictionary<string, object>
@@ -38,7 +40,6 @@ public class ContentRepositoryController : ControllerBase
 
     [Route("download/{serverName}/{mediaId}")]
     [HttpGet]
-    [AllowAnonymous]
     public async Task<IActionResult> Download(string serverName, string mediaId)
     {
         if (serverName == peerIdentity.Id)
@@ -50,7 +51,7 @@ public class ContentRepositoryController : ControllerBase
                 return File(stream, "application/octet-stream", mediaId);
             }
         }
-        else if (Request.HttpContext.User.Identity?.IsAuthenticated == true)
+        else
         {
             var stream = await remoteContentRepository.DownloadFileAsync(serverName, mediaId);
             if (stream is not null)
@@ -63,7 +64,6 @@ public class ContentRepositoryController : ControllerBase
 
     [Route("download/{serverName}/{mediaId}/{fileName}")]
     [HttpGet]
-    [AllowAnonymous]
     public async Task<IActionResult> Download(string serverName, string mediaId, string fileName)
     {
         if (serverName == peerIdentity.Id)
@@ -75,7 +75,7 @@ public class ContentRepositoryController : ControllerBase
                 return File(stream, "application/octet-stream", fileName);
             }
         }
-        else if (Request.HttpContext.User.Identity?.IsAuthenticated == true)
+        else
         {
             var stream = await remoteContentRepository.DownloadFileAsync(serverName, mediaId);
             if (stream is not null)
@@ -88,7 +88,6 @@ public class ContentRepositoryController : ControllerBase
 
     [Route("thumbnail/{serverName}/{mediaId}")]
     [HttpGet]
-    [AllowAnonymous]
     public Task<IActionResult> DownloadThumbnail(string serverName, string mediaId)
     {
         return Download(serverName, mediaId);
@@ -96,6 +95,7 @@ public class ContentRepositoryController : ControllerBase
 
     [Route("upload")]
     [HttpPost]
+    [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
     public async Task<IActionResult> Upload()
     {
         string url = await contentRepository.UploadFileAsync(Request.Body);

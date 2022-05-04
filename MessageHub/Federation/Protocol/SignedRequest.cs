@@ -32,4 +32,9 @@ public class SignedRequest
     [Required]
     [JsonPropertyName("signatures")]
     public JsonElement Signatures { get; set; } = default!;
+
+    public override string ToString()
+    {
+        return JsonSerializer.Serialize(this).ToString();
+    }
 }

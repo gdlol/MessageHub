@@ -3,11 +3,13 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Rooms;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;
 
@@ -15,6 +17,11 @@ namespace MessageHub.Authentication;
 
 public class FederationAuthenticationHandler : AuthenticationHandler<FederationAuthenticationSchemeOptions>
 {
+    private static readonly JsonSerializerOptions ignoreNullOptions = new()
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
+
     private readonly IPeerIdentity identity;
     private readonly IPeerStore peerStore;
     private readonly IRooms rooms;
@@ -109,13 +116,29 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
             var error = MatrixError.Create(MatrixErrorCode.Unknown);
             return AuthenticateResult.Fail(error.ToString());
         }
+        finally
+        {
+            Request.Body.Position = 0;
+        }
+        if (!Request.Headers.TryGetValue("Matrix-Host", out var hostValues)
+            || hostValues.SingleOrDefault() is not string host)
+        {
+            var error = MatrixError.Create(MatrixErrorCode.Unauthorized);
+            return AuthenticateResult.Fail(error.ToString());
+        }
+        if (!Request.Headers.TryGetValue("Matrix-Timestamp", out var timestampValues)
+            || !long.TryParse(timestampValues.SingleOrDefault(), out long timestamp))
+        {
+            var error = MatrixError.Create(MatrixErrorCode.Unauthorized);
+            return AuthenticateResult.Fail(error.ToString());
+        }
         var request = new SignedRequest
         {
             Method = Request.Method.ToUpperInvariant(),
-            Uri = Request.Path,
+            Uri = UriHelper.BuildRelative(path: Request.Path, query: Request.QueryString),
             Origin = sender,
-            OriginServerTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-            Destination = Request.Host.ToString(),
+            OriginServerTimestamp = timestamp,
+            Destination = host,
             Content = content,
             Signatures = JsonSerializer.SerializeToElement(signatures)
         };
@@ -124,8 +147,8 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
             var error = MatrixError.Create(MatrixErrorCode.Unauthorized);
             return AuthenticateResult.Fail(error.ToString());
         }
-        if (peerStore.TryGetPeer(sender, out var peer) 
-            && identity.VerifyJson(peer, JsonSerializer.SerializeToElement(request)))
+        if (peerStore.TryGetPeer(sender, out var peer)
+            && identity.VerifyJson(peer, JsonSerializer.SerializeToElement(request, ignoreNullOptions)))
         {
             Request.HttpContext.Items[nameof(request)] = request;
             var claims = new[] { new Claim(ClaimTypes.Name, peer.Id) };

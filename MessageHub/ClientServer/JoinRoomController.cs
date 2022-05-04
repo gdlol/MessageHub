@@ -1,14 +1,17 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MessageHub.Authentication;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Events.Room;
 using MessageHub.HomeServer.Remote;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MessageHub.ClientServer;
 
 [Route("_matrix/client/{version}")]
+[Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
 public class JoinRoomController : ControllerBase
 {
     private readonly IPeerIdentity peerIdentity;
@@ -54,7 +57,7 @@ public class JoinRoomController : ControllerBase
         element = peerIdentity.SignJson(element);
 
         await remoteRooms.SendJoinAsync(roomId, eventId, element);
-        await remoteRooms.BackfillAsync(roomId);
+        _ = remoteRooms.BackfillAsync(roomId);
         return new JsonResult(new { room_id = roomId });
     }
 }

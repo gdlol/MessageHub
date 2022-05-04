@@ -6,10 +6,13 @@ using MessageHub.HomeServer;
 using Microsoft.AspNetCore.Mvc;
 using MessageHub.HomeServer.Rooms.Timeline;
 using MessageHub.HomeServer.Rooms;
+using Microsoft.AspNetCore.Authorization;
+using MessageHub.Authentication;
 
 namespace MessageHub.ClientServer;
 
 [Route("_matrix/client/{version}")]
+[Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
 public class SyncController : ControllerBase
 {
     private readonly FilterLoader filterLoader;

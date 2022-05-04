@@ -70,7 +70,7 @@ public class BackfillingController : ControllerBase
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.MissingParameter, "limit"));
         }
-        if (eventIds is null)
+        if (eventIds is null || eventIds.Length == 0)
         {
             eventIds = roomSnapshot.LatestEventIds.ToArray();
         }

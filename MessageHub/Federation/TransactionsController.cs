@@ -46,6 +46,6 @@ public class TransactionsController : ControllerBase
                 return error is null ? new object() : new { error };
             })
         };
-        return identity.SignResponse(request, response);
+        return JsonSerializer.SerializeToElement(response);
     }
 }

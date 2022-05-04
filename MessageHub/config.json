@@ -1,0 +1,6 @@
+{
+    "peerId": "dummy",
+    "peers": {
+        "dummy": "localhost:8448"
+    }
+}

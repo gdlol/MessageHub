@@ -162,7 +162,7 @@ public class JoinRoomController : ControllerBase
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(eventId)));
         }
         var errors = await eventReceiver.ReceivePersistentEventsAsync(new[] { pdu });
-        if (errors.TryGetValue(eventId, out string? error))
+        if (errors.TryGetValue(eventId, out string? error) && error is not null)
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.BadState, error));
         }

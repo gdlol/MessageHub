@@ -1,17 +1,20 @@
 using System.Collections.Immutable;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MessageHub.Authentication;
 using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Events.Room;
 using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Rooms.Timeline;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MessageHub.ClientServer;
 
 [Route("_matrix/client/{version}")]
+[Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
 public class CreateRoomController : ControllerBase
 {
     private static readonly JsonSerializerOptions ignoreNullOptions = new()
@@ -143,6 +146,7 @@ public class CreateRoomController : ControllerBase
         var statesMap = new Dictionary<string, ImmutableDictionary<RoomStateKey, string>>();
         void AddEvent(PersistentDataUnit pdu, ImmutableDictionary<RoomStateKey, string> states)
         {
+            pdu = peerIdentity.SignEvent(pdu);
             string eventId = EventHash.GetEventId(pdu);
             eventIds.Add(eventId);
             events[eventId] = pdu;

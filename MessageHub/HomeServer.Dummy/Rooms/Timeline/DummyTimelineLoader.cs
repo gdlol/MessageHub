@@ -5,7 +5,7 @@ namespace MessageHub.HomeServer.Dummy.Rooms.Timeline;
 
 public class DummyTimelineLoader : ITimelineLoader
 {
-    public bool IsEmpty => DummyTimeline.Timelines.IsEmpty;
+    public bool IsEmpty => DummyTimeline.BatchIds.IsEmpty;
 
     public string CurrentBatchId => DummyTimeline.BatchIds.LastOrDefault() ?? string.Empty;
 
@@ -33,9 +33,9 @@ public class DummyTimelineLoader : ITimelineLoader
         return Task.FromResult(result);
     }
 
-    public Task<IRoomStates> LoadRoomStatesAsync(Func<string, bool> roomIdFilter, bool includeLeave)
+    public Task<BatchStates> LoadBatchStatesAsync(Func<string, bool> roomIdFilter, bool includeLeave)
     {
-        IRoomStates roomStates = DummyTimeline.RoomStates.Filter(roomIdFilter, includeLeave);
-        return Task.FromResult(roomStates);
+        BatchStates batchStates = DummyTimeline.BatchStates.Filter(roomIdFilter, includeLeave);
+        return Task.FromResult(batchStates);
     }
 }

@@ -2,16 +2,19 @@ using System.Collections.Concurrent;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MessageHub.Authentication;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Events.Room;
 using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Rooms.Timeline;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MessageHub.ClientServer;
 
 [Route("_matrix/client/{version}")]
+[Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
 public class SearchUserController : ControllerBase
 {
     public class SearchRequestBody
@@ -119,15 +122,17 @@ public class SearchUserController : ControllerBase
                     });
             }
         }
-        var roomStates = await timelineLoader.LoadRoomStatesAsync(_ => true, includeLeave: false);
-        foreach (string roomId in roomStates.JoinedRoomIds)
+        var batchStates = await timelineLoader.LoadBatchStatesAsync(_ => true, includeLeave: false);
+        foreach (string roomId in batchStates.JoinedRoomIds)
         {
-            string eventId = roomStates.RoomEventIds[roomId];
-            var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
-            var stateEvents = await roomEventStore.LoadStateEventsAsync(eventId);
-            foreach (var stateEvent in stateEvents.Values)
+            if (batchStates.RoomEventIds.TryGetValue(roomId, out string? eventId))
             {
-                updateUserInfo(stateEvent);
+                var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
+                var stateEvents = await roomEventStore.LoadStateEventsAsync(eventId);
+                foreach (var stateEvent in stateEvents.Values)
+                {
+                    updateUserInfo(stateEvent);
+                }
             }
         }
         var users = new List<SearchResponse.User>();
@@ -150,7 +155,7 @@ public class SearchUserController : ControllerBase
             }
             if (searchTokens.Any(token =>
             {
-                return user.UserId.Contains(token) && user.DisplayName?.Contains(token) == true;
+                return user.UserId.Contains(token) || user.DisplayName?.Contains(token) == true;
             }))
             {
                 users.Add(user);

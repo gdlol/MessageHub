@@ -1,8 +1,11 @@
+using MessageHub.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MessageHub.ClientServer;
 
 [Route("_matrix/client/{version}/voip")]
+[Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
 public class VoIPController : ControllerBase
 {
     [Route("turnServer")]

@@ -5,10 +5,13 @@ using MessageHub.HomeServer;
 using Microsoft.AspNetCore.Mvc;
 using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Events.Room;
+using Microsoft.AspNetCore.Authorization;
+using MessageHub.Authentication;
 
 namespace MessageHub.ClientServer;
 
 [Route("_matrix/client/{version}/rooms")]
+[Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
 public class RoomsController : ControllerBase
 {
     private static readonly JsonSerializerOptions ignoreNullOptions = new()

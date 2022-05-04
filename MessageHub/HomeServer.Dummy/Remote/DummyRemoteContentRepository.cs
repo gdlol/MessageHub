@@ -15,7 +15,7 @@ public class DummyRemoteContentRepository : IRemoteContentRepository
 
     public async Task<Stream?> DownloadFileAsync(string serverName, string mediaId)
     {
-        string url = $"_matrix/media/v3/download/{serverName}/{mediaId}";
+        string url = $"/_matrix/media/v3/download/{serverName}/{mediaId}";
         var stream = await requestHandler.DownloadAsync(serverName, url);
         return stream;
     }

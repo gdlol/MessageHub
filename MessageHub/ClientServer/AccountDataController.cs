@@ -1,10 +1,13 @@
 using System.Text.Json;
+using MessageHub.Authentication;
 using MessageHub.HomeServer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MessageHub.ClientServer;
 
 [Route("_matrix/client/{version}/user")]
+[Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
 public class AccountDataController : ControllerBase
 {
     private readonly IAccountData accountData;

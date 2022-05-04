@@ -6,10 +6,13 @@ using Microsoft.AspNetCore.Mvc;
 using MessageHub.HomeServer.Rooms.Timeline;
 using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Events;
+using Microsoft.AspNetCore.Authorization;
+using MessageHub.Authentication;
 
 namespace MessageHub.ClientServer;
 
 [Route("_matrix/client/{version}/rooms")]
+[Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
 public class GetMessagesController : ControllerBase
 {
     private readonly ITimelineLoader timelineLoader;
@@ -38,8 +41,8 @@ public class GetMessagesController : ControllerBase
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.MissingParameter, nameof(direction)));
         }
-        var roomStates = await timelineLoader.LoadRoomStatesAsync(_ => true, true);
-        if (!roomStates.JoinedRoomIds.Contains(roomId) && !roomStates.LeftRoomIds.Contains(roomId))
+        var batchStates = await timelineLoader.LoadBatchStatesAsync(_ => true, true);
+        if (!batchStates.JoinedRoomIds.Contains(roomId) && !batchStates.LeftRoomIds.Contains(roomId))
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(roomId)}: {roomId}"));
         }

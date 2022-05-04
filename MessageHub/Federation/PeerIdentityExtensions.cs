@@ -12,7 +12,7 @@ public static class PeerIdentityExtensions
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    public static JsonElement SignRequest(
+    public static SignedRequest SignRequest(
         this IPeerIdentity identity,
         string destination,
         string requestMethod,
@@ -38,8 +38,9 @@ public static class PeerIdentityExtensions
         {
             request.Content = JsonSerializer.SerializeToElement(content, ignoreNullOptions);
         }
-        var element = JsonSerializer.SerializeToElement(request);
-        return identity.SignJson(element);
+        var element = JsonSerializer.SerializeToElement(request, ignoreNullOptions);
+        element = identity.SignJson(element);
+        return element.Deserialize<SignedRequest>()!;
     }
 
     public static JsonElement SignResponse(this IPeerIdentity identity, SignedRequest request, object content)
@@ -51,7 +52,8 @@ public static class PeerIdentityExtensions
         var response = new SignedResponse
         {
             Request = request,
-            Content = JsonSerializer.SerializeToElement(content, ignoreNullOptions)
+            Content = JsonSerializer.SerializeToElement(content, ignoreNullOptions),
+            Signatures = JsonSerializer.SerializeToElement<object?>(null)
         };
         var element = JsonSerializer.SerializeToElement(response, ignoreNullOptions);
         return identity.SignJson(element);

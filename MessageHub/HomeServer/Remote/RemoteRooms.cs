@@ -1,25 +1,38 @@
 using System.Text.Json;
-using System.Web;
 using MessageHub.Federation;
 using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer.Events;
+using MessageHub.HomeServer.Events.Room;
+using MessageHub.HomeServer.Rooms.Timeline;
+using Microsoft.AspNetCore.WebUtilities;
 
 namespace MessageHub.HomeServer.Remote;
 
 public class RemoteRooms : IRemoteRooms
 {
+    private readonly ILogger logger;
     private readonly IPeerIdentity peerIdentity;
     private readonly IRequestHandler requestHandler;
+    private readonly IEventSaver eventSaver;
     private readonly IEventReceiver eventReceiver;
 
-    public RemoteRooms(IPeerIdentity peerIdentity, IRequestHandler requestHandler, IEventReceiver eventReceiver)
+    public RemoteRooms(
+        ILogger<RemoteRooms> logger,
+        IPeerIdentity peerIdentity,
+        IRequestHandler requestHandler,
+        IEventSaver eventSaver,
+        IEventReceiver eventReceiver)
     {
+        ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(peerIdentity);
         ArgumentNullException.ThrowIfNull(requestHandler);
+        ArgumentNullException.ThrowIfNull(eventSaver);
         ArgumentNullException.ThrowIfNull(eventReceiver);
 
+        this.logger = logger;
         this.peerIdentity = peerIdentity;
         this.requestHandler = requestHandler;
+        this.eventSaver = eventSaver;
         this.eventReceiver = eventReceiver;
     }
 
@@ -29,7 +42,7 @@ public class RemoteRooms : IRemoteRooms
         var request = peerIdentity.SignRequest(
             destination: userId.PeerId,
             requestMethod: HttpMethods.Put,
-            requestTarget: $"_matrix/federation/v2/invite/{roomId}/{eventId}",
+            requestTarget: $"/_matrix/federation/v2/invite/{roomId}/{eventId}",
             content: parameters);
         return requestHandler.SendRequest(request);
     }
@@ -39,7 +52,7 @@ public class RemoteRooms : IRemoteRooms
         var request = peerIdentity.SignRequest(
             destination: roomId,
             requestMethod: HttpMethods.Get,
-            requestTarget: $"_matrix/federation/v1/make_join/{roomId}/{userId}");
+            requestTarget: $"/_matrix/federation/v1/make_join/{roomId}/{userId}");
         var result = await requestHandler.SendRequest(request);
         return JsonSerializer.Deserialize<PersistentDataUnit>(result)!;
     }
@@ -49,26 +62,26 @@ public class RemoteRooms : IRemoteRooms
         var request = peerIdentity.SignRequest(
             destination: roomId,
             requestMethod: HttpMethods.Put,
-            requestTarget: $"_matrix/federation/v1/send_join/{roomId}/{eventId}",
+            requestTarget: $"/_matrix/federation/v1/send_join/{roomId}/{eventId}",
             content: pdu);
         return requestHandler.SendRequest(request);
     }
 
     public async Task BackfillAsync(string roomId)
     {
+        logger.LogInformation("Backfill {}...", roomId);
         async Task<PersistentDataUnit[]> backfillEvents(string[] eventIds)
         {
-            var uriBuilder = new UriBuilder($"_matrix/federation/v1/backfill/{roomId}");
-            var query = HttpUtility.ParseQueryString(uriBuilder.Query);
+            string target = $"/_matrix/federation/v1/backfill/{roomId}";
+            target = QueryHelpers.AddQueryString(target, "limit", 100.ToString());
             foreach (string eventId in eventIds)
             {
-                query.Add("v", eventId);
+                target = QueryHelpers.AddQueryString(target, "v", eventId);
             }
-            uriBuilder.Query = query.ToString();
             var request = peerIdentity.SignRequest(
                 destination: roomId,
                 requestMethod: HttpMethods.Get,
-                requestTarget: $"_matrix/federation/v1/backfill/{roomId}");
+                requestTarget: target);
             var result = await requestHandler.SendRequest(request);
             return result.GetProperty("pdus").Deserialize<PersistentDataUnit[]>()!;
         }
@@ -82,13 +95,33 @@ public class RemoteRooms : IRemoteRooms
             receivedEventIds.UnionWith(newPdus.Select(EventHash.GetEventId));
             latestEventIds = pdus.SelectMany(x => x.PreviousEvents).Except(receivedEventIds).ToArray();
         }
-        var errors = await eventReceiver.ReceivePersistentEventsAsync(pdus.ToArray());
-        if (errors.Count > 0)
+        var pduMap = pdus.ToDictionary(pdu => EventHash.GetEventId(pdu), pdu => pdu);
+        var createPdu = pdus.SingleOrDefault(x => (x.EventType, x.StateKey) == (EventTypes.Create, string.Empty));
+        if (createPdu is null)
         {
-            throw new InvalidOperationException(JsonSerializer.Serialize(errors, new JsonSerializerOptions
+            logger.LogError("Create event not found");
+            return;
+        }
+        else
+        {
+            string eventId = EventHash.GetEventId(createPdu);
+            await eventSaver.SaveAsync(
+                createPdu.RoomId,
+                eventId,
+                createPdu,
+                new Dictionary<RoomStateKey, string>
+                {
+                    [new RoomStateKey(EventTypes.Create, string.Empty)] = eventId
+                });
+        }
+        var errors = await eventReceiver.ReceivePersistentEventsAsync(pdus.ToArray());
+        foreach (var (eventId, error) in errors)
+        {
+            if (error is not null)
             {
-                WriteIndented = true
-            }));
+                var pdu = pduMap[eventId];
+                logger.LogError("Error receiving event {eventId}: {error}, {pdu}", eventId, error, pdu);
+            }
         }
     }
 }

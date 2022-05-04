@@ -192,37 +192,37 @@ public class RoomsLoader
         }
 
         var roomIdFilter = GetRoomIdFilter(filter?.Rooms, filter?.NotRooms);
-        var roomStates = await timelineLoader.LoadRoomStatesAsync(roomIdFilter, includeLeave);
-        foreach (string roomId in roomStates.InvitedRoomIds)
+        var batchStates = await timelineLoader.LoadBatchStatesAsync(roomIdFilter, includeLeave);
+        foreach (var (roomId, stateEvents) in batchStates.Invites)
         {
             rooms.Invite[roomId] = new InvitedRoom
             {
                 InviteState = new InviteState
                 {
-                    Events = roomStates.GetStrippedStateEvents(roomId)
+                    Events = stateEvents.ToArray()
                 }
             };
         }
-        foreach (string roomId in roomStates.JoinedRoomIds)
+        foreach (string roomId in batchStates.JoinedRoomIds)
         {
             rooms.Join[roomId] = new JoinedRoom
             {
                 AccountData = await accountDataLoader.LoadAccountDataAsync(userId, roomId, filter?.AccountData)
             };
         }
-        foreach (string roomId in roomStates.KnockedRoomIds)
+        foreach (var (roomId, stateEvents) in batchStates.Knocks)
         {
             rooms.Knock[roomId] = new KnockedRoom
             {
                 KnockState = new KnockState
                 {
-                    Events = roomStates.GetStrippedStateEvents(roomId)
+                    Events = stateEvents.ToArray()
                 }
             };
         }
         if (rooms.Leave is not null)
         {
-            foreach (string roomId in roomStates.LeftRoomIds)
+            foreach (string roomId in batchStates.LeftRoomIds)
             {
                 rooms.Leave[roomId] = new LeftRoom
                 {
@@ -231,13 +231,13 @@ public class RoomsLoader
             }
         }
 
-        if (since == roomStates.BatchId)
+        if (since == batchStates.BatchId)
         {
             return (since, rooms);
         }
 
         var sinceEventIds = await timelineLoader.GetRoomEventIds(since);
-        var currentEventIds = await timelineLoader.GetRoomEventIds(roomStates.BatchId);
+        var currentEventIds = await timelineLoader.GetRoomEventIds(batchStates.BatchId);
         var timelineEventFilter = GetTimelineEventFilter(filter?.Timeline);
         async Task<(Timeline? timeline, State? stateUpdate)> LoadRecentEvents(string roomId)
         {
@@ -324,7 +324,7 @@ public class RoomsLoader
             }
             return (timeline, stateUpdate);
         }
-        foreach (string roomId in roomStates.JoinedRoomIds)
+        foreach (string roomId in batchStates.JoinedRoomIds)
         {
             var room = rooms.Join[roomId];
             var (timeline, previousState) = await LoadRecentEvents(roomId);
@@ -333,7 +333,7 @@ public class RoomsLoader
         }
         if (rooms.Leave is not null)
         {
-            foreach (string roomId in roomStates.LeftRoomIds)
+            foreach (string roomId in batchStates.LeftRoomIds)
             {
                 var room = rooms.Leave[roomId];
                 var (timeline, stateUpdate) = await LoadRecentEvents(roomId);
@@ -341,6 +341,6 @@ public class RoomsLoader
                 room.State = stateUpdate;
             }
         }
-        return (roomStates.BatchId, rooms);
+        return (batchStates.BatchId, rooms);
     }
 }

@@ -1,10 +1,13 @@
+using MessageHub.Authentication;
 using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MessageHub.ClientServer;
 
 [Route("_matrix/client/{version}")]
+[Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
 public class RoomDiscoveryController : ControllerBase
 {
     private readonly IRoomDiscoveryService roomDiscoveryService;

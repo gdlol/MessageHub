@@ -7,10 +7,14 @@ using MessageHub.HomeServer.Rooms.Timeline;
 using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Events.Room;
+using MessageHub.HomeServer.Remote;
+using Microsoft.AspNetCore.Authorization;
+using MessageHub.Authentication;
 
 namespace MessageHub.ClientServer;
 
 [Route("_matrix/client/{version}/rooms")]
+[Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
 public class SendMessagesController : ControllerBase
 {
     private static readonly JsonSerializerOptions ignoreNullOptions = new()
@@ -21,16 +25,23 @@ public class SendMessagesController : ControllerBase
     private readonly IPeerIdentity peerIdentity;
     private readonly IRooms rooms;
     private readonly IEventSaver eventSaver;
+    private readonly IEventPublisher eventPublisher;
 
-    public SendMessagesController(IPeerIdentity peerIdentity, IRooms rooms, IEventSaver eventSaver)
+    public SendMessagesController(
+        IPeerIdentity peerIdentity,
+        IRooms rooms,
+        IEventSaver eventSaver,
+        IEventPublisher eventPublisher)
     {
         ArgumentNullException.ThrowIfNull(peerIdentity);
         ArgumentNullException.ThrowIfNull(rooms);
         ArgumentNullException.ThrowIfNull(eventSaver);
+        ArgumentNullException.ThrowIfNull(eventPublisher);
 
         this.peerIdentity = peerIdentity;
         this.rooms = rooms;
         this.eventSaver = eventSaver;
+        this.eventPublisher = eventPublisher;
     }
 
     [Route("{roomId}/state/{eventType}/{stateKey?}")]
@@ -70,6 +81,7 @@ public class SendMessagesController : ControllerBase
         string eventId = EventHash.GetEventId(pdu);
         var signedPdu = peerIdentity.SignEvent(pdu);
         await eventSaver.SaveAsync(roomId, eventId, signedPdu, snapshot.States);
+        await eventPublisher.PublishAsync(signedPdu);
         return new JsonResult(new { event_id = eventId });
     }
 
@@ -115,6 +127,7 @@ public class SendMessagesController : ControllerBase
         string eventId = EventHash.GetEventId(pdu);
         var signedPdu = peerIdentity.SignEvent(pdu);
         await eventSaver.SaveAsync(roomId, eventId, signedPdu, snapshot.States);
+        await eventPublisher.PublishAsync(signedPdu);
         return new JsonResult(new { event_id = eventId });
     }
 
@@ -176,6 +189,7 @@ public class SendMessagesController : ControllerBase
         string redactEventId = EventHash.GetEventId(pdu);
         var signedPdu = peerIdentity.SignEvent(pdu);
         await eventSaver.SaveAsync(roomId, redactEventId, signedPdu, snapshot.States);
+        await eventPublisher.PublishAsync(signedPdu);
         return new JsonResult(new { event_id = redactEventId });
     }
 }

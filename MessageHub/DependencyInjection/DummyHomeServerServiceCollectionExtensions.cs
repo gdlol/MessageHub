@@ -18,11 +18,12 @@ public static class DummyHomeServerServiceCollectionExtensions
         services.AddSingleton<IAccountData, DummyAccountData>();
         services.AddSingleton<IAuthenticator, DummyAuthenticator>();
         services.AddSingleton<IContentRepository, DummyContentRepository>();
-        services.AddSingleton<IPeerIdentity>(new DummyIdentity(false, "dummy"));
+        services.AddSingleton<IPeerIdentity, DummyIdentity>();
         services.AddSingleton<IPeerStore, DummyPeerStore>();
         services.AddSingleton<IRoomDiscoveryService, DummyRoomDiscoveryService>();
         services.AddSingleton<IUserProfile, DummyUserProfile>();
         services.AddSingleton<IRequestHandler, DummyRequestHandler>();
+        services.AddHttpClient<DummyRequestHandler>();
         services.AddSingleton<IRemoteContentRepository, DummyRemoteContentRepository>();
         services.AddSingleton<IEventPublisher, DummyEventPublisher>();
         services.AddSingleton<IRooms, DummyRooms>();

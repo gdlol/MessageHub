@@ -8,18 +8,16 @@ public class DummyPeerStore : IPeerStore
 
     private readonly Dictionary<string, IPeerIdentity> peers;
 
-    public DummyPeerStore(IPeerIdentity peerIdentity)
+    public DummyPeerStore(Config config)
     {
-        ArgumentNullException.ThrowIfNull(peerIdentity);
+        ArgumentNullException.ThrowIfNull(config);
 
-        PeerIds = new HashSet<string>
+        PeerIds = new HashSet<string>(config.Peers.Keys);
+        peers = new Dictionary<string, IPeerIdentity>();
+        foreach (string peerId in config.Peers.Keys)
         {
-            peerIdentity.Id
-        };
-        peers = new Dictionary<string, IPeerIdentity>
-        {
-            [peerIdentity.Id] = peerIdentity
-        };
+            peers[peerId] = new DummyIdentity(peerId != config.PeerId, peerId);
+        }
     }
 
     public bool TryGetPeer(string peerId, [NotNullWhen(true)] out IPeerIdentity? peer)

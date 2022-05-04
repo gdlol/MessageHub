@@ -110,6 +110,11 @@ public class RoomEventsReceiver
             errors[eventId] = null;
             events[eventId] = pdu;
         }
+        var newEventIds = await roomEventStore.GetMissingEventIdsAsync(events.Keys);
+        foreach (string existingEventId in events.Keys.Except(newEventIds).ToArray())
+        {
+            events.Remove(existingEventId);
+        }
 
         // build Partial graph.
         var dependentEvents = events.Keys.ToDictionary(x => x, x => new HashSet<string>());
@@ -120,8 +125,10 @@ public class RoomEventsReceiver
             {
                 if (dependentEvents.TryGetValue(previousEventId, out var children))
                 {
-                    children.Add(eventId);
-                    outDegrees[eventId] += 1;
+                    if (children.Add(eventId))
+                    {
+                        outDegrees[eventId] += 1;
+                    }
                 }
             }
         }
@@ -228,9 +235,11 @@ public class RoomEventsReceiver
                 return (false, newStates);
             }
             isAuthorized = await authorizeOnStatesAsync(statesBefore, pdu);
-            if (isAuthorized && pdu.StateKey != null)
+            if (isAuthorized)
             {
-                newStates = statesBefore.SetItem(new RoomStateKey(pdu.EventType, pdu.StateKey), eventId);
+                newStates = pdu.StateKey is null
+                    ? statesBefore
+                    : statesBefore.SetItem(new RoomStateKey(pdu.EventType, pdu.StateKey), eventId);
                 return (true, newStates);
             }
             else

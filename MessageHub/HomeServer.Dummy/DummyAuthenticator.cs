@@ -5,9 +5,18 @@ namespace MessageHub.HomeServer.Dummy;
 
 public class DummyAuthenticator : IAuthenticator
 {
-    private const string loginToken = "dummy";
-    private readonly string userId = $"@dummy:dummy";
-    private const string accessTokenPrefix = "dummy";
+    private readonly string loginToken;
+    private readonly string userId;
+    private readonly string accessTokenPrefix;
+
+    public DummyAuthenticator(IPeerIdentity peerIdentity)
+    {
+        ArgumentNullException.ThrowIfNull(peerIdentity);
+
+        loginToken = peerIdentity.Id;
+        accessTokenPrefix = peerIdentity.Id;
+        userId = UserIdentifier.FromId(peerIdentity.Id).ToString();
+    }
 
     private readonly ConcurrentDictionary<string, object?> accessTokens = new();
 

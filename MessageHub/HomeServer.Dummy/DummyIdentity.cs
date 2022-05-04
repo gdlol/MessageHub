@@ -32,6 +32,10 @@ public class DummyIdentity : IPeerIdentity
         ExpiredKeys = Array.Empty<VerifyKeys>();
     }
 
+    public DummyIdentity(Config config)
+        : this(false, config.PeerId)
+    { }
+
     public IPeerIdentity AsReadOnly()
     {
         return new DummyIdentity(true, Id);

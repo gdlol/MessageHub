@@ -1,11 +1,22 @@
+using System.Text.Json;
+using MessageHub;
 using MessageHub.DependencyInjection;
 using Microsoft.AspNetCore.Mvc;
 
 [assembly: ApiController]
 
 var builder = WebApplication.CreateBuilder(args);
-string url = "http://localhost:8448";
+string json = File.ReadAllText("config.json");
+var config = JsonSerializer.Deserialize<Config>(json)!;
+builder.Services.AddSingleton(config);
+string url = $"http://{config.Peers[config.PeerId]}";
 builder.WebHost.UseUrls(url);
+builder.WebHost.ConfigureLogging(builder =>
+{
+    builder.AddFilter("Default", LogLevel.Information);
+    builder.AddFilter("Microsoft", LogLevel.Warning);
+    builder.AddFilter("Microsoft.Hosting.Lifetime", LogLevel.Information);
+});
 builder.Services.AddCors();
 builder.Services.AddDummyHomeServer();
 builder.Services.AddMatrixAuthentication();
@@ -26,5 +37,5 @@ app.Map("/.well-known/matrix/client", () => new Dictionary<string, object>
 });
 app.UseAuthentication();
 app.UseAuthorization();
-app.MapControllers().RequireAuthorization();
+app.MapControllers();
 app.Run();

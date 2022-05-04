@@ -1,14 +1,17 @@
 using System.Text.Json;
+using MessageHub.Authentication;
 using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Events.Room;
 using MessageHub.HomeServer.Rooms;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MessageHub.ClientServer;
 
 [Route("_matrix/client/{version}")]
+[Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
 public class ListRoomsController : ControllerBase
 {
     private readonly IPeerIdentity peerIdentity;

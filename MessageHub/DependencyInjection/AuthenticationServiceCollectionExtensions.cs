@@ -10,10 +10,7 @@ public static class AuthenticationServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddAuthenticationCore(options =>
-        {
-            options.DefaultScheme = MatrixAuthenticationSchemes.Client;
-        });
+        services.AddAuthenticationCore();
         services.AddWebEncoders();
         services.TryAddSingleton<ISystemClock, SystemClock>();
         var builder = new AuthenticationBuilder(services);

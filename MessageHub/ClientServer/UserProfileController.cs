@@ -1,11 +1,14 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
+using MessageHub.Authentication;
 using MessageHub.HomeServer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MessageHub.ClientServer;
 
 [Route("_matrix/client/{version}/profile")]
+[Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
 public class UserProfileController : ControllerBase
 {
     public class SetAvatarUrlRequest
