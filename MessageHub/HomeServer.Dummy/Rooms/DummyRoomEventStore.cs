@@ -3,7 +3,7 @@ using System.Text.Json;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Rooms;
 
-namespace MessageHub.HomeServer.Dummy;
+namespace MessageHub.HomeServer.Dummy.Rooms;
 
 public class DummyRoomEventStore : IRoomEventStore
 {
