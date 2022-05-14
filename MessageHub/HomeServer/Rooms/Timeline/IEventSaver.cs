@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.Text.Json;
 using MessageHub.HomeServer.Events;
 
 namespace MessageHub.HomeServer.Rooms.Timeline;
