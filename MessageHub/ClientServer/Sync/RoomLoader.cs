@@ -248,7 +248,7 @@ public class RoomsLoader
             {
                 throw new InvalidOperationException();
             }
-            var roomEventStore = await this.rooms.GetRoomEventStoreAsync(roomId);
+            using var roomEventStore = await this.rooms.GetRoomEventStoreAsync(roomId);
 
             var timelineEvents = new List<PersistentDataUnit>();
             bool? limited = null;

@@ -150,7 +150,7 @@ public class SendMessagesController : ControllerBase
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(roomId)}: {roomId}"));
         }
 
-        var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
+        using var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
         var redactedEvent = await roomEventStore.TryLoadEventAsync(eventId);
         if (redactedEvent is null)
         {

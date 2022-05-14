@@ -4,7 +4,7 @@ using MessageHub.HomeServer.Events;
 
 namespace MessageHub.HomeServer.Rooms;
 
-public interface IRoomEventStore
+public interface IRoomEventStore : IDisposable
 {
     string Creator { get; }
     Task<string[]> GetMissingEventIdsAsync(IEnumerable<string> eventIds);

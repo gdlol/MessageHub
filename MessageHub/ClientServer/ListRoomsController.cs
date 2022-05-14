@@ -190,7 +190,7 @@ public class ListRoomsController : ControllerBase
             foreach (string roomId in publicRoomIds)
             {
                 var snapshot = await rooms.GetRoomSnapshotAsync(roomId);
-                var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
+                using var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
                 var stateEvents = new List<PersistentDataUnit>();
                 foreach (string eventId in snapshot.States.Values)
                 {

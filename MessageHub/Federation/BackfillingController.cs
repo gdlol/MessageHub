@@ -79,7 +79,7 @@ public class BackfillingController : ControllerBase
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, "v"));
         }
         eventIds = eventIds.Distinct().Take(20).ToArray();
-        var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
+        using var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
         limit = Math.Min(limit.Value, 100);
         var missingEventIds = await roomEventStore.GetMissingEventIdsAsync(eventIds);
         var latestEventIds = eventIds.Except(missingEventIds).ToList();
@@ -134,7 +134,7 @@ public class BackfillingController : ControllerBase
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(parameters.MinDepth)));
         }
-        var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
+        using var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
         int limit = Math.Min(parameters.Limit, 100);
         var earliestEvents = parameters.EarliestEvents.Where(x => x is not null).ToHashSet();
         var eventMap = new Dictionary<string, PersistentDataUnit>();

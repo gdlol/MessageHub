@@ -36,7 +36,7 @@ public class RoomsController : ControllerBase
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(roomId)}: {roomId}"));
         }
-        var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
+        using var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
         var pdu = await roomEventStore.TryLoadEventAsync(eventId);
         if (pdu is null)
         {
@@ -88,7 +88,7 @@ public class RoomsController : ControllerBase
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(roomId)}: {roomId}"));
         }
-        var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
+        using var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
         RoomSnapshot snapshot;
         if (at is null)
         {
@@ -141,7 +141,7 @@ public class RoomsController : ControllerBase
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(roomId)}: {roomId}"));
         }
         var snapshot = await rooms.GetRoomSnapshotAsync(roomId);
-        var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
+        using var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
         var stateEvents = new List<ClientEvent>();
         foreach (var eventId in snapshot.States.Values)
         {

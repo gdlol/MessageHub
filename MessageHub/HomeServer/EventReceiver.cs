@@ -56,7 +56,7 @@ public class EventReceiver : IEventReceiver
         }
         foreach (var (roomId, pduList) in roomPdus)
         {
-            var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
+            using var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
             var roomReceiver = new RoomEventsReceiver(roomId, identity, peerStore, roomEventStore, eventSaver);
             var roomErrors = await roomReceiver.ReceiveEvents(pduList.ToArray());
             foreach (var (eventId, error) in roomErrors)

@@ -135,7 +135,7 @@ public class JoinRoomController : ControllerBase
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));
         }
         var roomSnapshot = await rooms.GetRoomSnapshotAsync(roomId);
-        var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
+        using var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
         var eventAuthorizer = new EventAuthorizer(roomSnapshot.StateContents);
         if (!eventAuthorizer.Authorize(
             eventType: EventTypes.Member,

@@ -61,6 +61,8 @@ public interface ILogStore : IDisposable
 
 public interface IStorageProvider
 {
+    bool HasKeyValueStore(string name);
     IKeyValueStore GetKeyValueStore(string name);
+    bool HasLogStore(string name);
     ILogStore GetLogStore(string name);
 }

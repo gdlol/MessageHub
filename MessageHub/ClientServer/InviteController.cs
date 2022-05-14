@@ -63,7 +63,7 @@ public class InviteController : ControllerBase
         }
         var senderId = UserIdentifier.FromId(peerIdentity.Id);
         var roomSnapshot = await rooms.GetRoomSnapshotAsync(roomId);
-        var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
+        using var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
 
         // Authorize event.
         var eventAuthorizer = new EventAuthorizer(roomSnapshot.StateContents);

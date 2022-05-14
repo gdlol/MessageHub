@@ -3,7 +3,7 @@ using MessageHub.HomeServer.Events;
 
 namespace MessageHub.HomeServer.Rooms;
 
-public class RoomEventStoreBuilder : IRoomEventStore
+public sealed class RoomEventStoreBuilder : IRoomEventStore
 {
     public IRoomEventStore BaseStore { get; }
 
@@ -52,4 +52,6 @@ public class RoomEventStoreBuilder : IRoomEventStore
         newEvents.Add(eventId, pdu);
         newStates.Add(eventId, states);
     }
+
+    public void Dispose() { }
 }

@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.Text;
 using System.Text.Json;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Formatting;
@@ -8,7 +7,7 @@ using MessageHub.HomeServer.Rooms;
 
 namespace MessageHub.HomeServer.P2p.Rooms;
 
-public class RoomEventStore : IRoomEventStore
+public sealed class RoomEventStore : IRoomEventStore
 {
     private readonly IKeyValueStore store;
 
@@ -61,23 +60,25 @@ public class RoomEventStore : IRoomEventStore
         {
             throw new KeyNotFoundException(stateKey);
         }
-        var states = JsonSerializer.Deserialize<Dictionary<string, string>>(value)!;
-        return states.ToImmutableDictionary(
-            x => JsonSerializer.Deserialize<RoomStateKey>(x.Key)!,
-            x => x.Value);
+        return JsonSerializer.Deserialize<ImmutableDictionary<RoomStateKey, string>>(value)!;
     }
 
-    public async ValueTask AddEvent(string eventId, PersistentDataUnit pdu, ImmutableDictionary<RoomStateKey, string> states)
+    public async ValueTask AddEvent(
+        string eventId,
+        PersistentDataUnit pdu,
+        ImmutableDictionary<RoomStateKey, string> states)
     {
         ArgumentNullException.ThrowIfNull(pdu);
         ArgumentNullException.ThrowIfNull(states);
 
         string eventKey = GetEventKey(eventId);
         string stateKey = GetStateKey(eventId);
-        await store.PutAsync(eventId, CanonicalJson.SerializeToBytes(pdu.ToJsonElement()));
-        var statesValue = states.ToDictionary(x => JsonSerializer.Serialize(x.Key), x => x.Value);
-        using var stateStream = new MemoryStream();
-        JsonSerializer.Serialize(stateStream, statesValue);
-        await store.PutAsync(stateKey, stateStream.ToArray());
+        await store.PutAsync(eventKey, CanonicalJson.SerializeToBytes(pdu.ToJsonElement()));
+        await store.PutAsync(stateKey, JsonSerializer.SerializeToUtf8Bytes(states));
+    }
+
+    public void Dispose()
+    {
+        store.Dispose();
     }
 }

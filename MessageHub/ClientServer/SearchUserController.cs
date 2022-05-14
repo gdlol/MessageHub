@@ -127,7 +127,7 @@ public class SearchUserController : ControllerBase
         {
             if (batchStates.RoomEventIds.TryGetValue(roomId, out string? eventId))
             {
-                var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
+                using var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
                 var stateEvents = await roomEventStore.LoadStateEventsAsync(eventId);
                 foreach (var stateEvent in stateEvents.Values)
                 {

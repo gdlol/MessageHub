@@ -5,7 +5,7 @@ using MessageHub.HomeServer.Rooms;
 
 namespace MessageHub.HomeServer.Dummy.Rooms;
 
-public class DummyRoomEventStore : IRoomEventStore
+internal class DummyRoomEventStore : IRoomEventStore
 {
     public string Creator { get; }
 
@@ -65,4 +65,6 @@ public class DummyRoomEventStore : IRoomEventStore
         var result = statesHistory[eventId];
         return ValueTask.FromResult(result);
     }
+
+    public void Dispose() { }
 }

@@ -64,7 +64,7 @@ public class AuthorizationEventsController : ControllerBase
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));
         }
 
-        var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
+        using var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
         var missingEventIds = await roomEventStore.GetMissingEventIdsAsync(new[] { eventId });
         if (missingEventIds.Length > 0)
         {

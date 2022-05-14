@@ -102,7 +102,7 @@ public class GetMessagesController : ControllerBase
         }
         if (chunk is null)
         {
-            var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
+            using var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
             var iterator = await timelineLoader.GetTimelineIteratorAsync(roomId, from);
             if (iterator is null)
             {
