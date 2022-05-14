@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 
 namespace MessageHub.HomeServer.P2p.Providers;
 
@@ -13,6 +14,7 @@ public interface IKeyValueStore : IDisposable
     bool IsEmpty { get; }
     ValueTask PutAsync(string key, ReadOnlyMemory<byte> value);
     ValueTask<byte[]?> GetAsync(string key);
+    ValueTask DeleteAsync(string key);
     ValueTask CommitAsync();
     IKeyValueIterator Iterate();
 
@@ -31,6 +33,16 @@ public interface IKeyValueStore : IDisposable
 
         await PutAsync(key, Encoding.UTF8.GetBytes(value));
         await CommitAsync();
+    }
+
+    public async IAsyncEnumerable<(string key, byte[] value)> GetAsyncEnumerable()
+    {
+        using var iterator = Iterate();
+        do
+        {
+            var (key, value) = iterator.CurrentValue;
+            yield return (key, value.ToArray());
+        } while (await iterator.TryMoveAsync());
     }
 }
 

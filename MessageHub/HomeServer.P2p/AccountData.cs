@@ -43,10 +43,23 @@ public class AccountData : IAccountData
         await store.PutStringAsync(key, value);
     }
 
+    private async Task DeleteStringAsync(string storeName, string key)
+    {
+        using var store = storageProvider.GetKeyValueStore(storeName);
+        await store.DeleteAsync(key);
+    }
+
     public Task SaveAccountDataAsync(string? roomId, string eventType, JsonElement? value)
     {
         string storeName = GetRoomDataStoreName(roomId);
-        return PutStringAsync(storeName, eventType, value is null ? string.Empty : JsonSerializer.Serialize(value));
+        if (value is null)
+        {
+            return DeleteStringAsync(storeName, eventType);
+        }
+        else
+        {
+            return PutStringAsync(storeName, eventType, JsonSerializer.Serialize(value));
+        }
     }
 
     public async Task<JsonElement?> LoadAccountDataAsync(string? roomId, string eventType)
@@ -74,16 +87,14 @@ public class AccountData : IAccountData
         filter ??= (_, _) => true;
         async IAsyncEnumerable<(string key, JsonElement value)> GetElements()
         {
-            using var iterator = store.Iterate();
-            do
+            await foreach (var (key, value) in store.GetAsyncEnumerable())
             {
-                var (key, value) = iterator.CurrentValue;
                 if (value.Length > 0)
                 {
-                    var element = JsonSerializer.Deserialize<JsonElement>(value.Span)!;
+                    var element = JsonSerializer.Deserialize<JsonElement>(value)!;
                     yield return (key, element);
                 }
-            } while (await iterator.TryMoveAsync());
+            }
         }
         var events = GetElements().Where(x => filter(x.key, x.value));
         if (limit is not null)
