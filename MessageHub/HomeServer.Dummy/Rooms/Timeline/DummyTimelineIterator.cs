@@ -3,7 +3,7 @@ using MessageHub.HomeServer.Rooms.Timeline;
 
 namespace MessageHub.HomeServer.Dummy.Rooms.Timeline;
 
-public class DummyTimelineIterator : ITimelineIterator
+internal class DummyTimelineIterator : ITimelineIterator
 {
     private readonly ImmutableList<string> eventIds;
     private int index;
@@ -40,4 +40,6 @@ public class DummyTimelineIterator : ITimelineIterator
         CurrentEventId = eventIds[index];
         return ValueTask.FromResult(true);
     }
+
+    public void Dispose() { }
 }

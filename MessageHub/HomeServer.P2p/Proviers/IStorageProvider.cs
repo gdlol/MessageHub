@@ -56,7 +56,7 @@ public interface ILogIterator : IDisposable
 public interface ILogStore : IDisposable
 {
     bool IsEmpty { get; }
-    ILogIterator GetLogIterator();
+    ILogIterator GetLogIterator(long index);
 }
 
 public interface IStorageProvider

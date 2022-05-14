@@ -108,6 +108,7 @@ public class GetMessagesController : ControllerBase
             {
                 return BadRequest(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(from)}: {from}"));
             }
+            using var _ = iterator;
             Func<ValueTask<bool>> tryMove = direction switch
             {
                 "b" => iterator.TryMoveBackwardAsync,
