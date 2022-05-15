@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace MessageHub.HomeServer.P2p.Providers;
 
@@ -32,7 +33,6 @@ public interface IKeyValueStore : IDisposable
         ArgumentNullException.ThrowIfNull(value);
 
         await PutAsync(key, Encoding.UTF8.GetBytes(value));
-        await CommitAsync();
     }
 
     public async IAsyncEnumerable<(string key, byte[] value)> GetAsyncEnumerable()
@@ -44,25 +44,29 @@ public interface IKeyValueStore : IDisposable
             yield return (key, value.ToArray());
         } while (await iterator.TryMoveAsync());
     }
-}
 
-public interface ILogIterator : IDisposable
-{
-    public ReadOnlyMemory<byte> CurrentValue { get; }
-    ValueTask<bool> TryMoveForwardAsync();
-    ValueTask<bool> TryMoveBackwardAsync();
-}
+    public async ValueTask<T?> GetDeserializedValueAsync<T>(string key)
+    {
+        ArgumentNullException.ThrowIfNull(key);
 
-public interface ILogStore : IDisposable
-{
-    bool IsEmpty { get; }
-    ILogIterator GetLogIterator(long index);
+        var bytes = await GetAsync(key);
+        return bytes is null ? default : JsonSerializer.Deserialize<T>(bytes);
+    }
+
+    public async ValueTask PutSerializedValueAsync<T>(string key, T value)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+
+        await PutAsync(key, JsonSerializer.SerializeToUtf8Bytes(value, new JsonSerializerOptions
+        {
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        }));
+    }
 }
 
 public interface IStorageProvider
 {
     bool HasKeyValueStore(string name);
     IKeyValueStore GetKeyValueStore(string name);
-    bool HasLogStore(string name);
-    ILogStore GetLogStore(string name);
+    IKeyValueStore GetEventStore();
 }

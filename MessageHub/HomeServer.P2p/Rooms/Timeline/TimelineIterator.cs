@@ -1,4 +1,3 @@
-using System.Text;
 using MessageHub.HomeServer.P2p.Providers;
 using MessageHub.HomeServer.Rooms.Timeline;
 
@@ -6,29 +5,65 @@ namespace MessageHub.HomeServer.P2p.Rooms.Timeline;
 
 public sealed class TimelineIterator : ITimelineIterator
 {
-    private readonly ILogIterator iterator;
+    private readonly IKeyValueStore store;
+    private readonly string roomId;
+    private readonly bool ownsStore;
 
-    public TimelineIterator(ILogIterator iterator)
+    public string CurrentEventId { get; private set; }
+
+    public TimelineIterator(IKeyValueStore store, string roomId, string currentEventId, bool ownsStore = true)
     {
-        ArgumentNullException.ThrowIfNull(iterator);
+        ArgumentNullException.ThrowIfNull(store);
+        ArgumentNullException.ThrowIfNull(roomId);
+        ArgumentNullException.ThrowIfNull(currentEventId);
 
-        this.iterator = iterator;
+        this.store = store;
+        this.roomId = roomId;
+        CurrentEventId = currentEventId;
+        this.ownsStore = ownsStore;
     }
 
-    public string CurrentEventId => Encoding.UTF8.GetString(iterator.CurrentValue.Span);
-
-    public ValueTask<bool> TryMoveBackwardAsync()
+    public async ValueTask<bool> TryMoveBackwardAsync()
     {
-        return iterator.TryMoveBackwardAsync();
+        var currentRecord = await EventStore.GetTimelineRecordAsync(store, roomId, CurrentEventId);
+        if (currentRecord is null)
+        {
+            throw new InvalidOperationException();
+        }
+        if (currentRecord.PreviousEventId is null)
+        {
+            return false;
+        }
+        else
+        {
+            CurrentEventId = currentRecord.PreviousEventId;
+            return true;
+        }
     }
 
-    public ValueTask<bool> TryMoveForwardAsync()
+    public async ValueTask<bool> TryMoveForwardAsync()
     {
-        return iterator.TryMoveForwardAsync();
+        var currentRecord = await EventStore.GetTimelineRecordAsync(store, roomId, CurrentEventId);
+        if (currentRecord is null)
+        {
+            throw new InvalidOperationException();
+        }
+        if (currentRecord.NextEventId is null)
+        {
+            return false;
+        }
+        else
+        {
+            CurrentEventId = currentRecord.NextEventId;
+            return true;
+        }
     }
 
     public void Dispose()
     {
-        iterator.Dispose();
+        if (ownsStore)
+        {
+            store.Dispose();
+        }
     }
 }

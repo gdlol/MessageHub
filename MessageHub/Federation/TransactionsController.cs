@@ -1,10 +1,7 @@
-using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.Authentication;
 using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer;
-using MessageHub.HomeServer.Events;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,15 +11,12 @@ namespace MessageHub.Federation;
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Federation)]
 public class TransactionsController : ControllerBase
 {
-    private readonly IPeerIdentity identity;
     private readonly IEventReceiver eventReceiver;
 
-    public TransactionsController(IPeerIdentity identity, IEventReceiver eventReceiver)
+    public TransactionsController(IEventReceiver eventReceiver)
     {
-        ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(eventReceiver);
 
-        this.identity = identity;
         this.eventReceiver = eventReceiver;
     }
 

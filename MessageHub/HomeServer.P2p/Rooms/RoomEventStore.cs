@@ -1,38 +1,35 @@
 using System.Collections.Immutable;
-using System.Text.Json;
 using MessageHub.HomeServer.Events;
-using MessageHub.HomeServer.Formatting;
 using MessageHub.HomeServer.P2p.Providers;
 using MessageHub.HomeServer.Rooms;
 
 namespace MessageHub.HomeServer.P2p.Rooms;
 
-public sealed class RoomEventStore : IRoomEventStore
+internal sealed class RoomEventStore : IRoomEventStore
 {
     private readonly IKeyValueStore store;
+    private readonly string roomId;
+    private readonly bool ownsStore;
 
     public string Creator { get; }
 
-    public RoomEventStore(string creator, IKeyValueStore store)
+    public RoomEventStore(EventStore eventStore, IKeyValueStore store, string roomId, bool ownsStore = true)
     {
-        ArgumentNullException.ThrowIfNull(creator);
+        ArgumentNullException.ThrowIfNull(eventStore);
         ArgumentNullException.ThrowIfNull(store);
 
-        Creator = creator;
         this.store = store;
+        this.roomId = roomId;
+        this.ownsStore = ownsStore;
+        Creator = eventStore.RoomCreators[roomId];
     }
-
-    private static string GetEventKey(string eventId) => $"Event-{eventId}";
-
-    private static string GetStateKey(string eventId) => $"State-{eventId}";
 
     public async Task<string[]> GetMissingEventIdsAsync(IEnumerable<string> eventIds)
     {
         var result = new List<string>();
         foreach (string eventId in eventIds)
         {
-            string eventKey = GetEventKey(eventId);
-            var value = await store.GetAsync(eventKey);
+            var value = await store.GetAsync(EventStore.GetEventKey(roomId, eventId));
             if (value is null)
             {
                 result.Add(eventId);
@@ -43,42 +40,29 @@ public sealed class RoomEventStore : IRoomEventStore
 
     public async ValueTask<PersistentDataUnit> LoadEventAsync(string eventId)
     {
-        string eventKey = GetEventKey(eventId);
-        var value = await store.GetAsync(eventKey);
+        var value = await EventStore.GetEventAsync(store, roomId, eventId);
         if (value is null)
         {
-            throw new KeyNotFoundException(eventKey);
+            throw new KeyNotFoundException(eventId);
         }
-        return JsonSerializer.Deserialize<PersistentDataUnit>(value)!;
+        return value;
     }
 
     public async ValueTask<ImmutableDictionary<RoomStateKey, string>> LoadStatesAsync(string eventId)
     {
-        string stateKey = GetStateKey(eventId);
-        var value = await store.GetAsync(stateKey);
+        var value = await EventStore.GetStatesAsync(store, roomId, eventId);
         if (value is null)
         {
-            throw new KeyNotFoundException(stateKey);
+            throw new KeyNotFoundException(eventId);
         }
-        return JsonSerializer.Deserialize<ImmutableDictionary<RoomStateKey, string>>(value)!;
-    }
-
-    public async ValueTask AddEvent(
-        string eventId,
-        PersistentDataUnit pdu,
-        ImmutableDictionary<RoomStateKey, string> states)
-    {
-        ArgumentNullException.ThrowIfNull(pdu);
-        ArgumentNullException.ThrowIfNull(states);
-
-        string eventKey = GetEventKey(eventId);
-        string stateKey = GetStateKey(eventId);
-        await store.PutAsync(eventKey, CanonicalJson.SerializeToBytes(pdu.ToJsonElement()));
-        await store.PutAsync(stateKey, JsonSerializer.SerializeToUtf8Bytes(states));
+        return value;
     }
 
     public void Dispose()
     {
-        store.Dispose();
+        if (ownsStore)
+        {
+            store.Dispose();
+        }
     }
 }
