@@ -45,6 +45,8 @@ internal sealed class HostHandle : ObjectHandle
     }
 }
 
+internal sealed class ProxyHandle : ObjectHandle { }
+
 internal sealed class DHTHandle : ObjectHandle
 {
     [DllImport(Native.DllName)]
@@ -89,6 +91,24 @@ internal unsafe static class NativeMethods
         ContextHandle ctxHandle,
         HostHandle hostHandle,
         StringHandle addrInfo);
+
+    [DllImport(Native.DllName)]
+    public static extern StringHandle SendRequest(
+        ContextHandle ctxHandle,
+        HostHandle hostHandle,
+        StringHandle peerID,
+        StringHandle signedRequestJSON,
+        out int responseStatus,
+        out StringHandle responseBody);
+
+    [DllImport(Native.DllName)]
+    public static extern StringHandle StartProxyRequests(
+        HostHandle hostHandle,
+        StringHandle proxy,
+        out ProxyHandle result);
+
+    [DllImport(Native.DllName)]
+    public static extern StringHandle StopProxyRequests(ProxyHandle proxyHandle);
 
     [DllImport(Native.DllName)]
     public static extern StringHandle CreateDHT(

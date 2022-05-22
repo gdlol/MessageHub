@@ -15,6 +15,7 @@ type ObjectHandle *C.char
 type StringHandle *C.char
 type ContextHandle = ObjectHandle
 type HostHandle = ObjectHandle
+type ProxyHandle = ObjectHandle
 type DHTHandle = ObjectHandle
 type DiscoveryHandle = ObjectHandle
 type MemberStoreHandle = ObjectHandle

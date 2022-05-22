@@ -3,10 +3,14 @@ module messagehub-libp2p
 go 1.18
 
 require (
+	github.com/google/uuid v1.3.0
 	github.com/libp2p/go-libp2p v0.19.2
 	github.com/libp2p/go-libp2p-core v0.15.1
+	github.com/libp2p/go-libp2p-gostream v0.3.0
+	github.com/libp2p/go-libp2p-http v0.2.1
 	github.com/libp2p/go-libp2p-kad-dht v0.15.0
 	github.com/libp2p/go-libp2p-pubsub v0.6.1
+	github.com/libp2p/go-tcp-transport v0.5.1
 	github.com/multiformats/go-multiaddr v0.5.0
 	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4
 )
@@ -30,7 +34,6 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/gopacket v1.1.19 // indirect
-	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
@@ -76,7 +79,6 @@ require (
 	github.com/libp2p/go-reuseport v0.1.0 // indirect
 	github.com/libp2p/go-reuseport-transport v0.1.0 // indirect
 	github.com/libp2p/go-stream-muxer-multistream v0.4.0 // indirect
-	github.com/libp2p/go-tcp-transport v0.5.1 // indirect
 	github.com/libp2p/go-ws-transport v0.6.0 // indirect
 	github.com/libp2p/go-yamux/v3 v3.1.1 // indirect
 	github.com/lucas-clemente/quic-go v0.27.0 // indirect

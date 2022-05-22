@@ -65,8 +65,8 @@ func CloseHost(handle HostHandle) StringHandle {
 //export GetHostID
 func GetHostID(handle HostHandle) StringHandle {
 	host := loadValue(handle).(host.Host)
-	id := host.ID()
-	return C.CString(id.String())
+	id := peer.Encode(host.ID())
+	return C.CString(id)
 }
 
 //export GetHostAddressInfo
@@ -95,6 +95,53 @@ func ConnectHost(ctxHandle ContextHandle, hostHandle HostHandle, addrInfo String
 		return C.CString(err.Error())
 	}
 	err = host.Connect(ctx, peerAddrInfo)
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	return nil
+}
+
+//export SendRequest
+func SendRequest(ctxHandle ContextHandle, hostHandle HostHandle, peerID StringHandle, signedRequestJSON StringHandle, responseStatus *int, responseBody *StringHandle) StringHandle {
+	*responseStatus = 0
+	*responseBody = nil
+	ctx := loadValue(ctxHandle).(*cancellableContext).ctx
+	host := loadValue(hostHandle).(host.Host)
+	p2pPeerID, err := peer.Decode(C.GoString(peerID))
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	jsonString := C.GoString(signedRequestJSON)
+	var signedRequest SignedRequest
+	err = json.Unmarshal([]byte(jsonString), &signedRequest)
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	status, body, err := sendRequest(ctx, host, p2pPeerID, signedRequest)
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	*responseStatus = status
+	*responseBody = C.CString(string(body))
+	return nil
+}
+
+//export StartProxyRequests
+func StartProxyRequests(hostHandle HostHandle, proxy StringHandle, result *ProxyHandle) StringHandle {
+	*result = nil
+	host := loadValue(hostHandle).(host.Host)
+	closeProxy, err := proxyRequests(host, C.GoString(proxy))
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	*result = saveValue(closeProxy)
+	return nil
+}
+
+//export StopProxyRequests
+func StopProxyRequests(proxyHandle ProxyHandle) StringHandle {
+	closeProxy := loadValue(proxyHandle).(func() error)
+	err := closeProxy()
 	if err != nil {
 		return C.CString(err.Error())
 	}
@@ -174,7 +221,7 @@ func FindPeers(ctxHandle ContextHandle, discoveryHandle DiscoveryHandle, topic S
 		if err != nil {
 			return C.CString(err.Error())
 		}
-		result[addrInfo.ID.String()] = string(addrInfoJson)
+		result[peer.Encode(addrInfo.ID)] = string(addrInfoJson)
 	}
 	json, err := json.Marshal(result)
 	if err != nil {
@@ -296,7 +343,7 @@ func GetNextMessage(ctxHandle ContextHandle, subscriptionHandle SubscriptionHand
 	if err != nil {
 		return C.CString(err.Error())
 	}
-	*senderID = C.CString(message.ReceivedFrom.String())
+	*senderID = C.CString(peer.Encode(message.ReceivedFrom))
 	*messageJSON = C.CString(string(message.Data))
 	return nil
 }

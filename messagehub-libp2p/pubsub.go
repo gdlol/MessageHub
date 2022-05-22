@@ -52,8 +52,9 @@ func (store *MemberStore) removeMember(topic string, peerID string) {
 
 // Filter while list of peers for each topic.
 func (store *MemberStore) filterPeer(pid peer.ID, topic string) bool {
+	pidString := peer.Encode(pid)
 	if peerIDs, ok := store.members[topic]; ok {
-		_, ok := peerIDs[pid.String()]
+		_, ok := peerIDs[pidString]
 		return ok
 	}
 	return false
