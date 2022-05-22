@@ -30,7 +30,7 @@ public sealed class Host : IDisposable
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         };
         using var configJson = StringHandle.FromUtf8Bytes(JsonSerializer.SerializeToUtf8Bytes(config, options));
-        var error = NativeMethods.CreateHost(configJson, out var handle);
+        using var error = NativeMethods.CreateHost(configJson, out var handle);
         LibP2pException.Check(error);
         return new Host(handle);
     }
@@ -40,5 +40,25 @@ public sealed class Host : IDisposable
         handle.Dispose();
     }
 
-    public string Id => NativeMethods.GetHostID(handle).ToString() ?? string.Empty;
+    public string Id => NativeMethods.GetHostID(handle).ToString();
+
+    public string GetHostAddressInfo()
+    {
+        using var error = NativeMethods.GetHostAddressInfo(handle, out var resultJSON);
+        LibP2pException.Check(error);
+        using var _ = resultJSON;
+        return resultJSON.ToString();
+    }
+
+    public void Connect(string addressInfo, CancellationToken cancellationToken = default)
+    {
+        using var context = new Context(cancellationToken);
+        using var addrInfo = StringHandle.FromString(addressInfo);
+        using var error = NativeMethods.ConnectHost(context.Handle, handle, addrInfo);
+        if (!error.IsInvalid)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            LibP2pException.Check(error);
+        }
+    }
 }

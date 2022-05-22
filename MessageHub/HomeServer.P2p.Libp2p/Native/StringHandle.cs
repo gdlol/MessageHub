@@ -23,18 +23,18 @@ internal sealed class StringHandle : SafeHandle
         return true;
     }
 
-    public override string? ToString()
+    public override string ToString()
     {
-        return Marshal.PtrToStringUTF8(handle);
+        return Marshal.PtrToStringUTF8(handle) ?? string.Empty;
     }
 
     public unsafe static StringHandle FromString(string s)
     {
-        int length = Encoding.UTF8.GetMaxByteCount(s.Length) + 1;
-        var ptr = Marshal.AllocHGlobal(length);
-        var span = new Span<byte>(ptr.ToPointer(), length);
-        Encoding.UTF8.GetBytes(s, span);
-        span[length - 1] = 0;
+        int maxLength = Encoding.UTF8.GetMaxByteCount(s.Length) + 1;
+        var ptr = Marshal.AllocHGlobal(maxLength);
+        var span = new Span<byte>(ptr.ToPointer(), maxLength);
+        int length = Encoding.UTF8.GetBytes(s, span);
+        span[length] = 0;
         return new StringHandle(ptr);
     }
 

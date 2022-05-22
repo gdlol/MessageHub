@@ -47,6 +47,8 @@ func createHost(config HostConfig) (host.Host, error) {
 		}
 		options = append(options, libp2p.PrivateNetwork(pnet.PSK(psk)))
 		options = append(options, libp2p.Transport(tcp.NewTCPTransport))
+		options = append(options, libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
+		options = append(options, libp2p.ListenAddrStrings("/ip6/::/tcp/0"))
 	}
 	host, err := libp2p.New(options...)
 	if err != nil {

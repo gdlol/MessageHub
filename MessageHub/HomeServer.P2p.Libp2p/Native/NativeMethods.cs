@@ -57,15 +57,18 @@ internal sealed class DHTHandle : ObjectHandle
     }
 }
 
+internal sealed class DiscoveryHandle : ObjectHandle { }
+
+internal sealed class MemberStoreHandle : ObjectHandle { }
+
 internal sealed class PubSubHandle : ObjectHandle { }
 
 internal sealed class TopicHandle : ObjectHandle { }
 
+internal sealed class SubscriptionHandle : ObjectHandle { }
+
 internal unsafe static class NativeMethods
 {
-    [DllImport(Native.DllName)]
-    public static extern StringHandle Test();
-
     [DllImport(Native.DllName)]
     public static extern ContextHandle CreateContext();
 
@@ -79,6 +82,15 @@ internal unsafe static class NativeMethods
     public static extern StringHandle GetHostID(HostHandle hostHandle);
 
     [DllImport(Native.DllName)]
+    public static extern StringHandle GetHostAddressInfo(HostHandle hostHandle, out StringHandle resultJSON);
+
+    [DllImport(Native.DllName)]
+    public static extern StringHandle ConnectHost(
+        ContextHandle ctxHandle,
+        HostHandle hostHandle,
+        StringHandle addrInfo);
+
+    [DllImport(Native.DllName)]
     public static extern StringHandle CreateDHT(
         ContextHandle ctxHandle,
         HostHandle hostHandle,
@@ -89,9 +101,47 @@ internal unsafe static class NativeMethods
     public static extern StringHandle BootstrapDHT(ContextHandle ctxHandle, DHTHandle dhtHandle);
 
     [DllImport(Native.DllName)]
+    public static extern DiscoveryHandle CreateDiscovery(DHTHandle dhtHandle);
+
+    [DllImport(Native.DllName)]
+    public static extern StringHandle Advertise(
+        ContextHandle ctxHandle,
+        DiscoveryHandle discoveryHandle,
+        StringHandle topic);
+
+    [DllImport(Native.DllName)]
+    public static extern StringHandle FindPeers(
+        ContextHandle ctxHandle,
+        DiscoveryHandle discoveryHandle,
+        StringHandle topic,
+        out StringHandle resultJSON);
+
+    [DllImport(Native.DllName)]
+    public static extern MemberStoreHandle CreateMemberStore();
+
+    [DllImport(Native.DllName)]
+    public static extern StringHandle GetMembers(
+        MemberStoreHandle memberStoreHandle,
+        StringHandle topic,
+        out StringHandle resultJSON);
+
+    [DllImport(Native.DllName)]
+    public static extern void ClearMembers(MemberStoreHandle memberStoreHandle, StringHandle topic);
+
+    [DllImport(Native.DllName)]
+    public static extern void AddMember(MemberStoreHandle memberStoreHandle, StringHandle topic, StringHandle peerID);
+
+    [DllImport(Native.DllName)]
+    public static extern void RemoveMember(
+        MemberStoreHandle memberStoreHandle,
+        StringHandle topic,
+        StringHandle peerID);
+
+    [DllImport(Native.DllName)]
     public static extern StringHandle CreatePubSub(
         ContextHandle ctxHandle,
         DHTHandle dhtHandle,
+        MemberStoreHandle memberStoreHandle,
         out PubSubHandle pubsubHandle);
 
     [DllImport(Native.DllName)]
@@ -102,4 +152,23 @@ internal unsafe static class NativeMethods
 
     [DllImport(Native.DllName)]
     public static extern StringHandle CloseTopic(TopicHandle topicHandle);
+
+    [DllImport(Native.DllName)]
+    public static extern StringHandle PublishMessage(
+        ContextHandle ctxHandle,
+        TopicHandle topicHandle,
+        StringHandle message);
+
+    [DllImport(Native.DllName)]
+    public static extern StringHandle Subscribe(TopicHandle topicHandle, out SubscriptionHandle subscriptionHandle);
+
+    [DllImport(Native.DllName)]
+    public static extern StringHandle CancelSubscription(SubscriptionHandle subscriptionHandle);
+
+    [DllImport(Native.DllName)]
+    public static extern StringHandle GetNextMessage(
+        ContextHandle ctxHandle,
+        SubscriptionHandle subscriptionHandle,
+        out StringHandle senderID,
+        out StringHandle messageJSON);
 }

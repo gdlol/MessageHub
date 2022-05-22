@@ -16,6 +16,8 @@ type StringHandle *C.char
 type ContextHandle = ObjectHandle
 type HostHandle = ObjectHandle
 type DHTHandle = ObjectHandle
+type DiscoveryHandle = ObjectHandle
+type MemberStoreHandle = ObjectHandle
 type PubSubHandle = ObjectHandle
 type TopicHandle = ObjectHandle
 type SubscriptionHandle = ObjectHandle

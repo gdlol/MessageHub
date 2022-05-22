@@ -8,14 +8,11 @@ import (
 	"fmt"
 
 	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/peer"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
 )
-
-//export Test
-func Test() StringHandle {
-	return C.CString("Hello from go.")
-}
 
 //export Release
 func Release(id ObjectHandle) {
@@ -69,7 +66,39 @@ func CloseHost(handle HostHandle) StringHandle {
 func GetHostID(handle HostHandle) StringHandle {
 	host := loadValue(handle).(host.Host)
 	id := host.ID()
-	return C.CString(fmt.Sprint(id))
+	return C.CString(id.String())
+}
+
+//export GetHostAddressInfo
+func GetHostAddressInfo(hostHandle HostHandle, resultJSON *StringHandle) StringHandle {
+	*resultJSON = nil
+	host := loadValue(hostHandle).(host.Host)
+	addrInfo := peer.AddrInfo{
+		ID:    host.ID(),
+		Addrs: host.Addrs(),
+	}
+	result, err := addrInfo.MarshalJSON()
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	*resultJSON = C.CString(string(result))
+	return nil
+}
+
+//export ConnectHost
+func ConnectHost(ctxHandle ContextHandle, hostHandle HostHandle, addrInfo StringHandle) StringHandle {
+	ctx := loadValue(ctxHandle).(*cancellableContext).ctx
+	host := loadValue(hostHandle).(host.Host)
+	var peerAddrInfo peer.AddrInfo
+	err := peerAddrInfo.UnmarshalJSON([]byte(C.GoString(addrInfo)))
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	err = host.Connect(ctx, peerAddrInfo)
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	return nil
 }
 
 //export CreateDHT
@@ -112,12 +141,93 @@ func BootstrapDHT(ctxHandle ContextHandle, dhtHandle DHTHandle) StringHandle {
 	return nil
 }
 
+//export CreateDiscovery
+func CreateDiscovery(dhtHandle DHTHandle) DiscoveryHandle {
+	ipfsDHT := loadValue(dhtHandle).(*dht.IpfsDHT)
+	discovery := routing.NewRoutingDiscovery(ipfsDHT)
+	return saveValue(discovery)
+}
+
+//export Advertise
+func Advertise(ctxHandle ContextHandle, discoveryHandle DiscoveryHandle, topic StringHandle) StringHandle {
+	ctx := loadValue(ctxHandle).(*cancellableContext).ctx
+	discovery := loadValue(discoveryHandle).(*routing.RoutingDiscovery)
+	_, err := discovery.Advertise(ctx, C.GoString(topic))
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	return nil
+}
+
+//export FindPeers
+func FindPeers(ctxHandle ContextHandle, discoveryHandle DiscoveryHandle, topic StringHandle, resultJSON *StringHandle) StringHandle {
+	*resultJSON = nil
+	ctx := loadValue(ctxHandle).(*cancellableContext).ctx
+	discovery := loadValue(discoveryHandle).(*routing.RoutingDiscovery)
+	peers, err := discovery.FindPeers(ctx, C.GoString(topic))
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	result := make(map[string]string, 0)
+	for addrInfo := range peers {
+		addrInfoJson, err := addrInfo.MarshalJSON()
+		if err != nil {
+			return C.CString(err.Error())
+		}
+		result[addrInfo.ID.String()] = string(addrInfoJson)
+	}
+	json, err := json.Marshal(result)
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	*resultJSON = C.CString(string(json))
+	return nil
+}
+
+//export CreateMemberStore
+func CreateMemberStore() MemberStoreHandle {
+	store := NewMemberStore()
+	return saveValue(&store)
+}
+
+//export GetMembers
+func GetMembers(memberStoreHandle MemberStoreHandle, topic StringHandle, resultJSON *StringHandle) StringHandle {
+	*resultJSON = nil
+	store := loadValue(memberStoreHandle).(*MemberStore)
+	result := store.getMembers(C.GoString(topic))
+	json, err := json.Marshal(result)
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	*resultJSON = C.CString(string(json))
+	return nil
+}
+
+//export ClearMembers
+func ClearMembers(memberStoreHandle MemberStoreHandle, topic StringHandle) {
+	store := loadValue(memberStoreHandle).(*MemberStore)
+	store.clearMembers(C.GoString(topic))
+}
+
+//export AddMember
+func AddMember(memberStoreHandle MemberStoreHandle, topic StringHandle, peerID StringHandle) {
+	store := loadValue(memberStoreHandle).(*MemberStore)
+	store.addMember(C.GoString(topic), C.GoString(peerID))
+}
+
+//export RemoveMember
+func RemoveMember(memberStoreHandle MemberStoreHandle, topic StringHandle, peerID StringHandle) {
+	store := loadValue(memberStoreHandle).(*MemberStore)
+	store.removeMember(C.GoString(topic), C.GoString(peerID))
+}
+
 //export CreatePubSub
-func CreatePubSub(ctxHandle ContextHandle, dhtHandle DHTHandle, pubsubHandle *PubSubHandle) StringHandle {
+func CreatePubSub(ctxHandle ContextHandle, dhtHandle DHTHandle, memberStoreHandle MemberStoreHandle, pubsubHandle *PubSubHandle) StringHandle {
 	*pubsubHandle = nil
 	ctx := loadValue(ctxHandle).(*cancellableContext).ctx
 	ipfsDHT := loadValue(dhtHandle).(*dht.IpfsDHT)
-	gossipSub, err := createPubSub(ctx, ipfsDHT)
+	memberStore := loadValue(memberStoreHandle).(*MemberStore)
+	gossipSub, err := createPubSub(ctx, ipfsDHT, memberStore)
 	if err != nil {
 		return C.CString(err.Error())
 	}
@@ -147,6 +257,17 @@ func CloseTopic(topicHandle TopicHandle) StringHandle {
 	return nil
 }
 
+//export PublishMessage
+func PublishMessage(ctxHandle ContextHandle, topicHandle TopicHandle, message StringHandle) StringHandle {
+	ctx := loadValue(ctxHandle).(*cancellableContext).ctx
+	topic := loadValue(topicHandle).(*pubsub.Topic)
+	err := topic.Publish(ctx, []byte(C.GoString(message)))
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	return nil
+}
+
 //export Subscribe
 func Subscribe(topicHandle TopicHandle, subscriptionHandle *SubscriptionHandle) StringHandle {
 	*subscriptionHandle = nil
@@ -163,6 +284,21 @@ func Subscribe(topicHandle TopicHandle, subscriptionHandle *SubscriptionHandle) 
 func CancelSubscription(subscriptionHandle SubscriptionHandle) {
 	subscription := loadValue(subscriptionHandle).(*pubsub.Subscription)
 	subscription.Cancel()
+}
+
+//export GetNextMessage
+func GetNextMessage(ctxHandle ContextHandle, subscriptionHandle SubscriptionHandle, senderID *StringHandle, messageJSON *StringHandle) StringHandle {
+	*senderID = nil
+	*messageJSON = nil
+	ctx := loadValue(ctxHandle).(*cancellableContext).ctx
+	subscription := loadValue(subscriptionHandle).(*pubsub.Subscription)
+	message, err := subscription.Next(ctx)
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	*senderID = C.CString(message.ReceivedFrom.String())
+	*messageJSON = C.CString(string(message.Data))
+	return nil
 }
 
 func main() {}

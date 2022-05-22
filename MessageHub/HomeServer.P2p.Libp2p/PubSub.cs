@@ -13,10 +13,10 @@ public sealed class PubSub : IDisposable
         this.handle = handle;
     }
 
-    public static PubSub Create(DHT dht, CancellationToken cancellationToken = default)
+    public static PubSub Create(DHT dht, MemberStore memberStore, CancellationToken cancellationToken = default)
     {
         using var context = new Context(cancellationToken);
-        var error = NativeMethods.CreatePubSub(context.Handle, dht.Handle, out var pubsubHandle);
+        using var error = NativeMethods.CreatePubSub(context.Handle, dht.Handle, memberStore.Handle, out var pubsubHandle);
         if (!error.IsInvalid)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -33,8 +33,8 @@ public sealed class PubSub : IDisposable
     public Topic JoinTopic(string topic)
     {
         using var topicString = StringHandle.FromString(topic);
-        var error = NativeMethods.JoinTopic(handle, topicString, out var topicHandle);
+        using var error = NativeMethods.JoinTopic(handle, topicString, out var topicHandle);
         LibP2pException.Check(error);
-        return new Topic(topicHandle);
+        return new Topic(topicHandle, topic);
     }
 }

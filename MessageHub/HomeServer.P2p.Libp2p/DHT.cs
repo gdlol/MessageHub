@@ -29,7 +29,7 @@ public sealed class DHT : IDisposable
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         };
         using var configJson = StringHandle.FromUtf8Bytes(JsonSerializer.SerializeToUtf8Bytes(config, options));
-        var error = NativeMethods.CreateDHT(context.Handle, host.Handle, configJson, out var dhtHandle);
+        using var error = NativeMethods.CreateDHT(context.Handle, host.Handle, configJson, out var dhtHandle);
         if (!error.IsInvalid)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -52,7 +52,7 @@ public sealed class DHT : IDisposable
     public void Bootstrap(CancellationToken cancellationToken = default)
     {
         using var context = new Context(cancellationToken);
-        var error = NativeMethods.BootstrapDHT(context.Handle, handle);
+        using var error = NativeMethods.BootstrapDHT(context.Handle, handle);
         if (!error.IsInvalid)
         {
             cancellationToken.ThrowIfCancellationRequested();

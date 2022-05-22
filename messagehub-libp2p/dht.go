@@ -29,6 +29,7 @@ func createDHT(ctx context.Context, host host.Host, config DHTConfig) (*dht.Ipfs
 		}
 		options = append(options, filterOptions...)
 	}
+	options = append(options, dht.Mode(dht.ModeServer))
 	ipfsDHT, err := dht.New(ctx, host, options...)
 	return ipfsDHT, err
 }
