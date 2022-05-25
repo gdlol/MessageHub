@@ -16,19 +16,23 @@ namespace MessageHub.Federation;
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Federation)]
 public class KnockRoomController : ControllerBase
 {
+    private readonly IPeerIdentity peerIdentity;
     private readonly IRooms rooms;
     private readonly IEventReceiver eventReceiver;
     private readonly IEventPublisher eventPublisher;
 
     public KnockRoomController(
+        IPeerIdentity peerIdentity,
         IRooms rooms,
         IEventReceiver eventReceiver,
         IEventPublisher eventPublisher)
     {
+        ArgumentNullException.ThrowIfNull(peerIdentity);
         ArgumentNullException.ThrowIfNull(rooms);
         ArgumentNullException.ThrowIfNull(eventReceiver);
         ArgumentNullException.ThrowIfNull(eventPublisher);
 
+        this.peerIdentity = peerIdentity;
         this.rooms = rooms;
         this.eventReceiver = eventReceiver;
         this.eventPublisher = eventPublisher;
@@ -74,6 +78,7 @@ public class KnockRoomController : ControllerBase
             roomId: roomId,
             snapshot: roomSnapshot,
             eventType: EventTypes.Member,
+            serverKeys: peerIdentity.GetServerKeys(),
             stateKey: userId,
             sender: senderId,
             content: JsonSerializer.SerializeToElement(

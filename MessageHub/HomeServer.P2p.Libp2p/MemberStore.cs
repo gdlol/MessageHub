@@ -16,6 +16,8 @@ public sealed class MemberStore : IDisposable
 
     public string[] GetMembers(string topic)
     {
+        ArgumentNullException.ThrowIfNull(topic);
+
         using var topicString = StringHandle.FromString(topic);
         using var error = NativeMethods.GetMembers(handle, topicString, out var resultHandle);
         LibP2pException.Check(error);
@@ -30,12 +32,17 @@ public sealed class MemberStore : IDisposable
 
     public void ClearMembers(string topic)
     {
+        ArgumentNullException.ThrowIfNull(topic);
+
         using var topicString = StringHandle.FromString(topic);
         NativeMethods.ClearMembers(handle, topicString);
     }
 
     public void AddMember(string topic, string peerId)
     {
+        ArgumentNullException.ThrowIfNull(topic);
+        ArgumentNullException.ThrowIfNull(peerId);
+
         using var topicString = StringHandle.FromString(topic);
         using var peerIdString = StringHandle.FromString(peerId);
         NativeMethods.AddMember(handle, topicString, peerIdString);
@@ -43,6 +50,9 @@ public sealed class MemberStore : IDisposable
 
     public void RemoveMember(string topic, string peerId)
     {
+        ArgumentNullException.ThrowIfNull(topic);
+        ArgumentNullException.ThrowIfNull(peerId);
+
         using var topicString = StringHandle.FromString(topic);
         using var peerIdString = StringHandle.FromString(peerId);
         NativeMethods.RemoveMember(handle, topicString, peerIdString);

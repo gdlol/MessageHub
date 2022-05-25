@@ -32,6 +32,7 @@ public static class PeerIdentityExtensions
             Origin = identity.Id,
             OriginServerTimestamp = timestamp ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             Destination = destination,
+            ServerKeys = identity.GetServerKeys(),
             Signatures = JsonSerializer.SerializeToElement<object?>(null)
         };
         if (content is not null)

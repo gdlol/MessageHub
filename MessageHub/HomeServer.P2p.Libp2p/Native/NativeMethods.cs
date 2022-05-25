@@ -87,6 +87,9 @@ internal unsafe static class NativeMethods
     public static extern StringHandle GetHostAddressInfo(HostHandle hostHandle, out StringHandle resultJSON);
 
     [DllImport(Native.DllName)]
+    public static extern StringHandle GetIDFromAddressInfo(StringHandle addrInfo, out StringHandle peerID);
+
+    [DllImport(Native.DllName)]
     public static extern StringHandle ConnectHost(
         ContextHandle ctxHandle,
         HostHandle hostHandle,
@@ -119,6 +122,13 @@ internal unsafe static class NativeMethods
 
     [DllImport(Native.DllName)]
     public static extern StringHandle BootstrapDHT(ContextHandle ctxHandle, DHTHandle dhtHandle);
+
+    [DllImport(Native.DllName)]
+    public static extern StringHandle FindPeer(
+        ContextHandle ctxHandle,
+        DHTHandle dhtHandle,
+        StringHandle peerID,
+        out StringHandle resultJSON);
 
     [DllImport(Native.DllName)]
     public static extern DiscoveryHandle CreateDiscovery(DHTHandle dhtHandle);

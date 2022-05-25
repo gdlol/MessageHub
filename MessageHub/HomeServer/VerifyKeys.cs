@@ -30,6 +30,15 @@ public record class KeyIdentifier(string Algorithm, string KeyName)
         identifier = new KeyIdentifier(parts[0], parts[1]);
         return true;
     }
+
+    public static KeyIdentifier Parse(string s)
+    {
+        if (!TryParse(s, out var keyIdentifier))
+        {
+            throw new InvalidOperationException(nameof(Parse));
+        }
+        return keyIdentifier;
+    }
 }
 
 public class KeyIdentifierConverter : JsonConverter<KeyIdentifier>
@@ -58,6 +67,20 @@ public class KeyIdentifierConverter : JsonConverter<KeyIdentifier>
     public override void Write(Utf8JsonWriter writer, KeyIdentifier value, JsonSerializerOptions options)
     {
         writer.WriteStringValue(value.ToString());
+    }
+
+    public override KeyIdentifier ReadAsPropertyName(
+        ref Utf8JsonReader reader,
+        Type typeToConvert,
+        JsonSerializerOptions options)
+    {
+        string? s = reader.GetString();
+        return KeyIdentifier.Parse(s!);
+    }
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, KeyIdentifier value, JsonSerializerOptions options)
+    {
+        writer.WritePropertyName(value.ToString());
     }
 }
 

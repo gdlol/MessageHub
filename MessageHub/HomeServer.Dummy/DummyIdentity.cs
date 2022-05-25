@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Security.Cryptography;
 using System.Text;
+using MessageHub.HomeServer.Events;
 
 namespace MessageHub.HomeServer.Dummy;
 
@@ -35,6 +36,29 @@ public class DummyIdentity : IPeerIdentity
     public DummyIdentity(Config config)
         : this(false, config.PeerId)
     { }
+
+    public ServerKeys GetServerKeys()
+    {
+        return new ServerKeys
+        {
+            ServerName = Id,
+            Signatures = new Signatures
+            {
+                [Id] = new ServerSignatures
+                {
+                    [new KeyIdentifier(SignatureAlgorithm, Id)] = Signature
+                }
+            },
+            ValidUntilTimestamp = VerifyKeys.ExpireTimestamp,
+            VerifyKeys = VerifyKeys.Keys.ToDictionary(x => x.Key, x => x.Value)
+        };
+    }
+
+    public bool Verify(ServerKeys serverKeys)
+    {
+        return serverKeys.Signatures.TryGetValue(serverKeys.ServerName, out var signatures)
+            && signatures.ContainsValue(Signature);
+    }
 
     public IPeerIdentity AsReadOnly()
     {

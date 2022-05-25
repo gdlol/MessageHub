@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MessageHub.HomeServer;
 
 namespace MessageHub.Federation.Protocol;
 
@@ -28,6 +29,9 @@ public class SignedRequest
 
     [JsonPropertyName("content")]
     public JsonElement? Content { get; set; }
+
+    [JsonPropertyName("server_keys")]
+    public ServerKeys ServerKeys { get; set; } = default!;
 
     [Required]
     [JsonPropertyName("signatures")]

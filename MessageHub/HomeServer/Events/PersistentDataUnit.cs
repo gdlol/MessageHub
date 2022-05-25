@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 
 namespace MessageHub.HomeServer.Events;
 
-public class ServerSignatures : Dictionary<string, string> { }
+public class ServerSignatures : Dictionary<KeyIdentifier, string> { }
 
 public class Signatures : Dictionary<string, ServerSignatures> { }
 
@@ -48,6 +48,10 @@ public class PersistentDataUnit
     [Required]
     [JsonPropertyName("sender")]
     public string Sender { get; set; } = default!;
+
+    [Required]
+    [JsonPropertyName("server_keys")]
+    public ServerKeys ServerKeys { get; set; } = default!;
 
     [Required]
     [JsonPropertyName("signatures")]

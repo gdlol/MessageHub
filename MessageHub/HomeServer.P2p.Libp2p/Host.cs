@@ -50,6 +50,8 @@ public sealed class Host : IDisposable
 
     public static Host Create(HostConfig config)
     {
+        ArgumentNullException.ThrowIfNull(config);
+
         var options = new JsonSerializerOptions
         {
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
@@ -75,8 +77,19 @@ public sealed class Host : IDisposable
         return resultJSON.ToString();
     }
 
+    public static string GetIdFromAddressInfo(string addressInfo)
+    {
+        using var addressInfoString = StringHandle.FromString(addressInfo);
+        using var error = NativeMethods.GetIDFromAddressInfo(addressInfoString, out var id);
+        LibP2pException.Check(error);
+        using var _ = id;
+        return id.ToString();
+    }
+
     public void Connect(string addressInfo, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(addressInfo);
+
         using var context = new Context(cancellationToken);
         using var addrInfo = StringHandle.FromString(addressInfo);
         using var error = NativeMethods.ConnectHost(context.Handle, handle, addrInfo);
@@ -89,6 +102,9 @@ public sealed class Host : IDisposable
 
     public HttpResponseMessage SendRequest(string peerId, SignedRequest request, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(peerId);
+        ArgumentNullException.ThrowIfNull(request);
+
         using var context = new Context(cancellationToken);
         using var peerIdString = StringHandle.FromString(peerId);
         using var signedRequestJson = StringHandle.FromUtf8Bytes(JsonSerializer.SerializeToUtf8Bytes(request));
@@ -120,6 +136,8 @@ public sealed class Host : IDisposable
 
     public Proxy StartProxyRequests(string proxy)
     {
+        ArgumentNullException.ThrowIfNull(proxy);
+
         using var proxyString = StringHandle.FromString(proxy);
         using var error = NativeMethods.StartProxyRequests(handle, proxyString, out var proxyHandle);
         LibP2pException.Check(error);

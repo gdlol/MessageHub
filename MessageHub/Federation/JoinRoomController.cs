@@ -78,6 +78,7 @@ public class JoinRoomController : ControllerBase
             roomId: roomId,
             snapshot: roomSnapshot,
             eventType: EventTypes.Member,
+            serverKeys: peerIdentity.GetServerKeys(),
             stateKey: userId,
             sender: senderId,
             content: JsonSerializer.SerializeToElement(

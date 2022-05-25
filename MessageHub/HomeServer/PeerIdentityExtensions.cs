@@ -35,7 +35,7 @@ public static class PeerIdentityExtensions
             var (algorithm, keyName) = keyIdentifier;
             var signature = identity.CreateSignature(algorithm, keyName, jsonBytes);
             var signatureString = UnpaddedBase64Encoder.Encode(signature);
-            signatures[keyIdentifier.ToString()] = signatureString;
+            signatures[keyIdentifier] = signatureString;
         }
         jsonObject[nameof(signatures)] = JsonObject.Create(
             JsonSerializer.SerializeToElement(new Signatures
@@ -58,14 +58,39 @@ public static class PeerIdentityExtensions
         return signedElement.Deserialize<PersistentDataUnit>()!;
     }
 
-    public static bool VerifyJson(this IPeerIdentity self, IPeerIdentity identity, JsonElement element)
+    public static bool VerifyJson(this IPeerIdentity self, string peerId, JsonElement element)
     {
         ArgumentNullException.ThrowIfNull(self);
-        ArgumentNullException.ThrowIfNull(identity);
+        ArgumentNullException.ThrowIfNull(peerId);
         ArgumentNullException.ThrowIfNull(element);
 
         // Get signatures mapping.
         if (element.ValueKind != JsonValueKind.Object)
+        {
+            return false;
+        }
+        ServerKeys? serverKeys;
+        if (!element.TryGetProperty("server_keys", out var serverKeysElement))
+        {
+            return false;
+        }
+        try
+        {
+            serverKeys = serverKeysElement.Deserialize<ServerKeys>();
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+        if (serverKeys is null)
+        {
+            return false;
+        }
+        if (serverKeys.ServerName != peerId)
+        {
+            return false;
+        }
+        if (!self.Verify(serverKeys))
         {
             return false;
         }
@@ -78,7 +103,7 @@ public static class PeerIdentityExtensions
         {
             return false;
         }
-        if (!signatures.TryGetProperty(identity.Id, out var identitySignatures))
+        if (!signatures.TryGetProperty(peerId, out var identitySignatures))
         {
             return false;
         }
@@ -99,7 +124,7 @@ public static class PeerIdentityExtensions
             {
                 continue;
             }
-            if (!identity.VerifyKeys.Keys.TryGetValue(keyIdentifier, out var key))
+            if (!serverKeys.VerifyKeys.TryGetValue(keyIdentifier, out var key))
             {
                 continue;
             }

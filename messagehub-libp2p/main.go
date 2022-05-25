@@ -85,6 +85,22 @@ func GetHostAddressInfo(hostHandle HostHandle, resultJSON *StringHandle) StringH
 	return nil
 }
 
+//export GetIDFromAddressInfo
+func GetIDFromAddressInfo(addrInfo StringHandle, peerID *StringHandle) StringHandle {
+	*peerID = nil
+	var peerAddrInfo peer.AddrInfo
+	err := peerAddrInfo.UnmarshalJSON([]byte(C.GoString(addrInfo)))
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	result, err := peerAddrInfo.ID.MarshalText()
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	*peerID = C.CString(string(result))
+	return nil
+}
+
 //export ConnectHost
 func ConnectHost(ctxHandle ContextHandle, hostHandle HostHandle, addrInfo StringHandle) StringHandle {
 	ctx := loadValue(ctxHandle).(*cancellableContext).ctx
@@ -185,6 +201,26 @@ func BootstrapDHT(ctxHandle ContextHandle, dhtHandle DHTHandle) StringHandle {
 	if err != nil {
 		return C.CString(err.Error())
 	}
+	return nil
+}
+
+//export FindPeer
+func FindPeer(ctxHandle ContextHandle, dhtHandle DHTHandle, peerID StringHandle, resultJSON *StringHandle) StringHandle {
+	ctx := loadValue(ctxHandle).(*cancellableContext).ctx
+	ipfsDHT := loadValue(dhtHandle).(*dht.IpfsDHT)
+	p2pPeerID, err := peer.Decode(C.GoString(peerID))
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	addrInfo, err := ipfsDHT.FindPeer(ctx, p2pPeerID)
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	result, err := addrInfo.MarshalJSON()
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	*resultJSON = C.CString(string(result))
 	return nil
 }
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"sync"
 
 	"github.com/libp2p/go-libp2p-core/peer"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
@@ -10,6 +11,7 @@ import (
 )
 
 type MemberStore struct {
+	mutex   sync.RWMutex
 	members map[string]map[string]any
 }
 
@@ -20,6 +22,8 @@ func NewMemberStore() MemberStore {
 }
 
 func (store *MemberStore) getMembers(topic string) []string {
+	store.mutex.RLock()
+	defer store.mutex.RUnlock()
 	if ids, ok := store.members[topic]; ok {
 		result := make([]string, 0, len(ids))
 		for id := range ids {
@@ -32,10 +36,14 @@ func (store *MemberStore) getMembers(topic string) []string {
 }
 
 func (store *MemberStore) clearMembers(topic string) {
+	store.mutex.Lock()
+	defer store.mutex.Unlock()
 	delete(store.members, topic)
 }
 
 func (store *MemberStore) addMember(topic string, peerID string) {
+	store.mutex.Lock()
+	defer store.mutex.Unlock()
 	ids, ok := store.members[topic]
 	if !ok {
 		ids = make(map[string]any)
@@ -45,6 +53,8 @@ func (store *MemberStore) addMember(topic string, peerID string) {
 }
 
 func (store *MemberStore) removeMember(topic string, peerID string) {
+	store.mutex.Lock()
+	defer store.mutex.Unlock()
 	if ids, ok := store.members[topic]; ok {
 		delete(ids, peerID)
 	}
@@ -52,6 +62,8 @@ func (store *MemberStore) removeMember(topic string, peerID string) {
 
 // Filter while list of peers for each topic.
 func (store *MemberStore) filterPeer(pid peer.ID, topic string) bool {
+	store.mutex.RLock()
+	defer store.mutex.RUnlock()
 	pidString := peer.Encode(pid)
 	if peerIDs, ok := store.members[topic]; ok {
 		_, ok := peerIDs[pidString]

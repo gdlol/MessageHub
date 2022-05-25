@@ -23,6 +23,9 @@ public sealed class DHT : IDisposable
 
     public static DHT Create(Host host, DHTConfig config, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(host);
+        ArgumentNullException.ThrowIfNull(config);
+
         using var context = new Context(cancellationToken);
         var options = new JsonSerializerOptions
         {
@@ -58,5 +61,21 @@ public sealed class DHT : IDisposable
             cancellationToken.ThrowIfCancellationRequested();
             LibP2pException.Check(error);
         }
+    }
+
+    public string FindPeer(string peerId, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(peerId);
+
+        using var context = new Context(cancellationToken);
+        using var peerIdString = StringHandle.FromString(peerId);
+        using var error = NativeMethods.FindPeer(context.Handle, handle, peerIdString, out var resultJSON);
+        if (!error.IsInvalid)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            LibP2pException.Check(error);
+        }
+        using var _ = resultJSON;
+        return resultJSON.ToString();
     }
 }

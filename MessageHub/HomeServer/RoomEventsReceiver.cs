@@ -11,26 +11,22 @@ public class RoomEventsReceiver
 {
     private readonly string roomId;
     private readonly IPeerIdentity identity;
-    private readonly IPeerStore peerStore;
     private readonly IRoomEventStore roomEventStore;
     private readonly IEventSaver eventSaver;
 
     public RoomEventsReceiver(
         string roomId,
         IPeerIdentity identity,
-        IPeerStore peerStore,
         IRoomEventStore roomEventStore,
         IEventSaver eventSaver)
     {
         ArgumentNullException.ThrowIfNull(roomId);
         ArgumentNullException.ThrowIfNull(identity);
-        ArgumentNullException.ThrowIfNull(peerStore);
         ArgumentNullException.ThrowIfNull(roomEventStore);
         ArgumentNullException.ThrowIfNull(eventSaver);
 
         this.roomId = roomId;
         this.identity = identity;
-        this.peerStore = peerStore;
         this.roomEventStore = roomEventStore;
         this.eventSaver = eventSaver;
     }
@@ -52,11 +48,15 @@ public class RoomEventsReceiver
 
     private bool VerifySignature(PersistentDataUnit pdu)
     {
-        if (!peerStore.TryGetPeer(pdu.Origin, out var peer))
+        if (!identity.Verify(pdu.ServerKeys))
         {
             return false;
         }
-        return identity.VerifyJson(peer, pdu.ToJsonElement());
+        if (pdu.ServerKeys.ValidUntilTimestamp < pdu.OriginServerTimestamp)
+        {
+            return false;
+        }
+        return identity.VerifyJson(pdu.Origin, pdu.ToJsonElement());
     }
 
     public static bool VerifyHash(PersistentDataUnit pdu)

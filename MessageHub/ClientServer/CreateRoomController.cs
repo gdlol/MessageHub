@@ -152,6 +152,7 @@ public class CreateRoomController : ControllerBase
             events[eventId] = pdu;
             statesMap[eventId] = states;
         }
+        var serverKeys = peerIdentity.GetServerKeys();
 
         // m.room.create event.
         (roomSnapshot, pdu) = EventCreation.CreateEvent(
@@ -159,6 +160,7 @@ public class CreateRoomController : ControllerBase
             snapshot: roomSnapshot,
             eventType: EventTypes.Create,
             stateKey: string.Empty,
+            serverKeys: serverKeys,
             sender: senderId,
             content: roomCreateEventContent,
             timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
@@ -170,6 +172,7 @@ public class CreateRoomController : ControllerBase
             snapshot: roomSnapshot,
             eventType: EventTypes.Member,
             stateKey: userId,
+            serverKeys: serverKeys,
             sender: senderId,
             content: JsonSerializer.SerializeToElement(new MemberEvent
             {
@@ -186,6 +189,7 @@ public class CreateRoomController : ControllerBase
             snapshot: roomSnapshot,
             eventType: EventTypes.PowerLevels,
             stateKey: string.Empty,
+            serverKeys: serverKeys,
             sender: senderId,
             content: powerLevelContent,
             timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
@@ -199,6 +203,7 @@ public class CreateRoomController : ControllerBase
                 snapshot: roomSnapshot,
                 eventType: EventTypes.CanonicalAlias,
                 stateKey: string.Empty,
+                serverKeys: serverKeys,
                 sender: senderId,
                 content: JsonSerializer.SerializeToElement(
                     new CanonicalAliasEvent { Alias = alias },
@@ -235,6 +240,7 @@ public class CreateRoomController : ControllerBase
                     snapshot: roomSnapshot,
                     eventType: EventTypes.JoinRules,
                     stateKey: string.Empty,
+                    serverKeys: serverKeys,
                     sender: senderId,
                     content: JsonSerializer.SerializeToElement(joinRulesContent, ignoreNullOptions),
                     timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
@@ -247,6 +253,7 @@ public class CreateRoomController : ControllerBase
                     snapshot: roomSnapshot,
                     eventType: EventTypes.HistoryVisibility,
                     stateKey: string.Empty,
+                    serverKeys: serverKeys,
                     sender: senderId,
                     content: JsonSerializer.SerializeToElement(historyVisibilityContent, ignoreNullOptions),
                     timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
@@ -264,6 +271,7 @@ public class CreateRoomController : ControllerBase
                     snapshot: roomSnapshot,
                     eventType: stateEvent.EventType,
                     stateKey: stateEvent.StateKey,
+                    serverKeys: serverKeys,
                     sender: senderId,
                     content: stateEvent.Content,
                     timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
@@ -279,6 +287,7 @@ public class CreateRoomController : ControllerBase
                 snapshot: roomSnapshot,
                 eventType: EventTypes.Name,
                 stateKey: string.Empty,
+                serverKeys: serverKeys,
                 sender: senderId,
                 content: JsonSerializer.SerializeToElement(
                     new NameEvent { Name = name },
@@ -295,6 +304,7 @@ public class CreateRoomController : ControllerBase
                 snapshot: roomSnapshot,
                 eventType: EventTypes.Topic,
                 stateKey: string.Empty,
+                serverKeys: serverKeys,
                 sender: senderId,
                 content: JsonSerializer.SerializeToElement(
                     new TopicEvent { Topic = topic },
@@ -313,6 +323,7 @@ public class CreateRoomController : ControllerBase
                     snapshot: roomSnapshot,
                     eventType: EventTypes.Member,
                     stateKey: invitedId,
+                    serverKeys: serverKeys,
                     sender: senderId,
                     content: JsonSerializer.SerializeToElement(
                         new MemberEvent

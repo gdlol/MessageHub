@@ -16,19 +16,23 @@ namespace MessageHub.Federation;
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Federation)]
 public class LeaveRoomController : ControllerBase
 {
+    private readonly IPeerIdentity peerIdentity;
     private readonly IRooms rooms;
     private readonly IEventReceiver eventReceiver;
     private readonly IEventPublisher eventPublisher;
 
     public LeaveRoomController(
+        IPeerIdentity peerIdentity,
         IRooms rooms,
         IEventReceiver eventReceiver,
         IEventPublisher eventPublisher)
     {
+        ArgumentNullException.ThrowIfNull(peerIdentity);
         ArgumentNullException.ThrowIfNull(rooms);
         ArgumentNullException.ThrowIfNull(eventReceiver);
         ArgumentNullException.ThrowIfNull(eventPublisher);
 
+        this.peerIdentity = peerIdentity;
         this.rooms = rooms;
         this.eventReceiver = eventReceiver;
         this.eventPublisher = eventPublisher;
@@ -65,6 +69,7 @@ public class LeaveRoomController : ControllerBase
             snapshot: roomSnapshot,
             eventType: EventTypes.Member,
             stateKey: userId,
+            serverKeys: peerIdentity.GetServerKeys(),
             sender: senderId,
             content: JsonSerializer.SerializeToElement(
                 new MemberEvent { MemberShip = MembershipStates.Leave },

@@ -7,13 +7,11 @@ namespace MessageHub.HomeServer;
 public class EventReceiver : IEventReceiver
 {
     private readonly IPeerIdentity identity;
-    private readonly IPeerStore peerStore;
     private readonly IRooms rooms;
     private readonly IEventSaver eventSaver;
 
     public EventReceiver(
         IPeerIdentity identity,
-        IPeerStore peerStore,
         IRooms rooms,
         IEventSaver eventSaver)
     {
@@ -23,7 +21,6 @@ public class EventReceiver : IEventReceiver
         ArgumentNullException.ThrowIfNull(eventSaver);
 
         this.identity = identity;
-        this.peerStore = peerStore;
         this.rooms = rooms;
         this.eventSaver = eventSaver;
     }
@@ -57,7 +54,7 @@ public class EventReceiver : IEventReceiver
         foreach (var (roomId, pduList) in roomPdus)
         {
             using var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
-            var roomReceiver = new RoomEventsReceiver(roomId, identity, peerStore, roomEventStore, eventSaver);
+            var roomReceiver = new RoomEventsReceiver(roomId, identity, roomEventStore, eventSaver);
             var roomErrors = await roomReceiver.ReceiveEvents(pduList.ToArray());
             foreach (var (eventId, error) in roomErrors)
             {

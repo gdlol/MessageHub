@@ -75,6 +75,7 @@ public class SendMessagesController : ControllerBase
             snapshot: snapshot,
             eventType: eventType,
             stateKey: stateKey,
+            serverKeys: peerIdentity.GetServerKeys(),
             sender: senderId,
             content: body,
             timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
@@ -115,6 +116,7 @@ public class SendMessagesController : ControllerBase
             snapshot: snapshot,
             eventType: eventType,
             stateKey: null,
+            serverKeys: peerIdentity.GetServerKeys(),
             sender: senderId,
             content: body,
             timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
@@ -176,6 +178,7 @@ public class SendMessagesController : ControllerBase
             snapshot: snapshot,
             eventType: EventTypes.Redact,
             stateKey: null,
+            serverKeys: peerIdentity.GetServerKeys(),
             sender: senderId,
             content: body,
             timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),

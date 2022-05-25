@@ -16,6 +16,8 @@ public sealed class Discovery : IDisposable
 
     public static Discovery Create(DHT dht)
     {
+        ArgumentNullException.ThrowIfNull(dht);
+
         var handle = NativeMethods.CreateDiscovery(dht.Handle);
         return new Discovery(handle);
     }
@@ -27,6 +29,8 @@ public sealed class Discovery : IDisposable
 
     public void Advertise(string topic, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(topic);
+
         using var context = new Context(cancellationToken);
         using var topicString = StringHandle.FromString(topic);
         using var error = NativeMethods.Advertise(context.Handle, handle, topicString);
@@ -39,6 +43,8 @@ public sealed class Discovery : IDisposable
 
     public Dictionary<string, string> FindPeers(string topic, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(topic);
+
         using var context = new Context(cancellationToken);
         using var topicString = StringHandle.FromString(topic);
         using var error = NativeMethods.FindPeers(context.Handle, handle, topicString, out var resultHandle);

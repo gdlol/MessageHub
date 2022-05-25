@@ -2,7 +2,7 @@ using MessageHub.HomeServer.P2p.Libp2p.Native;
 
 namespace MessageHub.HomeServer.P2p.Libp2p;
 
-public sealed class Context : IDisposable
+internal sealed class Context : IDisposable
 {
     private readonly ContextHandle handle;
     private readonly CancellationTokenRegistration registration;

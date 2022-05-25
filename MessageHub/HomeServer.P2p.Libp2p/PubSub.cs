@@ -15,8 +15,15 @@ public sealed class PubSub : IDisposable
 
     public static PubSub Create(DHT dht, MemberStore memberStore, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(dht);
+        ArgumentNullException.ThrowIfNull(memberStore);
+
         using var context = new Context(cancellationToken);
-        using var error = NativeMethods.CreatePubSub(context.Handle, dht.Handle, memberStore.Handle, out var pubsubHandle);
+        using var error = NativeMethods.CreatePubSub(
+            context.Handle,
+            dht.Handle,
+            memberStore.Handle,
+            out var pubsubHandle);
         if (!error.IsInvalid)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -32,6 +39,8 @@ public sealed class PubSub : IDisposable
 
     public Topic JoinTopic(string topic)
     {
+        ArgumentNullException.ThrowIfNull(topic);
+
         using var topicString = StringHandle.FromString(topic);
         using var error = NativeMethods.JoinTopic(handle, topicString, out var topicHandle);
         LibP2pException.Check(error);

@@ -86,6 +86,7 @@ public class InviteController : ControllerBase
             snapshot: roomSnapshot,
             eventType: EventTypes.Member,
             stateKey: parameters.UserId,
+            serverKeys: peerIdentity.GetServerKeys(),
             sender: senderId,
             content: JsonSerializer.SerializeToElement(
                 new MemberEvent { MemberShip = MembershipStates.Invite },

@@ -23,7 +23,6 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
     };
 
     private readonly IPeerIdentity identity;
-    private readonly IPeerStore peerStore;
     private readonly IRooms rooms;
 
     public FederationAuthenticationHandler(
@@ -32,15 +31,12 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
         UrlEncoder encoder,
         ISystemClock clock,
         IPeerIdentity identity,
-        IPeerStore peerStore,
         IRooms rooms) : base(options, logger, encoder, clock)
     {
         ArgumentNullException.ThrowIfNull(identity);
-        ArgumentNullException.ThrowIfNull(peerStore);
         ArgumentNullException.ThrowIfNull(rooms);
 
         this.identity = identity;
-        this.peerStore = peerStore;
         this.rooms = rooms;
     }
 
@@ -87,7 +83,7 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
                         {
                             signatures[origin] = originSignatures = new ServerSignatures();
                         }
-                        originSignatures[keyIdentifier.ToString()] = signature;
+                        originSignatures[keyIdentifier] = signature;
                     }
                 }
             }
@@ -147,11 +143,10 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
             var error = MatrixError.Create(MatrixErrorCode.Unauthorized);
             return AuthenticateResult.Fail(error.ToString());
         }
-        if (peerStore.TryGetPeer(sender, out var peer)
-            && identity.VerifyJson(peer, JsonSerializer.SerializeToElement(request, ignoreNullOptions)))
+        if (identity.VerifyJson(sender, JsonSerializer.SerializeToElement(request, ignoreNullOptions)))
         {
             Request.HttpContext.Items[nameof(request)] = request;
-            var claims = new[] { new Claim(ClaimTypes.Name, peer.Id) };
+            var claims = new[] { new Claim(ClaimTypes.Name, sender) };
             var claimsIdentity = new ClaimsIdentity(claims, MatrixAuthenticationSchemes.Federation);
             var ticket = new AuthenticationTicket(new ClaimsPrincipal(claimsIdentity), Scheme.Name);
             return AuthenticateResult.Success(ticket);
