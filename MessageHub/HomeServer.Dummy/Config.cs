@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace MessageHub;
+namespace MessageHub.HomeServer.Dummy;
 
 public class Config
 {

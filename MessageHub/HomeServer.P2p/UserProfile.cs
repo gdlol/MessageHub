@@ -27,6 +27,7 @@ public class UserProfile : IUserProfile
     {
         using var store = storageProvider.GetKeyValueStore(storeName);
         await store.PutStringAsync(key, value);
+        await store.CommitAsync();
     }
 
     public Task<string?> GetAvatarUrlAsync(string userId)

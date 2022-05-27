@@ -19,13 +19,13 @@ internal class Rooms : IRooms
 
     public bool HasRoom(string roomId)
     {
-        return eventStore.JoinedRoomIds.Contains(roomId);
+        return eventStore.Update().JoinedRoomIds.Contains(roomId);
     }
 
     public Task<IRoomEventStore> GetRoomEventStoreAsync(string roomId)
     {
         var store = storageProvider.GetEventStore();
-        IRoomEventStore roomEventStore = new RoomEventStore(eventStore, store, roomId);
+        IRoomEventStore roomEventStore = new RoomEventStore(eventStore.Update(), store, roomId);
         return Task.FromResult(roomEventStore);
     }
 

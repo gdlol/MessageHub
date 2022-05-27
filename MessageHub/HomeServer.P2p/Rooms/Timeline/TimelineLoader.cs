@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using MessageHub.HomeServer.P2p.Providers;
 using MessageHub.HomeServer.Rooms.Timeline;
 
@@ -17,12 +18,13 @@ internal class TimelineLoader : ITimelineLoader
         this.storageProvider = storageProvider;
     }
 
-    public bool IsEmpty => string.IsNullOrEmpty(eventStore.CurrentBatchId);
+    public bool IsEmpty => string.IsNullOrEmpty(eventStore.Update().CurrentBatchId);
 
-    public string CurrentBatchId => eventStore.CurrentBatchId;
+    public string CurrentBatchId => eventStore.Update().CurrentBatchId;
 
     public async Task<BatchStates> LoadBatchStatesAsync(Func<string, bool> roomIdFilter, bool includeLeave)
     {
+        var eventStore = this.eventStore.Update();
         string batchId = eventStore.CurrentBatchId;
         using var store = storageProvider.GetEventStore();
         var roomEventIds = await EventStore.GetRoomEventIdsAsync(store, batchId);
@@ -43,7 +45,11 @@ internal class TimelineLoader : ITimelineLoader
 
     public async Task<IReadOnlyDictionary<string, string>> GetRoomEventIds(string? batchId)
     {
-        batchId ??= eventStore.CurrentBatchId;
+        if (string.IsNullOrEmpty(batchId))
+        {
+            return ImmutableDictionary<string, string>.Empty;
+        }
+        batchId ??= eventStore.Update().CurrentBatchId;
         using var store = storageProvider.GetEventStore();
         var roomEventIds = await EventStore.GetRoomEventIdsAsync(store, batchId);
         if (roomEventIds is null)

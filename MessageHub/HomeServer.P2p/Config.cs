@@ -1,6 +1,18 @@
+using System.Text.Json.Serialization;
+
 namespace MessageHub.HomeServer.P2p;
 
 public class Config
 {
-    public string ContentPath { get; init; } = default!;
+    [JsonPropertyName("peerId")]
+    public string PeerId { get; set; } = default!;
+
+    [JsonPropertyName("peers")]
+    public Dictionary<string, string> Peers { get; set; } = default!;
+
+    [JsonPropertyName("contentPath")]
+    public string ContentPath { get; set; } = default!;
+
+    [JsonPropertyName("dataPath")]
+    public string DataPath { get; set; } = default!;
 }

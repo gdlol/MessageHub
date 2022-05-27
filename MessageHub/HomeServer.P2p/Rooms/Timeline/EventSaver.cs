@@ -15,31 +15,34 @@ internal sealed class EventSaver : IEventSaver
     private readonly EventStore eventStore;
     private readonly IStorageProvider storageProvider;
     private readonly IPeerIdentity peerIdentity;
+    private readonly Notifier<(string, string[])> notifier;
 
     public EventSaver(
         ILogger<EventSaver> logger,
         EventStore eventStore,
         IStorageProvider storageProvider,
-        IPeerIdentity peerIdentity)
+        IPeerIdentity peerIdentity,
+        Notifier<(string, string[])> notifier)
     {
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(eventStore);
         ArgumentNullException.ThrowIfNull(storageProvider);
         ArgumentNullException.ThrowIfNull(peerIdentity);
+        ArgumentNullException.ThrowIfNull(notifier);
 
         this.logger = logger;
         this.eventStore = eventStore;
         this.storageProvider = storageProvider;
         this.peerIdentity = peerIdentity;
+        this.notifier = notifier;
     }
 
-    private async ValueTask<RoomSnapshot> GetNewSnapshotAsync(
-        IKeyValueStore store,
+    private static async ValueTask<RoomSnapshot> GetNewSnapshotAsync(
+        RoomEventStore roomEventStore,
         RoomSnapshot snapshot,
         string eventId,
         PersistentDataUnit pdu)
     {
-        using var roomEventStore = new RoomEventStore(eventStore, store, pdu.RoomId, ownsStore: false);
         var stateResolver = new RoomStateResolver(roomEventStore);
         var latestEventIds = snapshot.LatestEventIds.Except(pdu.PreviousEvents).Union(new[] { eventId });
         var newStates = await stateResolver.ResolveStateAsync(latestEventIds);
@@ -75,7 +78,7 @@ internal sealed class EventSaver : IEventSaver
         try
         {
             using var store = storageProvider.GetEventStore();
-            var newEventStore = eventStore;
+            var newEventStore = eventStore.Update();
 
             // Event data update.
             logger.LogInformation("Saving event {eventId}: {pdu}", eventId, pdu);
@@ -101,7 +104,8 @@ internal sealed class EventSaver : IEventSaver
             }
             await EventStore.PutEventAsync(store, roomId, eventId, pdu);
             await EventStore.PutStatesAsync(store, roomId, eventId, states.ToImmutableDictionary());
-            var newSnapshot = await GetNewSnapshotAsync(store, snapshot, eventId, pdu);
+            using var newRoomEventStore = new RoomEventStore(newEventStore, store, pdu.RoomId, ownsStore: false);
+            var newSnapshot = await GetNewSnapshotAsync(newRoomEventStore, snapshot, eventId, pdu);
             await EventStore.PutRoomSnapshotAsync(store, roomId, newSnapshot);
 
             if (!isAuthorized)
@@ -181,6 +185,24 @@ internal sealed class EventSaver : IEventSaver
 
             await store.CommitAsync();
             EventStore.Instance = newEventStore;
+            if (pdu.EventType == EventTypes.Member)
+            {
+                var members = new List<string>();
+                foreach (var (roomStateKey, content) in newSnapshot.StateContents)
+                {
+                    if (roomStateKey.EventType != EventTypes.Member)
+                    {
+                        continue;
+                    }
+                    var memberEvent = JsonSerializer.Deserialize<MemberEvent>(content)!;
+                    if (memberEvent.MemberShip == MembershipStates.Join)
+                    {
+                        var userIdentifier = UserIdentifier.Parse(roomStateKey.StateKey);
+                        members.Add(userIdentifier.PeerId);
+                    }
+                }
+                notifier.Notify((pdu.RoomId, members.ToArray()));
+            }
         }
         finally
         {
@@ -198,7 +220,7 @@ internal sealed class EventSaver : IEventSaver
         try
         {
             using var store = storageProvider.GetEventStore();
-            var newEventStore = eventStore;
+            var newEventStore = eventStore.Update();
 
             // Event data update.
             var newEventIds = new List<string>();
@@ -224,7 +246,9 @@ internal sealed class EventSaver : IEventSaver
                     }
                     await EventStore.PutEventAsync(store, roomId, eventId, pdu);
                     await EventStore.PutStatesAsync(store, roomId, eventId, states[eventId]);
-                    var newSnapshot = await GetNewSnapshotAsync(store, snapshot, eventId, pdu);
+                    using var newRoomEventStore =
+                        new RoomEventStore(newEventStore, store, pdu.RoomId, ownsStore: false);
+                    var newSnapshot = await GetNewSnapshotAsync(newRoomEventStore, snapshot, eventId, pdu);
                     await EventStore.PutRoomSnapshotAsync(store, roomId, newSnapshot);
                 }
                 else
@@ -319,6 +343,25 @@ internal sealed class EventSaver : IEventSaver
 
             await store.CommitAsync();
             EventStore.Instance = newEventStore;
+            if (events.Values.Any(pdu => pdu.EventType == EventTypes.Member))
+            {
+                var snapshot = await EventStore.GetRoomSnapshotAsync(store, roomId);
+                var members = new List<string>();
+                foreach (var (roomStateKey, content) in snapshot.StateContents)
+                {
+                    if (roomStateKey.EventType != EventTypes.Member)
+                    {
+                        continue;
+                    }
+                    var memberEvent = JsonSerializer.Deserialize<MemberEvent>(content)!;
+                    if (memberEvent.MemberShip == MembershipStates.Join)
+                    {
+                        var userIdentifier = UserIdentifier.Parse(roomStateKey.StateKey);
+                        members.Add(userIdentifier.PeerId);
+                    }
+                }
+                notifier.Notify((roomId, members.ToArray()));
+            }
         }
         finally
         {
@@ -332,7 +375,7 @@ internal sealed class EventSaver : IEventSaver
         try
         {
             using var store = storageProvider.GetEventStore();
-            var newEventStore = eventStore;
+            var newEventStore = eventStore.Update();
 
             var strippedStates = ImmutableList<StrippedStateEvent>.Empty;
             if (states is not null)
@@ -357,7 +400,7 @@ internal sealed class EventSaver : IEventSaver
         try
         {
             using var store = storageProvider.GetEventStore();
-            var newEventStore = eventStore;
+            var newEventStore = eventStore.Update();
 
             var strippedStates = ImmutableList<StrippedStateEvent>.Empty;
             if (states is not null)

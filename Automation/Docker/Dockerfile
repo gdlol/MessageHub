@@ -10,7 +10,7 @@ WORKDIR /MessageHub
 COPY MessageHub/*.csproj ./
 RUN dotnet restore
 COPY MessageHub/ ./
-RUN dotnet publish --configuration Release --output /root/app/
+RUN dotnet publish --configuration Debug --output /root/app/
 
 FROM mcr.microsoft.com/dotnet/aspnet:6.0
 WORKDIR /root/app/

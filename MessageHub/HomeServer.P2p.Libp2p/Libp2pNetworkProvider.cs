@@ -1,9 +1,10 @@
 using System.Text.Json;
 using MessageHub.Federation.Protocol;
+using MessageHub.HomeServer.P2p.Providers;
 
 namespace MessageHub.HomeServer.P2p.Libp2p;
 
-public sealed class NetworkProvider : IDisposable
+public sealed class Libp2pNetworkProvider : INetworkProvider, IDisposable
 {
     private readonly Host host;
     private readonly DHT dht;
@@ -13,7 +14,7 @@ public sealed class NetworkProvider : IDisposable
     private PubSubService? pubsubService;
     private MembershipService? membershipService;
 
-    public NetworkProvider(HostConfig hostConfig, DHTConfig dhtConfig)
+    public Libp2pNetworkProvider(HostConfig hostConfig, DHTConfig dhtConfig)
     {
         ArgumentNullException.ThrowIfNull(hostConfig);
         ArgumentNullException.ThrowIfNull(dhtConfig);

@@ -1,6 +1,7 @@
 {
     "peerId": "dummy",
     "peers": {
-        "dummy": "localhost:8448"
-    }
+        "dummy": "0.0.0.0:8448"
+    },
+    "contentPath": ""
 }

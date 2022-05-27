@@ -46,6 +46,7 @@ public class RoomDiscoveryService : IRoomDiscoveryService
 
         using var store = storageProvider.GetKeyValueStore(aliasesStorageName);
         await store.PutStringAsync(alias, roomId);
+        await store.CommitAsync();
         var savedRoomId = await store.GetStringAsync(alias);
         return savedRoomId == roomId;
     }
@@ -56,6 +57,7 @@ public class RoomDiscoveryService : IRoomDiscoveryService
 
         using var store = storageProvider.GetKeyValueStore(aliasesStorageName);
         await store.DeleteAsync(alias);
+        await store.CommitAsync();
         return true;
     }
 

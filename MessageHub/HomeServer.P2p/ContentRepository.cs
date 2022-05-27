@@ -31,7 +31,7 @@ public class ContentRepository : IContentRepository
         if (url.Contains('/'))
         {
             string fileName = url.Split('/')[^1];
-            result = File.OpenRead(fileName);
+            result = File.OpenRead(Path.Combine(config.ContentPath, fileName));
         }
         return Task.FromResult(result);
     }

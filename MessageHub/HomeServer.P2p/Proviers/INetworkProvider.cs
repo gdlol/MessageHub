@@ -5,9 +5,14 @@ namespace MessageHub.HomeServer.P2p.Providers;
 
 public interface INetworkProvider
 {
-    Task InitializeAsync(Func<ServerKeys, IPeerIdentity?> identityVerifier);
+    (KeyIdentifier, string) GetVerifyKey();
+    Task InitializeAsync(
+        ILoggerFactory loggerFactory,
+        Func<ServerKeys, IPeerIdentity?> identityVerifier,
+        Action<string, JsonElement> subscriber,
+        Notifier<(string, string[])> membershipUpdateNotifier);
+    Task ShutdownAsync();
     void Publish(string roomId, JsonElement message);
-    void Subscribe(Action<string, JsonElement> subscriber);
     Task<JsonElement> SendAsync(SignedRequest request, CancellationToken cancellationToken);
     Task<Stream> DownloadAsync(string peerId, string url);
 }

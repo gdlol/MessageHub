@@ -122,6 +122,18 @@ internal class EventStore
         return new EventStore(roomCreators, joinedRoomIds, leftRoomIds, invites, knocks, currentBatchId); ;
     }
 
+    public EventStore Update()
+    {
+        if (Instance is not null)
+        {
+            return Instance;
+        }
+        else
+        {
+            return this;
+        }
+    }
+
     public async ValueTask<EventStore> SetCreatorAsync(IKeyValueStore store, string roomId, string creator)
     {
         ArgumentNullException.ThrowIfNull(store);

@@ -13,7 +13,7 @@ public interface IKeyValueIterator : IDisposable
 public interface IKeyValueStore : IDisposable
 {
     bool IsEmpty { get; }
-    ValueTask PutAsync(string key, ReadOnlyMemory<byte> value);
+    ValueTask PutAsync(string key, Memory<byte> value);
     ValueTask<byte[]?> GetAsync(string key);
     ValueTask DeleteAsync(string key);
     ValueTask CommitAsync();
@@ -68,5 +68,5 @@ public interface IStorageProvider
 {
     bool HasKeyValueStore(string name);
     IKeyValueStore GetKeyValueStore(string name);
-    IKeyValueStore GetEventStore();
+    public IKeyValueStore GetEventStore() => GetKeyValueStore("Event");
 }

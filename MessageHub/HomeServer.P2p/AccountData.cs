@@ -41,12 +41,14 @@ public class AccountData : IAccountData
     {
         using var store = storageProvider.GetKeyValueStore(storeName);
         await store.PutStringAsync(key, value);
+        await store.CommitAsync();
     }
 
     private async Task DeleteStringAsync(string storeName, string key)
     {
         using var store = storageProvider.GetKeyValueStore(storeName);
         await store.DeleteAsync(key);
+        await store.CommitAsync();
     }
 
     public Task SaveAccountDataAsync(string? roomId, string eventType, JsonElement? value)
