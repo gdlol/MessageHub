@@ -74,6 +74,7 @@ internal class DummyAuthenticator : IAuthenticator
             if (accessTokens.TryAdd(accessToken, null))
             {
                 await networkProvider.InitializeAsync(
+                    peerIdentity,
                     loggerFactory,
                     serverKeys =>
                     {

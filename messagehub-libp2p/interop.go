@@ -11,6 +11,7 @@ import (
 
 var objectStore sync.Map
 
+type IntPtr *C.void
 type ObjectHandle *C.char
 type StringHandle *C.char
 type ContextHandle = ObjectHandle

@@ -32,7 +32,7 @@ if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
     string buildPath = Path.Combine(projectPath, "Build");
     if (Directory.Exists(buildPath))
     {
-        Directory.Delete(buildPath);
+        Directory.Delete(buildPath, recursive: true);
     }
     Run("docker", "build",
         "--force-rm",

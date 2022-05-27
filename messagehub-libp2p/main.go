@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"unsafe"
 
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -13,6 +14,17 @@ import (
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
 )
+
+//export Alloc
+func Alloc(length int32) IntPtr {
+	size := C.size_t(length)
+	return (IntPtr)(C.malloc(size))
+}
+
+//export Free
+func Free(ptr IntPtr) {
+	C.free(unsafe.Pointer(ptr))
+}
 
 //export Release
 func Release(id ObjectHandle) {

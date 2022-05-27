@@ -5,6 +5,12 @@ namespace MessageHub.HomeServer.P2p.Libp2p.Native;
 internal static class Native
 {
     public const string DllName = "messagehub-libp2p.dll";
+
+    [DllImport(DllName)]
+    public static extern IntPtr Alloc(int length);
+
+    [DllImport(DllName)]
+    public static extern void Free(IntPtr ptr);
 }
 
 internal class ObjectHandle : SafeHandle
@@ -21,7 +27,7 @@ internal class ObjectHandle : SafeHandle
     protected override bool ReleaseHandle()
     {
         Release(handle);
-        Marshal.FreeHGlobal(handle);
+        Native.Free(handle);
         return true;
     }
 

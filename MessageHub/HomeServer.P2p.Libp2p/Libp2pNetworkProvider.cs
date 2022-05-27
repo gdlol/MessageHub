@@ -13,6 +13,7 @@ public sealed class Libp2pNetworkProvider : INetworkProvider, IDisposable
     private readonly PubSub pubsub;
     private PubSubService? pubsubService;
     private MembershipService? membershipService;
+    private Notifier<object?> shutdownNotifier;
 
     public Libp2pNetworkProvider(HostConfig hostConfig, DHTConfig dhtConfig)
     {
@@ -24,6 +25,7 @@ public sealed class Libp2pNetworkProvider : INetworkProvider, IDisposable
         discovery = Discovery.Create(dht);
         memberStore = new MemberStore();
         pubsub = PubSub.Create(dht, memberStore);
+        shutdownNotifier = new Notifier<object?>();
     }
 
     public (KeyIdentifier, string) GetVerifyKey()
@@ -43,6 +45,7 @@ public sealed class Libp2pNetworkProvider : INetworkProvider, IDisposable
     }
 
     public Task InitializeAsync(
+        IPeerIdentity identity,
         ILoggerFactory loggerFactory,
         Func<ServerKeys, IPeerIdentity?> identityVerifier,
         Action<string, JsonElement> subscriber,
@@ -51,9 +54,47 @@ public sealed class Libp2pNetworkProvider : INetworkProvider, IDisposable
         dht.Bootstrap();
         var resolver = new PeerResolver(loggerFactory, host, discovery, identityVerifier);
         pubsubService = new PubSubService(pubsub, subscriber, loggerFactory);
-        membershipService = new MembershipService(loggerFactory, memberStore, resolver, membershipUpdateNotifier);
+        membershipService = new MembershipService(
+            loggerFactory,
+            identity,
+            memberStore,
+            resolver,
+            membershipUpdateNotifier);
         pubsubService.Start();
         membershipService.Start();
+        Task.Run(async () =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(3));
+            using var cts = new CancellationTokenSource();
+            void cancel(object? sender, object? e) => cts.Cancel();
+            shutdownNotifier.OnNotify += cancel;
+            var logger = loggerFactory.CreateLogger<Libp2pNetworkProvider>();
+            while (true)
+            {
+                try
+                {
+                    cts.Token.ThrowIfCancellationRequested();
+                    logger.LogDebug("Advertising ID: {}", identity.Id);
+                    discovery.Advertise(identity.Id, cts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    if (cts.IsCancellationRequested)
+                    {
+                        shutdownNotifier.OnNotify -= cancel;
+                        return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Error advertising ID: {}", identity.Id);
+                }
+                finally
+                {
+                    await Task.Delay(TimeSpan.FromMinutes(1));
+                }
+            }
+        });
         return Task.CompletedTask;
     }
 
@@ -69,6 +110,7 @@ public sealed class Libp2pNetworkProvider : INetworkProvider, IDisposable
             membershipService.Stop();
             membershipService = null;
         }
+        shutdownNotifier.Notify(null);
         return Task.CompletedTask;
     }
 

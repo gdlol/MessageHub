@@ -7,6 +7,7 @@ public interface INetworkProvider
 {
     (KeyIdentifier, string) GetVerifyKey();
     Task InitializeAsync(
+        IPeerIdentity identity,
         ILoggerFactory loggerFactory,
         Func<ServerKeys, IPeerIdentity?> identityVerifier,
         Action<string, JsonElement> subscriber,

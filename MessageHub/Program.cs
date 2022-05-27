@@ -6,15 +6,15 @@ using Microsoft.AspNetCore.Mvc;
 [assembly: ApiController]
 
 var builder = WebApplication.CreateBuilder(args);
-string json = File.ReadAllText("config.json");
+string json = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "config.json"));
 var config = JsonSerializer.Deserialize<Config>(json)!;
 if (string.IsNullOrEmpty(config.ContentPath))
 {
-    config.ContentPath = Path.Combine(Directory.GetCurrentDirectory(), "Content");
+    config.ContentPath = Path.Combine(AppContext.BaseDirectory, "Content");
 }
 if (string.IsNullOrEmpty(config.DataPath))
 {
-    config.DataPath = Path.Combine(Directory.GetCurrentDirectory(), "Data");
+    config.DataPath = Path.Combine(AppContext.BaseDirectory, "Data");
 }
 Directory.CreateDirectory(config.ContentPath);
 builder.Services.AddSingleton(config);
@@ -23,6 +23,7 @@ builder.WebHost.UseUrls(url);
 builder.WebHost.ConfigureLogging(builder =>
 {
     builder.AddFilter("Default", LogLevel.Information);
+    builder.AddFilter(nameof(MessageHub), LogLevel.Debug);
     builder.AddFilter("Microsoft", LogLevel.Warning);
     builder.AddFilter("Microsoft.Hosting.Lifetime", LogLevel.Information);
 });

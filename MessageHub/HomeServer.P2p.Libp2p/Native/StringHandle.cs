@@ -19,7 +19,7 @@ internal sealed class StringHandle : SafeHandle
 
     protected override bool ReleaseHandle()
     {
-        Marshal.FreeHGlobal(handle);
+        Native.Free(handle);
         return true;
     }
 
@@ -31,7 +31,7 @@ internal sealed class StringHandle : SafeHandle
     public unsafe static StringHandle FromString(string s)
     {
         int maxLength = Encoding.UTF8.GetMaxByteCount(s.Length) + 1;
-        var ptr = Marshal.AllocHGlobal(maxLength);
+        var ptr = Native.Alloc(maxLength);
         var span = new Span<byte>(ptr.ToPointer(), maxLength);
         int length = Encoding.UTF8.GetBytes(s, span);
         span[length] = 0;
@@ -41,7 +41,7 @@ internal sealed class StringHandle : SafeHandle
     public unsafe static StringHandle FromUtf8Bytes(Span<byte> utf8Bytes)
     {
         int length = utf8Bytes.Length + 1;
-        var ptr = Marshal.AllocHGlobal(length);
+        var ptr = Native.Alloc(length);
         var span = new Span<byte>(ptr.ToPointer(), length);
         utf8Bytes.CopyTo(span);
         span[length - 1] = 0;

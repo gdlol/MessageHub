@@ -5,6 +5,7 @@ namespace MessageHub.HomeServer.P2p.Libp2p;
 internal class MembershipService
 {
     private readonly ILogger logger;
+    private readonly IPeerIdentity peerIdentity;
     private readonly MemberStore memberStore;
     private readonly IPeerResolver peerResolver;
     private readonly Notifier<(string, string[])> notifier;
@@ -12,11 +13,13 @@ internal class MembershipService
 
     public MembershipService(
         ILoggerFactory loggerFactory,
+        IPeerIdentity peerIdentity,
         MemberStore memberStore,
         IPeerResolver peerResolver,
         Notifier<(string, string[])> notifier)
     {
         logger = loggerFactory.CreateLogger<MembershipService>();
+        this.peerIdentity = peerIdentity;
         this.memberStore = memberStore;
         this.peerResolver = peerResolver;
         this.notifier = notifier;
@@ -50,6 +53,10 @@ internal class MembershipService
             var members = new ConcurrentBag<string>();
             await Parallel.ForEachAsync(memberIds, parallelOptions, async (id, token) =>
             {
+                if (id == peerIdentity.Id)
+                {
+                    return;
+                }
                 try
                 {
                     var addressInfo = await peerResolver.ResolveAddressInfoAsync(id, cancellationToken: token);
