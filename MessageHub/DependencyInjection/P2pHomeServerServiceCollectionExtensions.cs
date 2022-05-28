@@ -40,17 +40,17 @@ public static class P2pHomeServerServiceCollectionExtensions
         services.AddSingleton<RoomEventSubscriber>();
         services.AddSingleton<IAuthenticator, DummyAuthenticator>();
         services.AddSingleton<IContentRepository, ContentRepository>();
-        services.AddSingleton<IPeerIdentity, DummyIdentity>();
         services.AddSingleton<IPeerStore, DummyPeerStore>();
         services.AddSingleton<IRoomDiscoveryService, RoomDiscoveryService>();
         services.AddSingleton<IUserProfile, UserProfile>();
         services.AddSingleton<IRequestHandler, RequestHandler>();
         services.AddSingleton<IRemoteContentRepository, RemoteContentRepository>();
         services.AddSingleton<IEventPublisher, EventPublisher>();
+        services.AddScoped<IPeerIdentity>(_ => DummyIdentity.Self ?? throw new InvalidOperationException());
         services.AddTransient(provider =>
         {
             var storageProvider = provider.GetRequiredService<IStorageProvider>();
-            return EventStore.Instance ?? 
+            return EventStore.Instance ??
                 EventStore.CreateAsync(storageProvider.GetEventStore()).AsTask().GetAwaiter().GetResult();
         });
         services.AddTransient<IRooms, Rooms>();

@@ -7,22 +7,26 @@ namespace MessageHub.HomeServer.P2p.Libp2p;
 public class PeerResolver : IPeerResolver
 {
     private readonly ILogger logger;
+    private readonly IPeerIdentity peerIdentity;
     private readonly Host host;
     private readonly Discovery discovery;
     private readonly Func<ServerKeys, IPeerIdentity?> identityVerifier;
 
     public PeerResolver(
         ILoggerFactory loggerFactory,
+        IPeerIdentity peerIdentity,
         Host host,
         Discovery discovery,
         Func<ServerKeys, IPeerIdentity?> identityVerifier)
     {
         ArgumentNullException.ThrowIfNull(loggerFactory);
+        ArgumentNullException.ThrowIfNull(peerIdentity);
         ArgumentNullException.ThrowIfNull(host);
         ArgumentNullException.ThrowIfNull(discovery);
         ArgumentNullException.ThrowIfNull(identityVerifier);
 
         logger = loggerFactory.CreateLogger<PeerResolver>();
+        this.peerIdentity = peerIdentity;
         this.host = host;
         this.discovery = discovery;
         this.identityVerifier = identityVerifier;
@@ -73,7 +77,12 @@ public class PeerResolver : IPeerResolver
                     try
                     {
                         token.ThrowIfCancellationRequested();
+
+                        logger.LogDebug("Connecting to {}: {}...", peerId, addressInfo);
                         host.Connect(addressInfo, token);
+                        logger.LogDebug("Connected to {}: {}", peerId, addressInfo);
+
+                        logger.LogDebug("Sending request to {}...", peerId);
                         var response = host.SendRequest(peerId, new SignedRequest
                         {
                             Method = HttpMethod.Get.ToString(),
@@ -81,6 +90,7 @@ public class PeerResolver : IPeerResolver
                             Origin = "dummy",
                             OriginServerTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                             Destination = peerId,
+                            ServerKeys = peerIdentity.GetServerKeys(),
                             Signatures = JsonSerializer.SerializeToElement(new Signatures
                             {
                                 ["dummy"] = new ServerSignatures
@@ -89,16 +99,18 @@ public class PeerResolver : IPeerResolver
                                 }
                             })
                         }, token);
+                        logger.LogDebug("Sent request to {}", peerId);
                         response.EnsureSuccessStatusCode();
                         var responseBody = await response.Content.ReadFromJsonAsync<JsonElement>(
                             cancellationToken: token);
                         var serverKeys = JsonSerializer.Deserialize<ServerKeys>(responseBody);
                         if (serverKeys is not null)
                         {
+                            logger.LogDebug("Server keys {}: {}", responseBody, peerId);
                             var identity = identityVerifier(serverKeys);
                             if (identity?.Id == id
                                 && identity.VerifyKeys.Keys.TryGetValue(
-                                    new KeyIdentifier("libp2p", "ID"),
+                                    new KeyIdentifier("libp2p", "PeerID"),
                                     out var key)
                                 && peerId == key)
                             {
@@ -106,8 +118,20 @@ public class PeerResolver : IPeerResolver
                                 cts.Cancel();
                                 logger.LogDebug("Found address info for {}: {}", id, addressInfo);
                             }
+                            else
+                            {
+                                if (identity is null)
+                                {
+                                    logger.LogDebug("identity not verified for {}: {}", id, responseBody);
+                                }
+                                else
+                                {
+                                    logger.LogDebug("transport not verified for {}: {}", id, responseBody);
+                                }
+                            }
                         }
                     }
+                    catch (OperationCanceledException) { }
                     catch (Exception ex)
                     {
                         logger.LogInformation(

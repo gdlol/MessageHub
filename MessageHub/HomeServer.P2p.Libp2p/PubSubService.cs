@@ -102,14 +102,14 @@ internal class PubSubService
                 while (true)
                 {
                     loop.Token.ThrowIfCancellationRequested();
-                    var (topic, message) = subscription.Next(loop.Token);
+                    var (sender, message) = subscription.Next(loop.Token);
                     try
                     {
-                        subscriber(topic, message);
+                        subscriber(subscription.Topic, message);
                     }
                     catch (Exception ex)
                     {
-                        logger.LogWarning(ex, "Error handling message to topic {}", topic);
+                        logger.LogWarning(ex, "Error handling message to topic {}", subscription.Topic);
                     }
                 }
             });
@@ -117,6 +117,8 @@ internal class PubSubService
         }
     }
 
+    private readonly Notifier<(string, string[])> notifier;
+    private readonly EventHandler<(string, string[])> onNotify;
     private readonly PubSub pubsub;
     private readonly Action<string, JsonElement> subscriber;
     private readonly ILoggerFactory loggerFactory;
@@ -125,18 +127,40 @@ internal class PubSubService
     private PublishLoop? publishLoop;
     private readonly ConcurrentDictionary<string, SubscribeLoop> subscribeLoops;
 
-    public PubSubService(PubSub pubsub, Action<string, JsonElement> subscriber, ILoggerFactory loggerFactory)
+    public PubSubService(
+        IPeerIdentity peerIdentity,
+        Notifier<(string, string[])> notifier,
+        PubSub pubsub,
+        Action<string, JsonElement> subscriber,
+        ILoggerFactory loggerFactory)
     {
+        ArgumentNullException.ThrowIfNull(peerIdentity);
+        ArgumentNullException.ThrowIfNull(notifier);
         ArgumentNullException.ThrowIfNull(pubsub);
         ArgumentNullException.ThrowIfNull(subscriber);
         ArgumentNullException.ThrowIfNull(loggerFactory);
 
+        this.notifier = notifier;
         this.pubsub = pubsub;
         this.subscriber = subscriber;
         this.loggerFactory = loggerFactory;
         logger = loggerFactory.CreateLogger<PubSubService>();
         joinedTopics = new ConcurrentDictionary<string, Topic>();
         subscribeLoops = new ConcurrentDictionary<string, SubscribeLoop>();
+        onNotify = (sender, e) =>
+        {
+            var (topic, ids) = e;
+            if (ids.Contains(peerIdentity.Id))
+            {
+                logger.LogInformation("Joining topic {}...", topic);
+                JoinTopic(topic);
+            }
+            else
+            {
+                logger.LogInformation("Leaving topic {}...", topic);
+                LeaveTopic(topic);
+            }
+        };
     }
 
     public void Start()
@@ -146,6 +170,7 @@ internal class PubSubService
             throw new InvalidOperationException();
         }
         publishLoop = PublishLoop.Create(joinedTopics, loggerFactory);
+        notifier.OnNotify += onNotify;
     }
 
     public void Stop()
@@ -165,10 +190,10 @@ internal class PubSubService
         subscribeLoops.Clear();
         foreach (var topic in joinedTopics.Values)
         {
-            topic.Close();
             topic.Dispose();
         }
         joinedTopics.Clear();
+        notifier.OnNotify -= onNotify;
     }
 
     public void Publish(string topic, JsonElement message)
@@ -203,8 +228,8 @@ internal class PubSubService
         }
         if (joinedTopics.TryRemove(topic, out var joinedTopic))
         {
+            using var _ = joinedTopic;
             joinedTopic.Close();
-            joinedTopic.Dispose();
         }
         else
         {

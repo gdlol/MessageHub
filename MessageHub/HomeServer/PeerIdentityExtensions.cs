@@ -33,6 +33,10 @@ public static class PeerIdentityExtensions
         foreach (var keyIdentifier in identity.VerifyKeys.Keys.Keys)
         {
             var (algorithm, keyName) = keyIdentifier;
+            if (!identity.SupportedAlgorithms.Contains(keyIdentifier.Algorithm))
+            {
+                continue;
+            }
             var signature = identity.CreateSignature(algorithm, keyName, jsonBytes);
             var signatureString = UnpaddedBase64Encoder.Encode(signature);
             signatures[keyIdentifier] = signatureString;

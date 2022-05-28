@@ -45,6 +45,6 @@ public sealed class Topic : IDisposable
     {
         using var error = NativeMethods.Subscribe(handle, out var subscriptionHandle);
         LibP2pException.Check(error);
-        return new Subscription(subscriptionHandle);
+        return new Subscription(subscriptionHandle, Name);
     }
 }

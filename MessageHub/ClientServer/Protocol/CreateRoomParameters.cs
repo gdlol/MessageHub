@@ -23,7 +23,7 @@ public class Invite3pid
     public string Medium { get; set; } = default!;
 }
 
-public class CreeateRoomParameters
+public class CreateRoomParameters
 {
     [JsonPropertyName("creation_content")]
     public JsonElement? CreationContent { get; set; }

@@ -1,41 +1,58 @@
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.Web;
 using MessageHub.HomeServer.P2p.Providers;
+using MessageHub.HomeServer.Rooms;
+using MessageHub.HomeServer.Rooms.Timeline;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
 
 namespace MessageHub.HomeServer.P2p;
 
 internal class DummyAuthenticator : IAuthenticator
 {
-    private readonly IPeerIdentity peerIdentity;
+    private readonly Config config;
     private readonly string loginToken;
     private readonly string userId;
     private readonly string accessTokenPrefix;
     private readonly INetworkProvider networkProvider;
     private readonly ILoggerFactory loggerFactory;
     private readonly Notifier<(string, string[])> membershipUpdateNotifier;
+    private readonly ITimelineLoader timelineLoader;
+    private readonly IRooms rooms;
     private readonly RoomEventSubscriber roomEventSubscriber;
+    private readonly string selfUrl;
 
     public DummyAuthenticator(
-        IPeerIdentity peerIdentity,
+        Config config,
         INetworkProvider networkProvider,
         ILoggerFactory loggerFactory,
         Notifier<(string, string[])> membershipUpdateNotifier,
-        RoomEventSubscriber roomEventSubscriber)
+        ITimelineLoader timelineLoader,
+        IRooms rooms,
+        RoomEventSubscriber roomEventSubscriber,
+        IServer server)
     {
-        ArgumentNullException.ThrowIfNull(peerIdentity);
+        ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(networkProvider);
         ArgumentNullException.ThrowIfNull(loggerFactory);
         ArgumentNullException.ThrowIfNull(membershipUpdateNotifier);
+        ArgumentNullException.ThrowIfNull(timelineLoader);
+        ArgumentNullException.ThrowIfNull(rooms);
         ArgumentNullException.ThrowIfNull(roomEventSubscriber);
+        ArgumentNullException.ThrowIfNull(server);
 
-        this.peerIdentity = peerIdentity;
+        this.config = config;
         this.networkProvider = networkProvider;
         this.loggerFactory = loggerFactory;
         this.membershipUpdateNotifier = membershipUpdateNotifier;
+        this.timelineLoader = timelineLoader;
+        this.rooms = rooms;
         this.roomEventSubscriber = roomEventSubscriber;
-        loginToken = peerIdentity.Id;
-        accessTokenPrefix = peerIdentity.Id;
-        userId = UserIdentifier.FromId(peerIdentity.Id).ToString();
+        loginToken = config.PeerId;
+        accessTokenPrefix = config.PeerId;
+        userId = UserIdentifier.FromId(config.PeerId).ToString();
+        selfUrl = server.Features.Get<IServerAddressesFeature>()!.Addresses.First();
     }
 
     private readonly ConcurrentDictionary<string, object?> accessTokens = new();
@@ -70,22 +87,45 @@ internal class DummyAuthenticator : IAuthenticator
 
         if (token == loginToken)
         {
+            if (DummyIdentity.Self is null)
+            {
+                var (keyId, networkKey) = networkProvider.GetVerifyKey();
+                DummyIdentity.Self = new DummyIdentity(
+                    false,
+                    config.PeerId,
+                    new VerifyKeys(new Dictionary<KeyIdentifier, string>
+                    {
+                        [keyId] = networkKey,
+                    }.ToImmutableDictionary(),
+                    DateTimeOffset.UtcNow.AddDays(7).ToUnixTimeMilliseconds()));
+            }
+
             string accessToken = accessTokenPrefix + deviceId;
             if (accessTokens.TryAdd(accessToken, null))
             {
+                var uri = new Uri(selfUrl);
                 await networkProvider.InitializeAsync(
-                    peerIdentity,
+                    DummyIdentity.Self,
                     loggerFactory,
                     serverKeys =>
                     {
-                        if (peerIdentity.Verify(serverKeys))
+                        if (DummyIdentity.Self.Verify(serverKeys))
                         {
-                            return new DummyIdentity(isReadOnly: true, id: serverKeys.ServerName);
+                            var verifyKeys = new VerifyKeys(
+                                serverKeys.VerifyKeys.ToImmutableDictionary(),
+                                serverKeys.ValidUntilTimestamp);
+                            return new DummyIdentity(
+                                isReadOnly: true,
+                                id: serverKeys.ServerName,
+                                verifyKeys: verifyKeys);
                         }
                         return null;
                     },
                     roomEventSubscriber.ReceiveEvent,
-                    membershipUpdateNotifier);
+                    membershipUpdateNotifier,
+                    timelineLoader,
+                    rooms,
+                    $"{uri.Host}:{uri.Port}");
             }
             return (userId, accessToken);
         }

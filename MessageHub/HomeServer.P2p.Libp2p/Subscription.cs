@@ -7,11 +7,14 @@ public sealed class Subscription : IDisposable
 {
     private readonly SubscriptionHandle handle;
 
+    public string Topic { get; }
+
     internal SubscriptionHandle Handle => handle;
 
-    internal Subscription(SubscriptionHandle handle)
+    internal Subscription(SubscriptionHandle handle, string topic)
     {
         this.handle = handle;
+        Topic = topic;
     }
 
     public void Dispose()

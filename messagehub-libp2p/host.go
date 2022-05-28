@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -32,6 +33,7 @@ type SignedRequest struct {
 	OriginServerTimestamp int64                        `json:"origin_server_ts"`
 	Destination           string                       `json:"destination"`
 	Content               map[string]any               `json:"content"`
+	ServerKeys            any                          `json:"server_keys"`
 	Signatures            map[string]map[string]string `json:"signatures"`
 }
 
@@ -46,9 +48,9 @@ func createHost(config HostConfig) (host.Host, error) {
 			return multiaddr.FilterAddrs(m, manet.IsPublicAddr)
 		}))
 	}
-	if len(config.StaticRelays) > 0 {
+	if config.StaticRelays != nil {
 		relayAddrInfos := make([]peer.AddrInfo, 0)
-		for _, s := range config.StaticRelays {
+		for _, s := range *config.StaticRelays {
 			relayAddrInfo, err := peer.AddrInfoFromString(s)
 			if err != nil {
 				return nil, fmt.Errorf("Error parsing static relay address: %w", err)
@@ -57,9 +59,9 @@ func createHost(config HostConfig) (host.Host, error) {
 		}
 		options = append(options, libp2p.StaticRelays(relayAddrInfos))
 	}
-	if len(config.PrivateNetworkSecret) > 0 {
+	if config.PrivateNetworkSecret != nil {
 		info := []byte("messagehub-libp2p private network")
-		reader := hkdf.New(sha256.New, []byte(config.PrivateNetworkSecret), nil, info)
+		reader := hkdf.New(sha256.New, []byte(*config.PrivateNetworkSecret), nil, info)
 		psk := make([]byte, 32)
 		_, err := reader.Read(psk)
 		if err != nil {
@@ -86,7 +88,6 @@ func sendRequest(ctx context.Context, host host.Host, peerID peer.ID, signedRequ
 	transport := &http.Transport{}
 	transport.RegisterProtocol("libp2p", p2phttp.NewTransport(host))
 	client := &http.Client{Transport: transport}
-	var request *http.Request
 	url := fmt.Sprintf("libp2p://%s%s", peerID, signedRequest.Uri)
 	var body io.Reader
 	if signedRequest.Content != nil {
@@ -100,9 +101,16 @@ func sendRequest(ctx context.Context, host host.Host, peerID peer.ID, signedRequ
 	if err != nil {
 		return 0, nil, err
 	}
+	serverKeysJson, err := json.Marshal(signedRequest.ServerKeys)
+	if err != nil {
+		return 0, nil, err
+	}
+	encodedServerKeys := hex.EncodeToString(serverKeysJson)
 
 	request.Header.Add("Matrix-Host", signedRequest.Destination)
 	request.Header.Add("Matrix-Timestamp", fmt.Sprint(signedRequest.OriginServerTimestamp))
+	request.Header.Add("Matrix-ServerKeys", encodedServerKeys)
+	request.Header.Set("Content-Type", "application/json")
 	for key, signature := range senderSignatures {
 		args := []any{signedRequest.Origin, key, signature}
 		header := fmt.Sprintf("X-Matrix origin=%s,key=\"%s\",sig=\"%s\"", args...)

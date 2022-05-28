@@ -1,4 +1,3 @@
-using System.Collections.Immutable;
 using System.Security.Cryptography;
 using System.Text;
 using MessageHub.HomeServer.Events;
@@ -7,6 +6,8 @@ namespace MessageHub.HomeServer.P2p;
 
 public class DummyIdentity : IPeerIdentity
 {
+    internal static DummyIdentity? Self { get; set; }
+
     public bool IsReadOnly { get; }
 
     public string Id { get; }
@@ -19,25 +20,14 @@ public class DummyIdentity : IPeerIdentity
 
     public VerifyKeys VerifyKeys { get; }
 
-    public IReadOnlyList<VerifyKeys> ExpiredKeys { get; }
-
-    public DummyIdentity(bool isReadOnly, string id)
+    public DummyIdentity(bool isReadOnly, string id, VerifyKeys verifyKeys)
     {
         IsReadOnly = isReadOnly;
         Id = id;
-        var keys = new Dictionary<KeyIdentifier, string>
-        {
-            [new KeyIdentifier("dummy", "dummy")] = $"dummy-key-{id}"
-        };
         VerifyKeys = new VerifyKeys(
-            keys.ToImmutableDictionary(),
-            DateTimeOffset.UtcNow.AddDays(7).ToUnixTimeSeconds());
-        ExpiredKeys = Array.Empty<VerifyKeys>();
+            verifyKeys.Keys.SetItem(new KeyIdentifier("dummy", "dummy"), $"dummy-key-{id}"),
+            verifyKeys.ExpireTimestamp);
     }
-
-    public DummyIdentity(Config config)
-        : this(false, config.PeerId)
-    { }
 
     public ServerKeys GetServerKeys()
     {
@@ -59,12 +49,12 @@ public class DummyIdentity : IPeerIdentity
     public bool Verify(ServerKeys serverKeys)
     {
         return serverKeys.Signatures.TryGetValue(serverKeys.ServerName, out var signatures)
-            && signatures.ContainsValue(Signature);
+            && signatures.ContainsValue($"dummy-{serverKeys.ServerName}");
     }
 
     public IPeerIdentity AsReadOnly()
     {
-        return new DummyIdentity(true, Id);
+        return new DummyIdentity(true, Id, VerifyKeys);
     }
 
     public byte[] CreateSignature(string algorithm, string keyName, byte[] data)

@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace MessageHub.ClientServer.Protocol;
 
-public class LogInParmeters
+public class LogInParameters
 {
     [Required]
     [JsonPropertyName("type")]
@@ -17,5 +17,5 @@ public class LogInParmeters
     public string? DeviceId { get; set; }
 
     [JsonPropertyName("initial_device_display_name")]
-    public string? InitialiDeviceDsiplayName { get; set; }
+    public string? InitialDeviceDisplayName { get; set; }
 }

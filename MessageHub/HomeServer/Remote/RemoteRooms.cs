@@ -47,27 +47,27 @@ public class RemoteRooms : IRemoteRooms
         return requestHandler.SendRequest(request);
     }
 
-    public async Task<PersistentDataUnit> MakeJoinAsync(string roomId, string userId)
+    public async Task<PersistentDataUnit> MakeJoinAsync(string destination, string roomId, string userId)
     {
         var request = peerIdentity.SignRequest(
-            destination: roomId,
+            destination: destination,
             requestMethod: HttpMethods.Get,
             requestTarget: $"/_matrix/federation/v1/make_join/{roomId}/{userId}");
         var result = await requestHandler.SendRequest(request);
         return JsonSerializer.Deserialize<PersistentDataUnit>(result)!;
     }
 
-    public Task SendJoinAsync(string roomId, string eventId, JsonElement pdu)
+    public Task SendJoinAsync(string destination, string roomId, string eventId, JsonElement pdu)
     {
         var request = peerIdentity.SignRequest(
-            destination: roomId,
+            destination: destination,
             requestMethod: HttpMethods.Put,
             requestTarget: $"/_matrix/federation/v1/send_join/{roomId}/{eventId}",
             content: pdu);
         return requestHandler.SendRequest(request);
     }
 
-    public async Task BackfillAsync(string roomId)
+    public async Task BackfillAsync(string destination, string roomId)
     {
         logger.LogInformation("Backfill {}...", roomId);
         async Task<PersistentDataUnit[]> backfillEvents(string[] eventIds)
@@ -79,7 +79,7 @@ public class RemoteRooms : IRemoteRooms
                 target = QueryHelpers.AddQueryString(target, "v", eventId);
             }
             var request = peerIdentity.SignRequest(
-                destination: roomId,
+                destination: destination,
                 requestMethod: HttpMethods.Get,
                 requestTarget: target);
             var result = await requestHandler.SendRequest(request);

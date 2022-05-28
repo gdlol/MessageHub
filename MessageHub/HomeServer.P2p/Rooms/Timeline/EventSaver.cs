@@ -385,8 +385,17 @@ internal sealed class EventSaver : IEventSaver
             var invites = newEventStore.Invites.SetItem(roomId, strippedStates);
             newEventStore = await newEventStore.SetInvitesAsync(store, invites);
 
-            EventStore.Instance = newEventStore;
+            var roomEventIds = await EventStore.GetRoomEventIdsAsync(store, newEventStore.CurrentBatchId);
+            if (roomEventIds is null)
+            {
+                roomEventIds = ImmutableDictionary<string, string>.Empty;
+            }
+            string newBatchId = Guid.NewGuid().ToString();
+            await EventStore.PutRoomEventIdsAsync(store, newBatchId, roomEventIds);
+            newEventStore = await newEventStore.SetCurrentBatchIdAsync(store, newBatchId);
+
             await store.CommitAsync();
+            EventStore.Instance = newEventStore;
         }
         finally
         {
@@ -410,8 +419,17 @@ internal sealed class EventSaver : IEventSaver
             var knocks = newEventStore.Knocks.SetItem(roomId, strippedStates);
             newEventStore = await newEventStore.SetKnocksAsync(store, knocks);
 
-            EventStore.Instance = newEventStore;
+            var roomEventIds = await EventStore.GetRoomEventIdsAsync(store, newEventStore.CurrentBatchId);
+            if (roomEventIds is null)
+            {
+                roomEventIds = ImmutableDictionary<string, string>.Empty;
+            }
+            string newBatchId = Guid.NewGuid().ToString();
+            await EventStore.PutRoomEventIdsAsync(store, newBatchId, roomEventIds);
+            newEventStore = await newEventStore.SetCurrentBatchIdAsync(store, newBatchId);
+
             await store.CommitAsync();
+            EventStore.Instance = newEventStore;
         }
         finally
         {

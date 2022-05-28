@@ -6,10 +6,15 @@ using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Events.Room;
+using MessageHub.HomeServer.Remote;
 using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Rooms.Timeline;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Net.Http.Headers;
+using static MessageHub.ClientServer.InviteController;
 
 namespace MessageHub.ClientServer;
 
@@ -22,19 +27,23 @@ public class CreateRoomController : ControllerBase
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
+    private readonly ILogger logger;
     private readonly IPeerIdentity peerIdentity;
     private readonly IAccountData accountData;
     private readonly IEventSaver eventSaver;
 
     public CreateRoomController(
+        ILogger<CreateRoomController> logger,
         IPeerIdentity peerIdentity,
         IAccountData accountData,
         IEventSaver eventSaver)
     {
+        ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(peerIdentity);
         ArgumentNullException.ThrowIfNull(eventSaver);
         ArgumentNullException.ThrowIfNull(accountData);
 
+        this.logger = logger;
         this.peerIdentity = peerIdentity;
         this.accountData = accountData;
         this.eventSaver = eventSaver;
@@ -101,7 +110,10 @@ public class CreateRoomController : ControllerBase
 
     [Route("createRoom")]
     [HttpPost]
-    public async Task<IActionResult> CreateRoom([FromBody] CreeateRoomParameters parameters)
+    public async Task<IActionResult> CreateRoom(
+        [FromBody] CreateRoomParameters parameters,
+        [FromServices] IRemoteRooms remoteRooms,
+        [FromServices] IEventPublisher eventPublisher)
     {
         string? userId = Request.HttpContext.User.Identity?.Name;
         if (userId is null)
@@ -313,6 +325,8 @@ public class CreateRoomController : ControllerBase
             AddEvent(pdu, roomSnapshot.States);
         }
 
+        await eventSaver.SaveBatchAsync(roomId, eventIds, events, statesMap);
+
         // Invites.
         if (parameters.Invite is string[] userIds)
         {
@@ -333,11 +347,37 @@ public class CreateRoomController : ControllerBase
                         },
                         ignoreNullOptions),
                     timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-                AddEvent(pdu, roomSnapshot.States);
+                pdu = peerIdentity.SignEvent(pdu);
+                string eventId = EventHash.GetEventId(pdu);
+                var inviteRoomState = events.Values.Select(pdu => new StrippedStateEvent
+                {
+                    Content = pdu.Content,
+                    EventType = pdu.EventType,
+                    Sender = pdu.Sender,
+                    StateKey = pdu.StateKey!
+                })
+                .Where(x => (x.EventType, x.StateKey) != (EventTypes.Member, invitedId))
+                .ToList();
+                inviteRoomState.Add(new StrippedStateEvent
+                {
+                    Content = pdu.Content,
+                    EventType = pdu.EventType,
+                    Sender = pdu.Sender,
+                    StateKey = pdu.StateKey!
+                });
+                var remoteInviteParameters = new Federation.Protocol.InviteParameters
+                {
+                    Event = pdu,
+                    InviteRoomState = inviteRoomState.ToArray(),
+                    RoomVersion = 9
+                };
+                logger.LogInformation("Sending invite to {}...", invitedId);
+                await remoteRooms.InviteAsync(roomId, eventId, remoteInviteParameters);
+                var signedPdu = peerIdentity.SignEvent(pdu);
+                await eventSaver.SaveAsync(roomId, eventId, pdu, roomSnapshot.States);
+                await eventPublisher.PublishAsync(pdu);
             }
         }
-
-        await eventSaver.SaveBatchAsync(roomId, eventIds, events, statesMap);
 
         // Set visibility.
         if (parameters.Visibility is not null)

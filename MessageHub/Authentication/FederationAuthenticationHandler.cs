@@ -92,6 +92,7 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
         if (sender is null)
         {
             var error = MatrixError.Create(MatrixErrorCode.Unauthorized);
+            Logger.LogDebug("Sender signature not found.");
             return AuthenticateResult.Fail(error.ToString());
         }
 
@@ -107,8 +108,9 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
                 content = JsonSerializer.Deserialize<JsonElement>(requestBody);
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Logger.LogDebug(ex, "Error authenticating request.");
             var error = MatrixError.Create(MatrixErrorCode.Unknown);
             return AuthenticateResult.Fail(error.ToString());
         }
@@ -119,12 +121,37 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
         if (!Request.Headers.TryGetValue("Matrix-Host", out var hostValues)
             || hostValues.SingleOrDefault() is not string host)
         {
+            Logger.LogDebug("Matrix-Host not found.");
             var error = MatrixError.Create(MatrixErrorCode.Unauthorized);
             return AuthenticateResult.Fail(error.ToString());
         }
         if (!Request.Headers.TryGetValue("Matrix-Timestamp", out var timestampValues)
             || !long.TryParse(timestampValues.SingleOrDefault(), out long timestamp))
         {
+            Logger.LogDebug("Matrix-Timestamp not found.");
+            var error = MatrixError.Create(MatrixErrorCode.Unauthorized);
+            return AuthenticateResult.Fail(error.ToString());
+        }
+        if (!Request.Headers.TryGetValue("Matrix-ServerKeys", out var serverKeyValues)
+            || serverKeyValues.SingleOrDefault() is not string serverKeysString)
+        {
+            Logger.LogDebug("Matrix-ServerKeys not found.");
+            var error = MatrixError.Create(MatrixErrorCode.Unauthorized);
+            return AuthenticateResult.Fail(error.ToString());
+        }
+        ServerKeys? serverKeys = null;
+        try
+        {
+            var bytes = Convert.FromHexString(serverKeysString);
+            serverKeys = JsonSerializer.Deserialize<ServerKeys>(Encoding.UTF8.GetString(bytes));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Error parsing Matrix-ServerKeys");
+        }
+        if (serverKeys is null)
+        {
+            Logger.LogDebug("Invalid Matrix-ServerKeys.");
             var error = MatrixError.Create(MatrixErrorCode.Unauthorized);
             return AuthenticateResult.Fail(error.ToString());
         }
@@ -136,14 +163,17 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
             OriginServerTimestamp = timestamp,
             Destination = host,
             Content = content,
+            ServerKeys = serverKeys,
             Signatures = JsonSerializer.SerializeToElement(signatures)
         };
         if (request.Destination != identity.Id && !rooms.HasRoom(request.Destination))
         {
+            Logger.LogDebug("Invalid destination: {}", request.Destination);
             var error = MatrixError.Create(MatrixErrorCode.Unauthorized);
             return AuthenticateResult.Fail(error.ToString());
         }
-        if (identity.VerifyJson(sender, JsonSerializer.SerializeToElement(request, ignoreNullOptions)))
+        var requestElement = JsonSerializer.SerializeToElement(request, ignoreNullOptions);
+        if (identity.VerifyJson(sender, requestElement))
         {
             Request.HttpContext.Items[nameof(request)] = request;
             var claims = new[] { new Claim(ClaimTypes.Name, sender) };
@@ -153,6 +183,7 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
         }
         else
         {
+            Logger.LogDebug("VerifyJson failed for {}: {}", sender, requestElement);
             var error = MatrixError.Create(MatrixErrorCode.Unauthorized);
             return AuthenticateResult.Fail(error.ToString());
         }

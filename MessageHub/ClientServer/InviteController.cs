@@ -120,9 +120,8 @@ public class InviteController : ControllerBase
             RoomVersion = 9
         };
         await remoteRooms.InviteAsync(roomId, eventId, remoteInviteParameters);
-        var signedPdu = peerIdentity.SignEvent(pdu);
-        await eventSaver.SaveAsync(roomId, eventId, signedPdu, newSnapshot.States);
-        await eventPublisher.PublishAsync(signedPdu);
+        await eventSaver.SaveAsync(roomId, eventId, pdu, newSnapshot.States);
+        await eventPublisher.PublishAsync(pdu);
         return new JsonResult(new object());
     }
 }

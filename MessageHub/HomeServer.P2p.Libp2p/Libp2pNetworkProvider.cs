@@ -1,68 +1,105 @@
 using System.Text.Json;
 using MessageHub.Federation.Protocol;
+using MessageHub.HomeServer.Events.Room;
 using MessageHub.HomeServer.P2p.Providers;
+using MessageHub.HomeServer.Rooms;
+using MessageHub.HomeServer.Rooms.Timeline;
 
 namespace MessageHub.HomeServer.P2p.Libp2p;
 
-public sealed class Libp2pNetworkProvider : INetworkProvider, IDisposable
+public sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
 {
+    private readonly DHTConfig dhtConfig;
     private readonly Host host;
-    private readonly DHT dht;
-    private readonly Discovery discovery;
-    private readonly MemberStore memberStore;
-    private readonly PubSub pubsub;
-    private PubSubService? pubsubService;
-    private MembershipService? membershipService;
-    private Notifier<object?> shutdownNotifier;
+    private P2pNode? p2pNode;
 
     public Libp2pNetworkProvider(HostConfig hostConfig, DHTConfig dhtConfig)
     {
         ArgumentNullException.ThrowIfNull(hostConfig);
         ArgumentNullException.ThrowIfNull(dhtConfig);
 
+        this.dhtConfig = dhtConfig;
         host = Host.Create(hostConfig);
-        dht = DHT.Create(host, dhtConfig);
-        discovery = Discovery.Create(dht);
-        memberStore = new MemberStore();
-        pubsub = PubSub.Create(dht, memberStore);
-        shutdownNotifier = new Notifier<object?>();
     }
 
     public (KeyIdentifier, string) GetVerifyKey()
     {
-        var identifier = new KeyIdentifier("libp2p", "ID");
+        var identifier = new KeyIdentifier("libp2p", "PeerID");
         return (identifier, host.Id);
     }
 
     public void Dispose()
     {
-        pubsub.Dispose();
-        memberStore.Dispose();
-        discovery.Dispose();
-        pubsub.Dispose();
-        dht.Dispose();
         host.Dispose();
     }
 
-    public Task InitializeAsync(
+    public async Task InitializeAsync(
         IPeerIdentity identity,
         ILoggerFactory loggerFactory,
         Func<ServerKeys, IPeerIdentity?> identityVerifier,
         Action<string, JsonElement> subscriber,
-        Notifier<(string, string[])> membershipUpdateNotifier)
+        Notifier<(string, string[])> membershipUpdateNotifier,
+        ITimelineLoader timelineLoader,
+        IRooms rooms,
+        string selfAddress)
     {
+        var logger = loggerFactory.CreateLogger<Libp2pNetworkProvider>();
+        var dht = DHT.Create(host, dhtConfig);
+        var discovery = Discovery.Create(dht);
+        var memberStore = new MemberStore();
+        var pubsub = PubSub.Create(dht, memberStore);
+        var shutdownNotifier = new Notifier<object?>();
         dht.Bootstrap();
-        var resolver = new PeerResolver(loggerFactory, host, discovery, identityVerifier);
-        pubsubService = new PubSubService(pubsub, subscriber, loggerFactory);
-        membershipService = new MembershipService(
+        var resolver = new PeerResolver(loggerFactory, identity, host, discovery, identityVerifier);
+        var pubsubService = new PubSubService(identity, membershipUpdateNotifier, pubsub, subscriber, loggerFactory);
+        var membershipService = new MembershipService(
             loggerFactory,
             identity,
             memberStore,
             resolver,
             membershipUpdateNotifier);
+        logger.LogInformation("Start proxy to self address: {}", selfAddress);
+        var proxy = host.StartProxyRequests(selfAddress);
         pubsubService.Start();
         membershipService.Start();
-        Task.Run(async () =>
+
+        p2pNode = new P2pNode(
+            host,
+            dht,
+            discovery,
+            memberStore,
+            pubsub,
+            shutdownNotifier,
+            logger,
+            resolver,
+            proxy,
+            pubsubService,
+            membershipService);
+
+        // Update room memberships.
+        var batchStates = await timelineLoader.LoadBatchStatesAsync(_ => true, includeLeave: false);
+        foreach (var roomId in batchStates.JoinedRoomIds)
+        {
+            var snapshot = await rooms.GetRoomSnapshotAsync(roomId);
+            var members = new List<string>();
+            foreach (var (roomStateKey, content) in snapshot.StateContents)
+            {
+                if (roomStateKey.EventType != EventTypes.Member)
+                {
+                    continue;
+                }
+                var memberEvent = JsonSerializer.Deserialize<MemberEvent>(content)!;
+                if (memberEvent.MemberShip == MembershipStates.Join)
+                {
+                    var userIdentifier = UserIdentifier.Parse(roomStateKey.StateKey);
+                    members.Add(userIdentifier.PeerId);
+                }
+            }
+            membershipUpdateNotifier.Notify((roomId, members.ToArray()));
+        }
+
+        // Advertise self.
+        _ = Task.Run(async () =>
         {
             await Task.Delay(TimeSpan.FromSeconds(3));
             using var cts = new CancellationTokenSource();
@@ -95,46 +132,35 @@ public sealed class Libp2pNetworkProvider : INetworkProvider, IDisposable
                 }
             }
         });
-        return Task.CompletedTask;
     }
 
     public Task ShutdownAsync()
     {
-        if (pubsubService is not null)
+        if (p2pNode is not null)
         {
-            pubsubService.Stop();
-            pubsubService = null;
+            p2pNode.Shutdown();
+            p2pNode.Dispose();
+            p2pNode = null;
         }
-        if (membershipService is not null)
-        {
-            membershipService.Stop();
-            membershipService = null;
-        }
-        shutdownNotifier.Notify(null);
         return Task.CompletedTask;
     }
 
     public void Publish(string roomId, JsonElement message)
     {
-        if (pubsubService is null)
+        if (p2pNode is null)
         {
             throw new InvalidOperationException();
         }
-        pubsubService.Publish(roomId, message);
+        p2pNode.Publish(roomId, message);
     }
 
-    public async Task<JsonElement> SendAsync(SignedRequest request, CancellationToken cancellationToken)
+    public Task<JsonElement> SendAsync(SignedRequest request, CancellationToken cancellationToken)
     {
-        IPeerResolver resolver = default!;
-        string addressInfo = await resolver.ResolveAddressInfoAsync(
-            request.Destination,
-            cancellationToken: cancellationToken);
-        host.Connect(addressInfo, cancellationToken);
-        var response = host.SendRequest(request.Destination, request, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        var result = await response.Content.ReadFromJsonAsync<JsonElement>(
-            cancellationToken: cancellationToken);
-        return result;
+        if (p2pNode is null)
+        {
+            throw new InvalidOperationException();
+        }
+        return p2pNode.SendAsync(request, cancellationToken);
     }
 
     public Task<Stream> DownloadAsync(string peerId, string url)

@@ -117,8 +117,10 @@ internal class EventStore
         if (currentBatchId is null)
         {
             currentBatchId = string.Empty;
+            await store.PutSerializedValueAsync(GetRoomEventIdsKey(currentBatchId), RoomEventIds.Empty);
             await store.PutStringAsync(CurrentBatchIdKey, currentBatchId);
         }
+        await store.CommitAsync();
         return new EventStore(roomCreators, joinedRoomIds, leftRoomIds, invites, knocks, currentBatchId); ;
     }
 

@@ -11,9 +11,9 @@ import (
 
 func createDHT(ctx context.Context, host host.Host, config DHTConfig) (*dht.IpfsDHT, error) {
 	options := make([]dht.Option, 0)
-	if len(config.BootstrapPeers) > 0 {
-		bootstrapPeers := make([]peer.AddrInfo, len(config.BootstrapPeers))
-		for _, s := range config.BootstrapPeers {
+	if config.BootstrapPeers != nil {
+		bootstrapPeers := make([]peer.AddrInfo, len(*config.BootstrapPeers))
+		for _, s := range *config.BootstrapPeers {
 			addrInfo, err := peer.AddrInfoFromString(s)
 			if err != nil {
 				return nil, fmt.Errorf("Error parsing bootstrap peeers address: %w", err)

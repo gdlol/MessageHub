@@ -54,7 +54,7 @@ public class LogInController : ControllerBase
 
     [Route("login")]
     [HttpPost]
-    public async Task<object> LogIn([FromBody] LogInParmeters parameters)
+    public async Task<object> LogIn([FromBody] LogInParameters parameters)
     {
         if (parameters is null)
         {

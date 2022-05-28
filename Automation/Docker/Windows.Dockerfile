@@ -17,7 +17,7 @@ COPY MessageHub/*.csproj ./
 RUN dotnet restore
 COPY MessageHub/ ./
 RUN dotnet publish \
-    --configuration Release \
+    --configuration Debug \
     --runtime win-x64 \
     --self-contained \
     --output /root/app/

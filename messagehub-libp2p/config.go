@@ -2,12 +2,12 @@ package main
 
 type HostConfig struct {
 	AdvertisePrivateAddresses bool
-	StaticRelays              []string
+	StaticRelays              *[]string
 	DataPath                  string
-	PrivateNetworkSecret      string
+	PrivateNetworkSecret      *string
 }
 
 type DHTConfig struct {
-	BootstrapPeers         []string
+	BootstrapPeers         *[]string
 	FilterPrivateAddresses bool
 }
