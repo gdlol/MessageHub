@@ -8,35 +8,22 @@ using ClientSession = ClientSession<
     ReadOnlyMemory<byte>, Memory<byte>, Memory<byte>, (IMemoryOwner<byte>, int), Empty,
     IFunctions<ReadOnlyMemory<byte>, Memory<byte>, Memory<byte>, (IMemoryOwner<byte>, int), Empty>>;
 
-internal class KeyValueStore : IKeyValueStore
+internal class KeyValueSession : IKeyValueStore
 {
-    private readonly IDevice device;
-    private readonly FasterKVSettings<ReadOnlyMemory<byte>, Memory<byte>> settings;
     private readonly FasterKV<ReadOnlyMemory<byte>, Memory<byte>> fasterKV;
     private readonly ClientSession session;
 
-    public KeyValueStore(string path)
+    public KeyValueSession(FasterKV<ReadOnlyMemory<byte>, Memory<byte>> fasterKV)
     {
-        ArgumentNullException.ThrowIfNull(path);
+        ArgumentNullException.ThrowIfNull(fasterKV);
 
-        device = Devices.CreateLogDevice(path);
-        settings = new FasterKVSettings<ReadOnlyMemory<byte>, Memory<byte>>(path)
-        {
-            LogDevice = device,
-            ObjectLogDevice = new NullDevice(),
-            TryRecoverLatest = true,
-            ReadCacheEnabled = true
-        };
-        fasterKV = new FasterKV<ReadOnlyMemory<byte>, Memory<byte>>(settings);
+        this.fasterKV = fasterKV;
         session = fasterKV.NewSession(new MemoryFunctions<ReadOnlyMemory<byte>, byte, Empty>());
     }
 
     public void Dispose()
     {
         session.Dispose();
-        fasterKV.Dispose();
-        settings.Dispose();
-        device.Dispose();
     }
 
     public bool IsEmpty => fasterKV.Log.HeadAddress == fasterKV.Log.TailAddress;
@@ -86,5 +73,39 @@ internal class KeyValueStore : IKeyValueStore
             throw new InvalidOperationException();
         }
         return new KeyValueIterator(iterator);
+    }
+}
+
+internal class KeyValueStore
+{
+    private readonly IDevice device;
+    private readonly FasterKVSettings<ReadOnlyMemory<byte>, Memory<byte>> settings;
+    private readonly FasterKV<ReadOnlyMemory<byte>, Memory<byte>> fasterKV;
+
+    public KeyValueStore(string path)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+
+        device = Devices.CreateLogDevice(path);
+        settings = new FasterKVSettings<ReadOnlyMemory<byte>, Memory<byte>>(path)
+        {
+            LogDevice = device,
+            ObjectLogDevice = new NullDevice(),
+            TryRecoverLatest = true,
+            ReadCacheEnabled = true
+        };
+        fasterKV = new FasterKV<ReadOnlyMemory<byte>, Memory<byte>>(settings);
+    }
+
+    public void Dispose()
+    {
+        fasterKV.Dispose();
+        settings.Dispose();
+        device.Dispose();
+    }
+
+    public IKeyValueStore CreateSession()
+    {
+        return new KeyValueSession(fasterKV);
     }
 }

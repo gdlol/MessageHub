@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using MessageHub.HomeServer.P2p.Providers;
 
 namespace MessageHub.HomeServer.P2p.Faster;
@@ -10,12 +11,14 @@ public class FasterStorageConfig
 public class FasterStorageProvider : IStorageProvider
 {
     private readonly FasterStorageConfig config;
+    private readonly ConcurrentDictionary<string, KeyValueStore> stores;
 
     public FasterStorageProvider(FasterStorageConfig config)
     {
         ArgumentNullException.ThrowIfNull(config);
 
         this.config = config;
+        stores = new ConcurrentDictionary<string, KeyValueStore>();
     }
 
     public bool HasKeyValueStore(string name)
@@ -26,6 +29,7 @@ public class FasterStorageProvider : IStorageProvider
     public IKeyValueStore GetKeyValueStore(string name)
     {
         var path = Path.Combine(config.DataPath, name);
-        return new KeyValueStore(path);
+        var store = stores.GetOrAdd(name, _ => new KeyValueStore(path));
+        return store.CreateSession();
     }
 }
