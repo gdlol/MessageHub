@@ -2,7 +2,7 @@ using System.Text;
 using FASTER.core;
 using MessageHub.HomeServer.P2p.Providers;
 
-namespace MessageHub.HomeServer.P2p.Faster;
+namespace MessageHub.HomeServer.P2p.FasterKV;
 
 internal class KeyValueIterator : IKeyValueIterator
 {

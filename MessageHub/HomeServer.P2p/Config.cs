@@ -7,8 +7,8 @@ public class Config
     [JsonPropertyName("peerId")]
     public string PeerId { get; set; } = default!;
 
-    [JsonPropertyName("peers")]
-    public Dictionary<string, string> Peers { get; set; } = default!;
+    [JsonPropertyName("listenAddress")]
+    public string ListenAddress { get; set; } = default!;
 
     [JsonPropertyName("contentPath")]
     public string ContentPath { get; set; } = default!;

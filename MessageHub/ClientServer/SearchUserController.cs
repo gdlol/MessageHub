@@ -51,19 +51,26 @@ public class SearchUserController : ControllerBase
         public User[] Results { get; set; } = default!;
     }
 
-    private readonly IPeerStore peerStore;
+    private readonly ILogger logger;
     private readonly ITimelineLoader timelineLoader;
     private readonly IRooms rooms;
+    private readonly IUserDiscoveryService userDiscoveryService;
 
-    public SearchUserController(IPeerStore peerStore, ITimelineLoader timelineLoader, IRooms rooms)
+    public SearchUserController(
+        ILogger<SearchUserController> logger,
+        ITimelineLoader timelineLoader,
+        IRooms rooms,
+        IUserDiscoveryService userDiscoveryService)
     {
-        ArgumentNullException.ThrowIfNull(peerStore);
+        ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(timelineLoader);
         ArgumentNullException.ThrowIfNull(rooms);
+        ArgumentNullException.ThrowIfNull(userDiscoveryService);
 
-        this.peerStore = peerStore;
+        this.logger = logger;
         this.timelineLoader = timelineLoader;
         this.rooms = rooms;
+        this.userDiscoveryService = userDiscoveryService;
     }
 
     [Route("user_directory/search")]
@@ -74,10 +81,11 @@ public class SearchUserController : ControllerBase
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(requestBody.SearchTerm)));
         }
+        logger.LogDebug("Searching users with term: {}", requestBody.SearchTerm);
 
         var avatarUrls = new ConcurrentDictionary<string, (string url, long timestamp)>();
         var displayNames = new ConcurrentDictionary<string, (string name, long timestamp)>();
-        var userIds = new HashSet<string>(peerStore.PeerIds.Select(id => UserIdentifier.FromId(id).ToString()));
+        var userIds = new HashSet<string>();
         void updateUserInfo(PersistentDataUnit stateEvent)
         {
             if (stateEvent.EventType != EventTypes.Member || stateEvent.StateKey is null)
@@ -162,10 +170,39 @@ public class SearchUserController : ControllerBase
             }
         }
         bool limited = false;
-        if (requestBody.Limit is int limit && limit > users.Count)
         {
-            users = users.Take(limit).ToList();
-            limited = true;
+            if (requestBody.Limit is int limit && limit > users.Count)
+            {
+                users = users.Take(limit).ToList();
+                limited = true;
+            }
+            else
+            {
+                // Find remote users.
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                try
+                {
+                    var remoteUsers = await userDiscoveryService.SearchUsersAsync(requestBody.SearchTerm, cts.Token);
+                    foreach (var identity in remoteUsers)
+                    {
+                        users.Add(new SearchResponse.User
+                        {
+                            UserId = UserIdentifier.FromId(identity.Id).ToString()
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Error searching remote users");
+                }
+            }
+        }
+        {
+            if (requestBody.Limit is int limit && limit > users.Count)
+            {
+                users = users.Take(limit).ToList();
+                limited = true;
+            }
         }
         return new JsonResult(new SearchResponse
         {

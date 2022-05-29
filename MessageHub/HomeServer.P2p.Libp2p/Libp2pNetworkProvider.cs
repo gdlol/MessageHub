@@ -4,6 +4,7 @@ using MessageHub.HomeServer.Events.Room;
 using MessageHub.HomeServer.P2p.Providers;
 using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Rooms.Timeline;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace MessageHub.HomeServer.P2p.Libp2p;
 
@@ -35,7 +36,9 @@ public sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
 
     public async Task InitializeAsync(
         IPeerIdentity identity,
+        IUserProfile userProfile,
         ILoggerFactory loggerFactory,
+        IMemoryCache memoryCache,
         Func<ServerKeys, IPeerIdentity?> identityVerifier,
         Action<string, JsonElement> subscriber,
         Notifier<(string, string[])> membershipUpdateNotifier,
@@ -44,13 +47,16 @@ public sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
         string selfAddress)
     {
         var logger = loggerFactory.CreateLogger<Libp2pNetworkProvider>();
+        logger.LogInformation("Initializing Libp2p...");
+        logger.LogInformation("Host ID: {}", host.Id);
+
         var dht = DHT.Create(host, dhtConfig);
         var discovery = Discovery.Create(dht);
         var memberStore = new MemberStore();
         var pubsub = PubSub.Create(dht, memberStore);
         var shutdownNotifier = new Notifier<object?>();
         dht.Bootstrap();
-        var resolver = new PeerResolver(loggerFactory, identity, host, discovery, identityVerifier);
+        var resolver = new PeerResolver(loggerFactory, host, discovery, identityVerifier, memoryCache);
         var pubsubService = new PubSubService(identity, membershipUpdateNotifier, pubsub, subscriber, loggerFactory);
         var membershipService = new MembershipService(
             loggerFactory,
@@ -74,7 +80,9 @@ public sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
             resolver,
             proxy,
             pubsubService,
-            membershipService);
+            membershipService,
+            identityVerifier,
+            memoryCache);
 
         // Update room memberships.
         var batchStates = await timelineLoader.LoadBatchStatesAsync(_ => true, includeLeave: false);
@@ -113,6 +121,18 @@ public sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
                     cts.Token.ThrowIfCancellationRequested();
                     logger.LogDebug("Advertising ID: {}", identity.Id);
                     discovery.Advertise(identity.Id, cts.Token);
+                    string hostId = host.Id;
+                    string userId = UserIdentifier.FromId(identity.Id).ToString();
+                    string displayName = await userProfile.GetDisplayNameAsync(userId) ?? identity.Id;
+                    for (int i = 7; i < hostId.Length; i++)
+                    {
+                        string rendezvousPoint = $"/{displayName}/{hostId[..i]}";
+                        if (i == 7)
+                        {
+                            logger.LogDebug("Advertising rendezvousPoints: {}...", rendezvousPoint);
+                        }
+                        discovery.Advertise(rendezvousPoint, cts.Token);
+                    }
                 }
                 catch (OperationCanceledException)
                 {
@@ -166,5 +186,14 @@ public sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
     public Task<Stream> DownloadAsync(string peerId, string url)
     {
         throw new NotImplementedException();
+    }
+
+    public Task<IPeerIdentity[]> SearchPeersAsync(string searchTerm, CancellationToken cancellationToken = default)
+    {
+        if (p2pNode is null)
+        {
+            throw new InvalidOperationException();
+        }
+        return p2pNode.SearchPeersAsync(searchTerm, cancellationToken);
     }
 }

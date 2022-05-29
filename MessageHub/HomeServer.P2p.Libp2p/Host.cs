@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using MessageHub.Federation.Protocol;
+using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.P2p.Libp2p.Native;
 
 namespace MessageHub.HomeServer.P2p.Libp2p;
@@ -100,7 +101,10 @@ public sealed class Host : IDisposable
         }
     }
 
-    public HttpResponseMessage SendRequest(string peerId, SignedRequest request, CancellationToken cancellationToken = default)
+    public HttpResponseMessage SendRequest(
+        string peerId,
+        SignedRequest request,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(peerId);
         ArgumentNullException.ThrowIfNull(request);
@@ -132,6 +136,29 @@ public sealed class Host : IDisposable
             response.Content = new StringContent(responseBody.ToString());
         };
         return response;
+    }
+
+    public async Task<JsonElement?> GetServerKeysAsync(string peerId, CancellationToken cancellationToken = default)
+    {
+        var response = SendRequest(peerId, new SignedRequest
+        {
+            Method = HttpMethod.Get.ToString(),
+            Uri = $"/_matrix/key/v2/server",
+            Origin = "dummy",
+            Destination = peerId,
+            ServerKeys = new ServerKeys { ServerName = "dummy" },
+            Signatures = JsonSerializer.SerializeToElement(new Signatures
+            {
+                ["dummy"] = new ServerSignatures
+                {
+                    [new KeyIdentifier("dummy", "dummy")] = "dummy"
+                }
+            })
+        }, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<JsonElement>(
+            cancellationToken: cancellationToken);
+        return result;
     }
 
     public Proxy StartProxyRequests(string proxy)

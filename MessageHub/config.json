@@ -1,7 +1,4 @@
 {
     "peerId": "dummy",
-    "peers": {
-        "dummy": "0.0.0.0:8448"
-    },
-    "contentPath": ""
+    "listenAddress": "0.0.0.0:8448"
 }

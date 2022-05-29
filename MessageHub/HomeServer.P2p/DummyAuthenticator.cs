@@ -6,6 +6,7 @@ using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Rooms.Timeline;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace MessageHub.HomeServer.P2p;
 
@@ -16,7 +17,9 @@ internal class DummyAuthenticator : IAuthenticator
     private readonly string userId;
     private readonly string accessTokenPrefix;
     private readonly INetworkProvider networkProvider;
+    private readonly IUserProfile userProfile;
     private readonly ILoggerFactory loggerFactory;
+    private readonly IMemoryCache memoryCache;
     private readonly Notifier<(string, string[])> membershipUpdateNotifier;
     private readonly ITimelineLoader timelineLoader;
     private readonly IRooms rooms;
@@ -26,7 +29,9 @@ internal class DummyAuthenticator : IAuthenticator
     public DummyAuthenticator(
         Config config,
         INetworkProvider networkProvider,
+        IUserProfile userProfile,
         ILoggerFactory loggerFactory,
+        IMemoryCache memoryCache,
         Notifier<(string, string[])> membershipUpdateNotifier,
         ITimelineLoader timelineLoader,
         IRooms rooms,
@@ -35,7 +40,9 @@ internal class DummyAuthenticator : IAuthenticator
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(networkProvider);
+        ArgumentNullException.ThrowIfNull(userProfile);
         ArgumentNullException.ThrowIfNull(loggerFactory);
+        ArgumentNullException.ThrowIfNull(memoryCache);
         ArgumentNullException.ThrowIfNull(membershipUpdateNotifier);
         ArgumentNullException.ThrowIfNull(timelineLoader);
         ArgumentNullException.ThrowIfNull(rooms);
@@ -44,7 +51,9 @@ internal class DummyAuthenticator : IAuthenticator
 
         this.config = config;
         this.networkProvider = networkProvider;
+        this.userProfile = userProfile;
         this.loggerFactory = loggerFactory;
+        this.memoryCache = memoryCache;
         this.membershipUpdateNotifier = membershipUpdateNotifier;
         this.timelineLoader = timelineLoader;
         this.rooms = rooms;
@@ -106,7 +115,9 @@ internal class DummyAuthenticator : IAuthenticator
                 var uri = new Uri(selfUrl);
                 await networkProvider.InitializeAsync(
                     DummyIdentity.Self,
+                    userProfile,
                     loggerFactory,
+                    memoryCache,
                     serverKeys =>
                     {
                         if (DummyIdentity.Self.Verify(serverKeys))

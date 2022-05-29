@@ -3,7 +3,7 @@ using System.Text;
 using FASTER.core;
 using MessageHub.HomeServer.P2p.Providers;
 
-namespace MessageHub.HomeServer.P2p.Faster;
+namespace MessageHub.HomeServer.P2p.FasterKV;
 using ClientSession = ClientSession<
     ReadOnlyMemory<byte>, Memory<byte>, Memory<byte>, (IMemoryOwner<byte>, int), Empty,
     IFunctions<ReadOnlyMemory<byte>, Memory<byte>, Memory<byte>, (IMemoryOwner<byte>, int), Empty>>;

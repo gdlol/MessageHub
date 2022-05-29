@@ -1,6 +1,6 @@
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.P2p;
-using MessageHub.HomeServer.P2p.Faster;
+using MessageHub.HomeServer.P2p.FasterKV;
 using MessageHub.HomeServer.P2p.Libp2p;
 using MessageHub.HomeServer.P2p.Providers;
 using MessageHub.HomeServer.P2p.Remote;
@@ -19,6 +19,7 @@ public static class P2pHomeServerServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddHttpClient();
+        services.AddMemoryCache();
         services.AddSingleton(provider =>
         {
             var config = provider.GetRequiredService<Config>();
@@ -40,8 +41,8 @@ public static class P2pHomeServerServiceCollectionExtensions
         services.AddSingleton<RoomEventSubscriber>();
         services.AddSingleton<IAuthenticator, DummyAuthenticator>();
         services.AddSingleton<IContentRepository, ContentRepository>();
-        services.AddSingleton<IPeerStore, DummyPeerStore>();
         services.AddSingleton<IRoomDiscoveryService, RoomDiscoveryService>();
+        services.AddSingleton<IUserDiscoveryService, UserDiscoveryService>();
         services.AddSingleton<IUserProfile, UserProfile>();
         services.AddSingleton<IRequestHandler, RequestHandler>();
         services.AddSingleton<IRemoteContentRepository, RemoteContentRepository>();

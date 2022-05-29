@@ -18,7 +18,7 @@ if (string.IsNullOrEmpty(config.DataPath))
 }
 Directory.CreateDirectory(config.ContentPath);
 builder.Services.AddSingleton(config);
-string url = $"http://{config.Peers[config.PeerId]}";
+string url = $"http://{config.ListenAddress}";
 builder.WebHost.UseUrls(url);
 builder.WebHost.ConfigureLogging(builder =>
 {

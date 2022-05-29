@@ -1,35 +1,33 @@
 using System.Text.Json;
-using MessageHub.Federation.Protocol;
-using MessageHub.HomeServer.Events;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace MessageHub.HomeServer.P2p.Libp2p;
 
 public class PeerResolver : IPeerResolver
 {
     private readonly ILogger logger;
-    private readonly IPeerIdentity peerIdentity;
     private readonly Host host;
     private readonly Discovery discovery;
     private readonly Func<ServerKeys, IPeerIdentity?> identityVerifier;
+    private readonly IMemoryCache addressCache;
 
     public PeerResolver(
         ILoggerFactory loggerFactory,
-        IPeerIdentity peerIdentity,
         Host host,
         Discovery discovery,
-        Func<ServerKeys, IPeerIdentity?> identityVerifier)
+        Func<ServerKeys, IPeerIdentity?> identityVerifier,
+        IMemoryCache addressCache)
     {
         ArgumentNullException.ThrowIfNull(loggerFactory);
-        ArgumentNullException.ThrowIfNull(peerIdentity);
         ArgumentNullException.ThrowIfNull(host);
         ArgumentNullException.ThrowIfNull(discovery);
         ArgumentNullException.ThrowIfNull(identityVerifier);
 
         logger = loggerFactory.CreateLogger<PeerResolver>();
-        this.peerIdentity = peerIdentity;
         this.host = host;
         this.discovery = discovery;
         this.identityVerifier = identityVerifier;
+        this.addressCache = addressCache;
     }
 
     public async Task<string> ResolveAddressInfoAsync(
@@ -59,10 +57,32 @@ public class PeerResolver : IPeerResolver
                 };
 
                 logger.LogDebug("Finding peers for Id {}...", id);
-                Dictionary<string, string> addressInfos;
+                IEnumerable<(string, string)> addressInfos;
                 try
                 {
-                    addressInfos = discovery.FindPeers(rendezvousPoint, cts.Token);
+                    if (addressCache.TryGetValue(rendezvousPoint, out string addressInfo))
+                    {
+                        logger.LogDebug("Found address info in cache Id {}: {}", id, addressInfo);
+                        string peerId = Host.GetIdFromAddressInfo(addressInfo);
+                        IEnumerable<(string, string)> GetPeers()
+                        {
+                            yield return (peerId, addressInfo);
+                            var peers = discovery.FindPeers(rendezvousPoint, cts.Token);
+                            foreach (var (id, info) in peers)
+                            {
+                                yield return (id, info);
+                            }
+                        }
+                        addressInfos = GetPeers();
+                    }
+                    else
+                    {
+                        addressInfos = discovery.FindPeers(rendezvousPoint, cts.Token)
+                            .AsEnumerable()
+                            .Select(x => (x.Key, x.Value))
+                            .ToArray();
+                        logger.LogDebug("Found {} candidate peers for Id: {}...", addressInfos.Count(), id);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -70,10 +90,13 @@ public class PeerResolver : IPeerResolver
                     await Task.Delay(TimeSpan.FromSeconds(3));
                     continue;
                 }
-                logger.LogDebug("Found {} candidate peers for Id: {}...", addressInfos.Count, id);
                 await Parallel.ForEachAsync(addressInfos, parallelOptions, async (x, token) =>
                 {
                     var (peerId, addressInfo) = x;
+                    if (peerId == host.Id)
+                    {
+                        return;
+                    }
                     try
                     {
                         token.ThrowIfCancellationRequested();
@@ -82,59 +105,43 @@ public class PeerResolver : IPeerResolver
                         host.Connect(addressInfo, token);
                         logger.LogDebug("Connected to {}: {}", peerId, addressInfo);
 
-                        logger.LogDebug("Sending request to {}...", peerId);
-                        var response = host.SendRequest(peerId, new SignedRequest
+                        var responseBody = await host.GetServerKeysAsync(peerId, token);
+                        var serverKeys = responseBody?.Deserialize<ServerKeys>();
+                        if (serverKeys is null)
                         {
-                            Method = HttpMethod.Get.ToString(),
-                            Uri = $"/_matrix/key/v2/server",
-                            Origin = "dummy",
-                            OriginServerTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                            Destination = peerId,
-                            ServerKeys = peerIdentity.GetServerKeys(),
-                            Signatures = JsonSerializer.SerializeToElement(new Signatures
-                            {
-                                ["dummy"] = new ServerSignatures
-                                {
-                                    [new KeyIdentifier("dummy", "dummy")] = "dummy"
-                                }
-                            })
-                        }, token);
-                        logger.LogDebug("Sent request to {}", peerId);
-                        response.EnsureSuccessStatusCode();
-                        var responseBody = await response.Content.ReadFromJsonAsync<JsonElement>(
-                            cancellationToken: token);
-                        var serverKeys = JsonSerializer.Deserialize<ServerKeys>(responseBody);
-                        if (serverKeys is not null)
+                            logger.LogDebug("Null server keys response from {}", peerId);
+                            return;
+                        }
+                        logger.LogDebug("Server keys {}: {}", responseBody, peerId);
+                        var identity = identityVerifier(serverKeys);
+                        if (identity?.Id == id
+                            && identity.VerifyKeys.Keys.TryGetValue(new KeyIdentifier("libp2p", "PeerID"), out var key)
+                            && peerId == key)
                         {
-                            logger.LogDebug("Server keys {}: {}", responseBody, peerId);
-                            var identity = identityVerifier(serverKeys);
-                            if (identity?.Id == id
-                                && identity.VerifyKeys.Keys.TryGetValue(
-                                    new KeyIdentifier("libp2p", "PeerID"),
-                                    out var key)
-                                && peerId == key)
+                            tcs.TrySetResult(addressInfo);
+                            cts.Cancel();
+                            logger.LogDebug("Found address info for {}: {}", id, addressInfo);
+                            addressCache.Set(
+                                rendezvousPoint,
+                                addressInfo,
+                                DateTimeOffset.FromUnixTimeMilliseconds(serverKeys.ValidUntilTimestamp));
+                        }
+                        else
+                        {
+                            if (identity is null)
                             {
-                                tcs.TrySetResult(addressInfo);
-                                cts.Cancel();
-                                logger.LogDebug("Found address info for {}: {}", id, addressInfo);
+                                logger.LogDebug("identity verification failed for {}: {}", peerId, responseBody);
                             }
                             else
                             {
-                                if (identity is null)
-                                {
-                                    logger.LogDebug("identity not verified for {}: {}", id, responseBody);
-                                }
-                                else
-                                {
-                                    logger.LogDebug("transport not verified for {}: {}", id, responseBody);
-                                }
+                                logger.LogDebug("transport verification failed for {}: {}", peerId, responseBody);
                             }
                         }
                     }
                     catch (OperationCanceledException) { }
                     catch (Exception ex)
                     {
-                        logger.LogInformation(
+                        logger.LogDebug(
                             ex,
                             "Error verifying identify of peer {} for id {}",
                             (peerId, addressInfo), id);
