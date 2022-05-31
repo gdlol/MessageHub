@@ -5,6 +5,7 @@ using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Events.Room;
 using MessageHub.HomeServer.Notifiers;
+using MessageHub.HomeServer.Remote;
 using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Rooms.Timeline;
 
@@ -234,47 +235,64 @@ internal class BackfillingService
                 MaxDegreeOfParallelism = 3
             };
             logger.LogDebug("Finding destinations for backfilling {}...", roomId);
-            using var destinations = new BlockingCollection<string>(boundedCapacity: 3);
-            await Parallel.ForEachAsync(memberPeers, parallelOptions, async (peerId, token) =>
+            using var destinations = new BlockingCollection<string>();
+            var distinctDestinations = new ConcurrentDictionary<string, string>();
+            _ = Task.Run(async () =>
             {
-                if (token.IsCancellationRequested)
-                {
-                    return;
-                }
                 try
                 {
-                    var identity = await p2pNode.GetServerIdentityAsync(peerId, token);
-                    if (identity is null)
+                    await Parallel.ForEachAsync(memberPeers, parallelOptions, async (peerId, token) =>
                     {
-                        logger.LogDebug("Identity not found from {}", peerId);
-                        memberStore.RemoveMember(roomId, peerId);
-                        return;
-                    }
-                    if (!members.Contains(identity.Id))
-                    {
-                        logger.LogDebug("{} is not a member of {}", peerId, roomId);
-                        memberStore.RemoveMember(roomId, peerId);
-                        return;
-                    }
-                    destinations.TryAdd(peerId);
-                    if (destinations.Count >= 3)
-                    {
-                        cts.Cancel();
-                    }
+                        if (token.IsCancellationRequested)
+                        {
+                            return;
+                        }
+                        try
+                        {
+                            var identity = await p2pNode.GetServerIdentityAsync(peerId, token);
+                            if (identity is null)
+                            {
+                                logger.LogDebug("Identity not found from {}", peerId);
+                                memberStore.RemoveMember(roomId, peerId);
+                                return;
+                            }
+                            if (!members.Contains(identity.Id))
+                            {
+                                logger.LogDebug("{} is not a member of {}", peerId, roomId);
+                                memberStore.RemoveMember(roomId, peerId);
+                                return;
+                            }
+                            if (distinctDestinations.TryAdd(identity.Id, peerId))
+                            {
+                                destinations.Add(identity.Id, token);
+                            }
+                            if (distinctDestinations.Count >= 3)
+                            {
+                                cts.Cancel();
+                            }
+                        }
+                        catch (OperationCanceledException) { }
+                        catch (Exception ex)
+                        {
+                            logger.LogDebug(ex, "Error connecting to peer {}", peerId);
+                        }
+                    });
                 }
-                catch (OperationCanceledException) { }
-                catch (Exception ex)
+                finally
                 {
-                    logger.LogDebug(ex, "Error connecting to peer {}", peerId);
+                    destinations.CompleteAdding();
                 }
-            });
+            }, cancellationToken);
             var pduMap = pdus.ToDictionary(pdu => EventHash.GetEventId(pdu), pdu => pdu);
             parallelOptions = new ParallelOptions
             {
                 CancellationToken = cancellationToken,
                 MaxDegreeOfParallelism = 3
             };
-            await Parallel.ForEachAsync(destinations.ToArray(), parallelOptions, async (destination, token) =>
+            await Parallel.ForEachAsync(
+                destinations.GetConsumingEnumerable(cancellationToken),
+                parallelOptions,
+                async (destination, token) =>
             {
                 try
                 {
@@ -317,6 +335,7 @@ internal class BackfillingService
     private readonly ILogger logger;
     private readonly IIdentityService identityService;
     private readonly IRooms rooms;
+    private readonly ITimelineLoader timelineLoader;
     private readonly IEventSaver eventSaver;
     private readonly UnresolvedEventNotifier notifier;
     private CancellationTokenSource? cts;
@@ -324,21 +343,30 @@ internal class BackfillingService
     private readonly EventHandler<PersistentDataUnit[]>? onNotify;
 
     public BackfillingService(
-        ILoggerFactory loggerFactory,
+        ILogger<BackfillingService> logger,
         IIdentityService identityService,
         IRooms rooms,
+        ITimelineLoader timelineLoader,
         IEventSaver eventSaver,
         UnresolvedEventNotifier notifier)
     {
-        logger = loggerFactory.CreateLogger<BackfillingService>();
+        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(identityService);
+        ArgumentNullException.ThrowIfNull(rooms);
+        ArgumentNullException.ThrowIfNull(timelineLoader);
+        ArgumentNullException.ThrowIfNull(eventSaver);
+        ArgumentNullException.ThrowIfNull(notifier);
+
+        this.logger = logger;
         this.identityService = identityService;
         this.rooms = rooms;
+        this.timelineLoader = timelineLoader;
         this.eventSaver = eventSaver;
         this.notifier = notifier;
         onNotify = (_, pdus) => pdusQueue?.TryAdd(pdus);
     }
 
-    public void Start(MemberStore memberStore, P2pNode p2pNode)
+    public void Start(MemberStore memberStore, P2pNode p2pNode, PubSubService pubsubService)
     {
         if (cts is not null)
         {
@@ -353,7 +381,13 @@ internal class BackfillingService
         {
             try
             {
-                var backfiller = new Backfiller(logger, identityService, rooms, memberStore, p2pNode, eventSaver);
+                var backfiller = new Backfiller(
+                    logger,
+                    identityService,
+                    rooms,
+                    memberStore,
+                    p2pNode,
+                    eventSaver);
                 var parallelOptions = new ParallelOptions
                 {
                     CancellationToken = token,
@@ -380,6 +414,70 @@ internal class BackfillingService
             finally
             {
                 logger.LogDebug("Exiting backfilling service.");
+            }
+        });
+
+
+        // Periodically advertise latest events
+        Task.Run(async () =>
+        {
+            // Update room memberships.
+            try
+            {
+                var identity = identityService.GetSelfIdentity();
+                await Task.Delay(TimeSpan.FromSeconds(3), token);
+                while (true)
+                {
+                    try
+                    {
+                        token.ThrowIfCancellationRequested();
+                        var batchStates = await timelineLoader.LoadBatchStatesAsync(_ => true, includeLeave: false);
+                        foreach (string roomId in batchStates.JoinedRoomIds)
+                        {
+                            var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
+                            if (batchStates.RoomEventIds.TryGetValue(roomId, out string? latestEventId))
+                            {
+                                var pdu = await roomEventStore.LoadEventAsync(latestEventId);
+                                string txnId = Guid.NewGuid().ToString();
+                                var parameters = new PushMessagesRequest
+                                {
+                                    Origin = identity.Id,
+                                    OriginServerTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                                    Pdus = new[] { pdu }
+                                };
+                                var request = identity.SignRequest(
+                                    destination: roomId,
+                                    requestMethod: HttpMethods.Put,
+                                    requestTarget: $"/_matrix/federation/v1/send/{txnId}",
+                                    content: parameters);
+                                pubsubService.Publish(roomId, JsonSerializer.SerializeToElement(request));
+                            }
+                            else
+                            {
+                                logger.LogWarning("Latest event id not found for room {}", roomId);
+                            }
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        if (token.IsCancellationRequested)
+                        {
+                            return;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogDebug(ex, "Error publishing event.");
+                    }
+                    finally
+                    {
+                        await Task.Delay(TimeSpan.FromMinutes(1));
+                    }
+                }
+            }
+            finally
+            {
+                logger.LogDebug("Stop advertising latest events.");
             }
         });
     }

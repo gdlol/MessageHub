@@ -20,7 +20,10 @@ public class DummyController : ControllerBase
     [HttpPost]
     public object UploadKeys()
     {
-        return new object();
+        return new
+        {
+            one_time_key_counts = new object()
+        };
     }
 
     [Route("keys/query")]

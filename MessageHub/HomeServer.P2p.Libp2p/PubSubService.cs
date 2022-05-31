@@ -98,6 +98,7 @@ internal class PubSubService
         }
 
         public static SubscribeLoop Create(
+            string selfId,
             Subscription subscription,
             ILoggerFactory loggerFactory,
             RemoteRequestNotifier notifier)
@@ -113,6 +114,10 @@ internal class PubSubService
                     {
                         loop.Token.ThrowIfCancellationRequested();
                         var (sender, message) = subscription.Next(loop.Token);
+                        if (sender == selfId)
+                        {
+                            continue;
+                        }
                         try
                         {
                             notifier.Notify((subscription.Topic, message));
@@ -162,7 +167,7 @@ internal class PubSubService
         subscribeLoops = new ConcurrentDictionary<string, SubscribeLoop>();
     }
 
-    public void Start(PubSub pubsub)
+    public void Start(Host host, PubSub pubsub)
     {
         if (publishLoop is not null)
         {
@@ -177,7 +182,7 @@ internal class PubSubService
             subscribeLoops.GetOrAdd(topic, _ =>
             {
                 var subscription = joinedTopic.Subscribe();
-                return SubscribeLoop.Create(subscription, loggerFactory, remoteRequestNotifier);
+                return SubscribeLoop.Create(host.Id, subscription, loggerFactory, remoteRequestNotifier);
             });
         }
 

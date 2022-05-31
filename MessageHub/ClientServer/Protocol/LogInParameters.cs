@@ -9,9 +9,8 @@ public class LogInParameters
     [JsonPropertyName("type")]
     public string LogInType { get; set; } = default!;
 
-    [Required]
     [JsonPropertyName("token")]
-    public string Token { get; set; } = default!;
+    public string? Token { get; set; }
 
     [JsonPropertyName("device_id")]
     public string? DeviceId { get; set; }

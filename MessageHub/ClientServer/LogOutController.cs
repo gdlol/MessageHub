@@ -30,7 +30,7 @@ public class LogOutController : ControllerBase
         }
         else
         {
-            throw new InvalidOperationException();
+            return MatrixError.Create(MatrixErrorCode.NotFound, nameof(token));
         }
         return new object();
     }

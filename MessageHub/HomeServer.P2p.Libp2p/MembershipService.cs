@@ -14,6 +14,7 @@ internal class MembershipService
     private readonly ITimelineLoader timelineLoader;
     private readonly IRooms rooms;
     private readonly MembershipUpdateNotifier notifier;
+    private CancellationTokenSource? cts;
     private EventHandler<(string, string[])>? onNotify;
 
     public MembershipService(
@@ -38,10 +39,12 @@ internal class MembershipService
 
     public void Start(MemberStore memberStore, IPeerResolver peerResolver)
     {
-        if (onNotify is not null)
+        if (cts is not null)
         {
             throw new InvalidOperationException();
         }
+        cts = new CancellationTokenSource();
+        var token = cts.Token;
         logger.LogDebug("Starting membership service.");
         onNotify = (sender, e) =>
         {
@@ -89,25 +92,56 @@ internal class MembershipService
         _ = Task.Run(async () =>
         {
             // Update room memberships.
-            var batchStates = await timelineLoader.LoadBatchStatesAsync(_ => true, includeLeave: false);
-            foreach (var roomId in batchStates.JoinedRoomIds)
+            await Task.Delay(TimeSpan.FromSeconds(3), token);
+            try
             {
-                var snapshot = await rooms.GetRoomSnapshotAsync(roomId);
-                var members = new List<string>();
-                foreach (var (roomStateKey, content) in snapshot.StateContents)
+                while (true)
                 {
-                    if (roomStateKey.EventType != EventTypes.Member)
+                    try
                     {
-                        continue;
+                        token.ThrowIfCancellationRequested();
+                        var batchStates = await timelineLoader.LoadBatchStatesAsync(_ => true, includeLeave: false);
+                        foreach (var roomId in batchStates.JoinedRoomIds)
+                        {
+                            var snapshot = await rooms.GetRoomSnapshotAsync(roomId);
+                            var members = new List<string>();
+                            foreach (var (roomStateKey, content) in snapshot.StateContents)
+                            {
+                                if (roomStateKey.EventType != EventTypes.Member)
+                                {
+                                    continue;
+                                }
+                                var memberEvent = JsonSerializer.Deserialize<MemberEvent>(content)!;
+                                if (memberEvent.MemberShip == MembershipStates.Join)
+                                {
+                                    var userIdentifier = UserIdentifier.Parse(roomStateKey.StateKey);
+                                    members.Add(userIdentifier.PeerId);
+                                }
+                            }
+                            logger.LogDebug("Found {} members for {}", members.Count, roomId);
+                            notifier.Notify((roomId, members.ToArray()));
+                        }
                     }
-                    var memberEvent = JsonSerializer.Deserialize<MemberEvent>(content)!;
-                    if (memberEvent.MemberShip == MembershipStates.Join)
+                    catch (OperationCanceledException)
                     {
-                        var userIdentifier = UserIdentifier.Parse(roomStateKey.StateKey);
-                        members.Add(userIdentifier.PeerId);
+                        if (token.IsCancellationRequested)
+                        {
+                            return;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogDebug(ex, "Error updating membership.");
+                    }
+                    finally
+                    {
+                        await Task.Delay(TimeSpan.FromMinutes(1));
                     }
                 }
-                notifier.Notify((roomId, members.ToArray()));
+            }
+            finally
+            {
+                logger.LogDebug("Exiting membership service.");
             }
         });
     }

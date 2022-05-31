@@ -40,7 +40,6 @@ public static class P2pHomeServerServiceCollectionExtensions
         services.AddHttpClient();
         services.AddMemoryCache();
         services.AddSingleton<AddressCache>();
-        services.AddSingleton<MembershipUpdateNotifier>();
         services.AddSingleton<DiscoveryService>();
         services.AddSingleton<PubSubService>();
         services.AddSingleton<MembershipService>();

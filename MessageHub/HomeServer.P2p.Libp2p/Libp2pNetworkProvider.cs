@@ -83,7 +83,7 @@ internal sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
         var pubsub = PubSub.Create(dht, memberStore);
         var resolver = new PeerResolver(loggerFactory, host, discovery, identityVerifier, addressCache);
         discoveryService.Start(host, discovery);
-        pubsubService.Start(pubsub);
+        pubsubService.Start(host, pubsub);
         membershipService.Start(memberStore, resolver);
         var mdnsService = MdnsService.Create(host, nameof(MessageHub));
         mdnsService.Start();
@@ -101,7 +101,7 @@ internal sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
             proxy,
             identityVerifier,
             addressCache);
-        // backfillingService.Start(memberStore, p2pNode);
+        backfillingService.Start(memberStore, p2pNode, pubsubService);
     }
 
     public void Shutdown()
