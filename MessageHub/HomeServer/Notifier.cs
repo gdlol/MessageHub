@@ -1,4 +1,4 @@
-namespace MessageHub.HomeServer.P2p;
+namespace MessageHub.HomeServer;
 
 public class Notifier<T>
 {

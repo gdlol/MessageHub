@@ -8,33 +8,36 @@ using Microsoft.Net.Http.Headers;
 
 namespace MessageHub.HomeServer.P2p;
 
-internal class RoomEventSubscriber
+internal class RemoteRequestHandler
 {
     private readonly ILogger logger;
+    private readonly IIdentityService identityService;
     private readonly EventStore eventStore;
     private readonly IHttpClientFactory httpClientFactory;
     private readonly string selfUrl;
 
-    public RoomEventSubscriber(
-        ILogger<RoomEventSubscriber> logger,
+    public RemoteRequestHandler(
+        ILogger<RemoteRequestHandler> logger,
+        IIdentityService identityService,
         EventStore eventStore,
         IHttpClientFactory httpClientFactory,
         IServer server)
     {
         ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(identityService);
         ArgumentNullException.ThrowIfNull(eventStore);
         ArgumentNullException.ThrowIfNull(httpClientFactory);
         ArgumentNullException.ThrowIfNull(server);
 
         this.logger = logger;
+        this.identityService = identityService;
         this.eventStore = eventStore;
         this.httpClientFactory = httpClientFactory;
         selfUrl = server.Features.Get<IServerAddressesFeature>()!.Addresses.First();
     }
 
-    public void ReceiveEvent(string topic, JsonElement element)
+    public void ReceiveMessage(string topic, JsonElement message)
     {
-        IPeerIdentity peerIdentity = DummyIdentity.Self ?? throw new InvalidOperationException();
         logger.LogDebug("Received event for topic {}", topic);
         Task.Run(async () =>
         {
@@ -45,13 +48,13 @@ internal class RoomEventSubscriber
                     logger.LogDebug("Room {} not found", topic);
                     return;
                 }
-                var signedRequest = element.Deserialize<SignedRequest>();
+                var signedRequest = message.Deserialize<SignedRequest>();
                 if (signedRequest is null)
                 {
                     logger.LogDebug("Deserialized event is null");
                     return;
                 }
-                if (signedRequest.Origin == peerIdentity.Id)
+                if (signedRequest.Origin == identityService.GetSelfIdentity().Id)
                 {
                     return;
                 }
@@ -100,7 +103,7 @@ internal class RoomEventSubscriber
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Error processing event for topic {}: {}", topic, element);
+                logger.LogWarning(ex, "Error processing event for topic {}: {}", topic, message);
             }
         });
     }

@@ -7,8 +7,6 @@ namespace MessageHub.ClientServer;
 [Route("_matrix/client/{version}")]
 public class LogInController : ControllerBase
 {
-    public const string IdPId = "org.message-hub.sso";
-
     private readonly IAuthenticator authenticator;
 
     public LogInController(IAuthenticator authenticator)
@@ -30,7 +28,7 @@ public class LogInController : ControllerBase
                     {
                         new
                         {
-                            id = IdPId,
+                            id = nameof(MessageHub),
                             name = nameof(MessageHub)
                         }
                     },
@@ -42,7 +40,7 @@ public class LogInController : ControllerBase
     }
 
     [Route("login/sso/redirect")]
-    [Route($"login/sso/redirect/{IdPId}")]
+    [Route("login/sso/redirect/{IdPId}")]
     [HttpGet]
     public IActionResult LogInSsoRedirect()
     {

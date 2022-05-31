@@ -1,6 +1,4 @@
-using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.Authentication;
 using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer;
@@ -16,33 +14,16 @@ namespace MessageHub.Federation;
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Federation)]
 public class BackfillingController : ControllerBase
 {
-    public class GetMissingEventsParameters
-    {
-        [Required]
-        [JsonPropertyName("earliest_events")]
-        public string[] EarliestEvents { get; set; } = default!;
-
-        [Required]
-        [JsonPropertyName("latest_events")]
-        public string[] LatestEvents { get; set; } = default!;
-
-        [JsonPropertyName("limit")]
-        public int Limit { get; set; }
-
-        [JsonPropertyName("min_depth")]
-        public int MinDepth { get; set; }
-    }
-
+    private readonly IIdentityService identityService;
     private readonly IRooms rooms;
-    private readonly IPeerIdentity peerIdentity;
 
-    public BackfillingController(IRooms rooms, IPeerIdentity peerIdentity)
+    public BackfillingController(IIdentityService identityService, IRooms rooms)
     {
+        ArgumentNullException.ThrowIfNull(identityService);
         ArgumentNullException.ThrowIfNull(rooms);
-        ArgumentNullException.ThrowIfNull(peerIdentity);
 
+        this.identityService = identityService;
         this.rooms = rooms;
-        this.peerIdentity = peerIdentity;
     }
 
     [Route("backfill/{roomId}")]
@@ -104,7 +85,7 @@ public class BackfillingController : ControllerBase
         var pdus = foundEventIds.Select(x => eventMap[x]).ToArray();
         return new JsonResult(new
         {
-            origin = peerIdentity.Id,
+            origin = identityService.GetSelfIdentity().Id,
             origin_server_ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             pdus
         });
@@ -148,7 +129,7 @@ public class BackfillingController : ControllerBase
             var newLatestEventIds = new HashSet<string>();
             foreach (string eventId in latestEventIds)
             {
-                if (latestEventIds.Count >= limit)
+                if (foundEventIds.Count >= limit)
                 {
                     break;
                 }

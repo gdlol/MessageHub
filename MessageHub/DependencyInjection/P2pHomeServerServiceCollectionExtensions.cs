@@ -1,7 +1,9 @@
 using MessageHub.HomeServer;
+using MessageHub.HomeServer.Notifiers;
 using MessageHub.HomeServer.P2p;
 using MessageHub.HomeServer.P2p.FasterKV;
 using MessageHub.HomeServer.P2p.Libp2p;
+using MessageHub.HomeServer.P2p.Notifiers;
 using MessageHub.HomeServer.P2p.Providers;
 using MessageHub.HomeServer.P2p.Remote;
 using MessageHub.HomeServer.P2p.Rooms;
@@ -14,51 +16,70 @@ namespace MessageHub.DependencyInjection;
 
 public static class P2pHomeServerServiceCollectionExtensions
 {
+    public static IServiceCollection AddFasterKV(this IServiceCollection services, string dataPath)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddSingleton(new FasterStorageConfig
+        {
+            DataPath = dataPath
+        });
+        services.AddSingleton<IStorageProvider, FasterStorageProvider>();
+        return services;
+    }
+
+    public static IServiceCollection AddLibp2p(
+        this IServiceCollection services,
+        HostConfig hostConfig,
+        DHTConfig dhtConfig)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddSingleton(hostConfig);
+        services.AddSingleton(dhtConfig);
+        services.AddHttpClient();
+        services.AddMemoryCache();
+        services.AddSingleton<AddressCache>();
+        services.AddSingleton<MembershipUpdateNotifier>();
+        services.AddSingleton<DiscoveryService>();
+        services.AddSingleton<PubSubService>();
+        services.AddSingleton<MembershipService>();
+        services.AddSingleton<BackfillingService>();
+        services.AddSingleton<INetworkProvider, Libp2pNetworkProvider>();
+        return services;
+    }
+
     public static IServiceCollection AddP2pHomeServer(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddHttpClient();
-        services.AddMemoryCache();
-        services.AddSingleton(provider =>
-        {
-            var config = provider.GetRequiredService<Config>();
-            return new FasterStorageConfig
-            {
-                DataPath = config.DataPath
-            };
-        });
-        services.AddSingleton<IStorageProvider, FasterStorageProvider>();
-        services.AddSingleton<Notifier<(string, string[])>>();
-        services.AddSingleton<INetworkProvider>(
-            new Libp2pNetworkProvider(
-                new HostConfig
-                {
-                    AdvertisePrivateAddresses = true
-                },
-                new DHTConfig()));
+        services.AddSingleton<UnresolvedEventNotifier>();
+        services.AddSingleton<MembershipUpdateNotifier>();
+        services.AddSingleton<RemoteRequestNotifier>();
         services.AddSingleton<IAccountData, AccountData>();
-        services.AddSingleton<RoomEventSubscriber>();
+        services.AddSingleton<RemoteRequestHandler>();
         services.AddSingleton<IAuthenticator, DummyAuthenticator>();
         services.AddSingleton<IContentRepository, ContentRepository>();
+        services.AddSingleton<IEventReceiver, EventReceiver>();
+        var identityService = new DummyIdentityService();
+        services.AddSingleton(identityService);
+        services.AddSingleton<IIdentityService>(identityService);
         services.AddSingleton<IRoomDiscoveryService, RoomDiscoveryService>();
         services.AddSingleton<IUserDiscoveryService, UserDiscoveryService>();
         services.AddSingleton<IUserProfile, UserProfile>();
-        services.AddSingleton<IRequestHandler, RequestHandler>();
-        services.AddSingleton<IRemoteContentRepository, RemoteContentRepository>();
         services.AddSingleton<IEventPublisher, EventPublisher>();
-        services.AddScoped<IPeerIdentity>(_ => DummyIdentity.Self ?? throw new InvalidOperationException());
-        services.AddTransient(provider =>
+        services.AddSingleton<IRemoteContentRepository, RemoteContentRepository>();
+        services.AddSingleton<IRemoteRooms, RemoteRooms>();
+        services.AddSingleton<IRequestHandler, RequestHandler>();
+        services.AddSingleton(provider =>
         {
             var storageProvider = provider.GetRequiredService<IStorageProvider>();
             return EventStore.Instance ??
                 EventStore.CreateAsync(storageProvider.GetEventStore()).AsTask().GetAwaiter().GetResult();
         });
-        services.AddTransient<IRooms, Rooms>();
-        services.AddTransient<IEventSaver, EventSaver>();
-        services.AddTransient<ITimelineLoader, TimelineLoader>();
-        services.AddTransient<IEventReceiver, EventReceiver>();
-        services.AddTransient<IRemoteRooms, RemoteRooms>();
+        services.AddSingleton<IRooms, Rooms>();
+        services.AddSingleton<IEventSaver, EventSaver>();
+        services.AddSingleton<ITimelineLoader, TimelineLoader>();
         return services;
     }
 }

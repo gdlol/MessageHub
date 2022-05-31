@@ -16,23 +16,23 @@ namespace MessageHub.ClientServer;
 public class JoinRoomController : ControllerBase
 {
     private readonly ILogger logger;
-    private readonly IPeerIdentity peerIdentity;
+    private readonly IIdentityService identityService;
     private readonly IRemoteRooms remoteRooms;
     private readonly ITimelineLoader timelineLoader;
 
     public JoinRoomController(
         ILogger<JoinRoomController> logger,
-        IPeerIdentity peerIdentity,
+        IIdentityService identityService,
         IRemoteRooms remoteRooms,
         ITimelineLoader timelineLoader)
     {
         ArgumentNullException.ThrowIfNull(logger);
-        ArgumentNullException.ThrowIfNull(peerIdentity);
+        ArgumentNullException.ThrowIfNull(identityService);
         ArgumentNullException.ThrowIfNull(remoteRooms);
         ArgumentNullException.ThrowIfNull(timelineLoader);
 
         this.logger = logger;
-        this.peerIdentity = peerIdentity;
+        this.identityService = identityService;
         this.remoteRooms = remoteRooms;
         this.timelineLoader = timelineLoader;
     }
@@ -42,7 +42,8 @@ public class JoinRoomController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Join(string roomId)
     {
-        var userId = UserIdentifier.FromId(peerIdentity.Id);
+        var identity = identityService.GetSelfIdentity();
+        var userId = UserIdentifier.FromId(identity.Id);
 
         logger.LogDebug("Joining {}...", roomId);
         var batchStates = await timelineLoader.LoadBatchStatesAsync(id => id == roomId, true);
@@ -90,17 +91,17 @@ public class JoinRoomController : ControllerBase
         {
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         });
-        pdu.Origin = peerIdentity.Id;
+        pdu.Origin = identity.Id;
         pdu.OriginServerTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         pdu.RoomId = roomId;
         pdu.Sender = userId.ToString();
         pdu.StateKey = userId.ToString();
         pdu.EventType = EventTypes.Member;
-        pdu.ServerKeys = peerIdentity.GetServerKeys();
+        pdu.ServerKeys = identity.GetServerKeys();
         EventHash.UpdateHash(pdu);
         string eventId = EventHash.GetEventId(pdu);
+        pdu = identity.SignEvent(pdu);
         var element = pdu.ToJsonElement();
-        element = peerIdentity.SignJson(element);
 
         logger.LogDebug("Sending send join {} to {}...", roomId, destination);
         await remoteRooms.SendJoinAsync(destination, roomId, eventId, element);

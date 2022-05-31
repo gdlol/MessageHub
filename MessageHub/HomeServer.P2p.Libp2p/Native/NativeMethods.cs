@@ -53,6 +53,8 @@ internal sealed class HostHandle : ObjectHandle
 
 internal sealed class ProxyHandle : ObjectHandle { }
 
+internal sealed class MdnsServiceHandle : ObjectHandle { }
+
 internal sealed class DHTHandle : ObjectHandle
 {
     [DllImport(Native.DllName)]
@@ -118,6 +120,15 @@ internal unsafe static class NativeMethods
 
     [DllImport(Native.DllName)]
     public static extern StringHandle StopProxyRequests(ProxyHandle proxyHandle);
+
+    [DllImport(Native.DllName)]
+    public static extern MdnsServiceHandle CreateMdnsService(HostHandle hostHandle, StringHandle serviceName);
+
+    [DllImport(Native.DllName)]
+    public static extern StringHandle StartMdnsService(MdnsServiceHandle mdnsServiceHandle);
+
+    [DllImport(Native.DllName)]
+    public static extern StringHandle StopMdnsService(MdnsServiceHandle mdnsServiceHandle);
 
     [DllImport(Native.DllName)]
     public static extern StringHandle CreateDHT(

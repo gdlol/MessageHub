@@ -9,16 +9,16 @@ namespace MessageHub.Federation;
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Federation)]
 public class UserProfileController : ControllerBase
 {
+    private readonly IIdentityService identityService;
     private readonly IUserProfile userProfile;
-    private readonly IPeerIdentity peerIdentity;
 
-    public UserProfileController(IUserProfile userProfile, IPeerIdentity peerIdentity)
+    public UserProfileController(IIdentityService identityService, IUserProfile userProfile)
     {
+        ArgumentNullException.ThrowIfNull(identityService);
         ArgumentNullException.ThrowIfNull(userProfile);
-        ArgumentNullException.ThrowIfNull(peerIdentity);
 
+        this.identityService = identityService;
         this.userProfile = userProfile;
-        this.peerIdentity = peerIdentity;
     }
 
     [Route("query/profile")]
@@ -27,11 +27,12 @@ public class UserProfileController : ControllerBase
         [FromQuery(Name = "field")] string? field,
         [FromQuery(Name = "user_id")] string? userId)
     {
+        var identity = identityService.GetSelfIdentity();
         if (string.IsNullOrEmpty(userId))
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.MissingParameter, nameof(userId)));
         }
-        if (userId != UserIdentifier.FromId(peerIdentity.Id).ToString())
+        if (userId != UserIdentifier.FromId(identity.Id).ToString())
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(userId)));
         }

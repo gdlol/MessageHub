@@ -27,26 +27,26 @@ public class InviteController : ControllerBase
         public string UserId { get; set; } = default!;
     }
 
-    private readonly IPeerIdentity peerIdentity;
+    private readonly IIdentityService identityService;
     private readonly IRooms rooms;
     private readonly IRemoteRooms remoteRooms;
     private readonly IEventSaver eventSaver;
     private readonly IEventPublisher eventPublisher;
 
     public InviteController(
-        IPeerIdentity peerIdentity,
+        IIdentityService identityService,
         IRooms rooms,
         IRemoteRooms remoteRooms,
         IEventSaver eventSaver,
         IEventPublisher eventPublisher)
     {
-        ArgumentNullException.ThrowIfNull(peerIdentity);
+        ArgumentNullException.ThrowIfNull(identityService);
         ArgumentNullException.ThrowIfNull(rooms);
         ArgumentNullException.ThrowIfNull(remoteRooms);
         ArgumentNullException.ThrowIfNull(eventSaver);
         ArgumentNullException.ThrowIfNull(eventPublisher);
 
-        this.peerIdentity = peerIdentity;
+        this.identityService = identityService;
         this.rooms = rooms;
         this.remoteRooms = remoteRooms;
         this.eventSaver = eventSaver;
@@ -61,7 +61,8 @@ public class InviteController : ControllerBase
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(roomId)}: {roomId}"));
         }
-        var senderId = UserIdentifier.FromId(peerIdentity.Id);
+        var identity = identityService.GetSelfIdentity();
+        var senderId = UserIdentifier.FromId(identity.Id);
         var roomSnapshot = await rooms.GetRoomSnapshotAsync(roomId);
         using var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
 
@@ -86,13 +87,13 @@ public class InviteController : ControllerBase
             snapshot: roomSnapshot,
             eventType: EventTypes.Member,
             stateKey: parameters.UserId,
-            serverKeys: peerIdentity.GetServerKeys(),
+            serverKeys: identity.GetServerKeys(),
             sender: senderId,
             content: JsonSerializer.SerializeToElement(
                 new MemberEvent { MemberShip = MembershipStates.Invite },
                 new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull }),
             timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-        pdu = peerIdentity.SignEvent(pdu);
+        pdu = identity.SignEvent(pdu);
         string eventId = EventHash.GetEventId(pdu);
 
         // Remote invite

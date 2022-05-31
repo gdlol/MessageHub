@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Text.Json;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Events.Room;
+using MessageHub.HomeServer.P2p.Notifiers;
 using MessageHub.HomeServer.P2p.Providers;
 using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Rooms.Timeline;
@@ -14,26 +15,26 @@ internal sealed class EventSaver : IEventSaver
     private readonly ILogger logger;
     private readonly EventStore eventStore;
     private readonly IStorageProvider storageProvider;
-    private readonly IPeerIdentity peerIdentity;
-    private readonly Notifier<(string, string[])> notifier;
+    private readonly IIdentityService identityService;
+    private readonly MembershipUpdateNotifier notifier;
 
     public EventSaver(
         ILogger<EventSaver> logger,
         EventStore eventStore,
         IStorageProvider storageProvider,
-        IPeerIdentity peerIdentity,
-        Notifier<(string, string[])> notifier)
+        IIdentityService identityService,
+        MembershipUpdateNotifier notifier)
     {
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(eventStore);
         ArgumentNullException.ThrowIfNull(storageProvider);
-        ArgumentNullException.ThrowIfNull(peerIdentity);
+        ArgumentNullException.ThrowIfNull(identityService);
         ArgumentNullException.ThrowIfNull(notifier);
 
         this.logger = logger;
         this.eventStore = eventStore;
         this.storageProvider = storageProvider;
-        this.peerIdentity = peerIdentity;
+        this.identityService = identityService;
         this.notifier = notifier;
     }
 
@@ -114,7 +115,7 @@ internal sealed class EventSaver : IEventSaver
             }
 
             // Room state update.
-            var userId = UserIdentifier.FromId(peerIdentity.Id).ToString();
+            var userId = UserIdentifier.FromId(identityService.GetSelfIdentity().Id).ToString();
             if (pdu.EventType == EventTypes.Member && userId == pdu.StateKey)
             {
                 var memberEvent = JsonSerializer.Deserialize<MemberEvent>(pdu.Content)!;
@@ -266,7 +267,7 @@ internal sealed class EventSaver : IEventSaver
 
             // Room state update.
             {
-                var userId = UserIdentifier.FromId(peerIdentity.Id).ToString();
+                var userId = UserIdentifier.FromId(identityService.GetSelfIdentity().Id).ToString();
                 var snapshot = await EventStore.GetRoomSnapshotAsync(store, roomId);
                 if (snapshot.StateContents.TryGetValue(new RoomStateKey(EventTypes.Member, userId), out var content))
                 {

@@ -22,7 +22,7 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    private readonly IPeerIdentity identity;
+    private readonly IIdentityService identityService;
     private readonly IRooms rooms;
 
     public FederationAuthenticationHandler(
@@ -30,13 +30,13 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
         ILoggerFactory logger,
         UrlEncoder encoder,
         ISystemClock clock,
-        IPeerIdentity identity,
+        IIdentityService identityService,
         IRooms rooms) : base(options, logger, encoder, clock)
     {
-        ArgumentNullException.ThrowIfNull(identity);
+        ArgumentNullException.ThrowIfNull(identityService);
         ArgumentNullException.ThrowIfNull(rooms);
 
-        this.identity = identity;
+        this.identityService = identityService;
         this.rooms = rooms;
     }
 
@@ -62,6 +62,14 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
 
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
+        if (!identityService.HasSelfIdentity)
+        {
+            Logger.LogDebug("Self identity not initialized.");
+            var error = MatrixError.Create(MatrixErrorCode.Unauthorized);
+            return AuthenticateResult.Fail(error.ToString());
+        }
+        var identity = identityService.GetSelfIdentity();
+
         Signatures signatures = new();
         if (Request.Headers.TryGetValue(HeaderNames.Authorization, out var authorizationHeader))
         {
@@ -173,7 +181,7 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
             return AuthenticateResult.Fail(error.ToString());
         }
         var requestElement = JsonSerializer.SerializeToElement(request, ignoreNullOptions);
-        if (identity.VerifyJson(sender, requestElement))
+        if (identityService.VerifyJson(sender, requestElement))
         {
             Request.HttpContext.Items[nameof(request)] = request;
             var claims = new[] { new Claim(ClaimTypes.Name, sender) };

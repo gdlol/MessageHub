@@ -11,26 +11,26 @@ namespace MessageHub.HomeServer.Remote;
 public class RemoteRooms : IRemoteRooms
 {
     private readonly ILogger logger;
-    private readonly IPeerIdentity peerIdentity;
+    private readonly IIdentityService identityService;
     private readonly IRequestHandler requestHandler;
     private readonly IEventSaver eventSaver;
     private readonly IEventReceiver eventReceiver;
 
     public RemoteRooms(
         ILogger<RemoteRooms> logger,
-        IPeerIdentity peerIdentity,
+        IIdentityService identityService,
         IRequestHandler requestHandler,
         IEventSaver eventSaver,
         IEventReceiver eventReceiver)
     {
         ArgumentNullException.ThrowIfNull(logger);
-        ArgumentNullException.ThrowIfNull(peerIdentity);
+        ArgumentNullException.ThrowIfNull(identityService);
         ArgumentNullException.ThrowIfNull(requestHandler);
         ArgumentNullException.ThrowIfNull(eventSaver);
         ArgumentNullException.ThrowIfNull(eventReceiver);
 
         this.logger = logger;
-        this.peerIdentity = peerIdentity;
+        this.identityService = identityService;
         this.requestHandler = requestHandler;
         this.eventSaver = eventSaver;
         this.eventReceiver = eventReceiver;
@@ -39,7 +39,7 @@ public class RemoteRooms : IRemoteRooms
     public Task InviteAsync(string roomId, string eventId, InviteParameters parameters)
     {
         var userId = UserIdentifier.Parse(parameters.Event.StateKey!);
-        var request = peerIdentity.SignRequest(
+        var request = identityService.GetSelfIdentity().SignRequest(
             destination: userId.PeerId,
             requestMethod: HttpMethods.Put,
             requestTarget: $"/_matrix/federation/v2/invite/{roomId}/{eventId}",
@@ -49,7 +49,7 @@ public class RemoteRooms : IRemoteRooms
 
     public async Task<PersistentDataUnit> MakeJoinAsync(string destination, string roomId, string userId)
     {
-        var request = peerIdentity.SignRequest(
+        var request = identityService.GetSelfIdentity().SignRequest(
             destination: destination,
             requestMethod: HttpMethods.Get,
             requestTarget: $"/_matrix/federation/v1/make_join/{roomId}/{userId}");
@@ -59,7 +59,7 @@ public class RemoteRooms : IRemoteRooms
 
     public Task SendJoinAsync(string destination, string roomId, string eventId, JsonElement pdu)
     {
-        var request = peerIdentity.SignRequest(
+        var request = identityService.GetSelfIdentity().SignRequest(
             destination: destination,
             requestMethod: HttpMethods.Put,
             requestTarget: $"/_matrix/federation/v1/send_join/{roomId}/{eventId}",
@@ -78,7 +78,7 @@ public class RemoteRooms : IRemoteRooms
             {
                 target = QueryHelpers.AddQueryString(target, "v", eventId);
             }
-            var request = peerIdentity.SignRequest(
+            var request = identityService.GetSelfIdentity().SignRequest(
                 destination: destination,
                 requestMethod: HttpMethods.Get,
                 requestTarget: target);
@@ -93,7 +93,10 @@ public class RemoteRooms : IRemoteRooms
             var newPdus = await backfillEvents(latestEventIds);
             pdus.AddRange(newPdus);
             receivedEventIds.UnionWith(newPdus.Select(EventHash.GetEventId));
-            latestEventIds = pdus.SelectMany(x => x.PreviousEvents).Except(receivedEventIds).ToArray();
+            latestEventIds = pdus
+                .SelectMany(x => x.PreviousEvents.Union(x.AuthorizationEvents))
+                .Except(receivedEventIds)
+                .ToArray();
         }
         var pduMap = pdus.ToDictionary(pdu => EventHash.GetEventId(pdu), pdu => pdu);
         var createPdu = pdus.SingleOrDefault(x => (x.EventType, x.StateKey) == (EventTypes.Create, string.Empty));

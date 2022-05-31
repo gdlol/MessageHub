@@ -176,6 +176,34 @@ func StopProxyRequests(proxyHandle ProxyHandle) StringHandle {
 	return nil
 }
 
+//export CreateMdnsService
+func CreateMdnsService(hostHandle HostHandle, serviceName StringHandle) MdnsServiceHandle {
+	host := loadValue(hostHandle).(host.Host)
+	service := newMdnsService(context.Background(), host, C.GoString(serviceName))
+	return saveValue(service)
+}
+
+//export StartMdnsService
+func StartMdnsService(mdnsServiceHandle MdnsServiceHandle) StringHandle {
+	service := loadValue(mdnsServiceHandle).(mdnsService)
+	err := service.service.Start()
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	return nil
+}
+
+//export StopMdnsService
+func StopMdnsService(mdnsServiceHandle MdnsServiceHandle) StringHandle {
+	service := loadValue(mdnsServiceHandle).(mdnsService)
+	service.cancel()
+	err := service.service.Close()
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	return nil
+}
+
 //export CreateDHT
 func CreateDHT(ctxHandle ContextHandle, hostHandle HostHandle, configJSON StringHandle, dhtHandle *DHTHandle) StringHandle {
 	*dhtHandle = nil

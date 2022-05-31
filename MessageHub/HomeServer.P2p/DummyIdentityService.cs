@@ -4,13 +4,11 @@ using MessageHub.HomeServer.Events;
 
 namespace MessageHub.HomeServer.P2p;
 
-public class DummyIdentity : IPeerIdentity
+public sealed class DummyIdentity : IIdentity
 {
-    internal static DummyIdentity? Self { get; set; }
+    public string Id { get; }
 
     public bool IsReadOnly { get; }
-
-    public string Id { get; }
 
     public string SignatureAlgorithm { get; } = "dummy";
 
@@ -46,13 +44,7 @@ public class DummyIdentity : IPeerIdentity
         };
     }
 
-    public bool Verify(ServerKeys serverKeys)
-    {
-        return serverKeys.Signatures.TryGetValue(serverKeys.ServerName, out var signatures)
-            && signatures.ContainsValue($"dummy-{serverKeys.ServerName}");
-    }
-
-    public IPeerIdentity AsReadOnly()
+    public IIdentity AsReadOnly()
     {
         return new DummyIdentity(true, Id, VerifyKeys);
     }
@@ -71,6 +63,33 @@ public class DummyIdentity : IPeerIdentity
         var hash = SHA256.HashData(data);
         var signature = Convert.ToHexString(key.Concat(hash).ToArray());
         return Convert.FromHexString(signature);
+    }
+
+    public void Dispose() { }
+}
+
+public class DummyIdentityService : IIdentityService
+{
+    private DummyIdentity? selfIdentity;
+
+    public bool HasSelfIdentity => selfIdentity is not null;
+
+    public IReadOnlySet<string> SupportedAlgorithms { get; } = new HashSet<string> { "dummy" };
+
+    public IIdentity GetSelfIdentity()
+    {
+        return selfIdentity ?? throw new InvalidOperationException();
+    }
+
+    public void SetSelfIdentity(DummyIdentity? identity)
+    {
+        selfIdentity = identity;
+    }
+
+    public bool Verify(ServerKeys serverKeys)
+    {
+        return serverKeys.Signatures.TryGetValue(serverKeys.ServerName, out var signatures)
+            && signatures.ContainsValue($"dummy-{serverKeys.ServerName}");
     }
 
     public bool VerifySignature(string algorithm, string key, byte[] data, byte[] signature)

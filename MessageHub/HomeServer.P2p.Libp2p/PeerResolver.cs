@@ -8,14 +8,14 @@ public class PeerResolver : IPeerResolver
     private readonly ILogger logger;
     private readonly Host host;
     private readonly Discovery discovery;
-    private readonly Func<ServerKeys, IPeerIdentity?> identityVerifier;
+    private readonly Func<ServerKeys, IIdentity?> identityVerifier;
     private readonly IMemoryCache addressCache;
 
     public PeerResolver(
         ILoggerFactory loggerFactory,
         Host host,
         Discovery discovery,
-        Func<ServerKeys, IPeerIdentity?> identityVerifier,
+        Func<ServerKeys, IIdentity?> identityVerifier,
         IMemoryCache addressCache)
     {
         ArgumentNullException.ThrowIfNull(loggerFactory);

@@ -16,23 +16,23 @@ namespace MessageHub.Federation;
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Federation)]
 public class KnockRoomController : ControllerBase
 {
-    private readonly IPeerIdentity peerIdentity;
+    private readonly IIdentityService identityService;
     private readonly IRooms rooms;
     private readonly IEventReceiver eventReceiver;
     private readonly IEventPublisher eventPublisher;
 
     public KnockRoomController(
-        IPeerIdentity peerIdentity,
+        IIdentityService identityService,
         IRooms rooms,
         IEventReceiver eventReceiver,
         IEventPublisher eventPublisher)
     {
-        ArgumentNullException.ThrowIfNull(peerIdentity);
+        ArgumentNullException.ThrowIfNull(identityService);
         ArgumentNullException.ThrowIfNull(rooms);
         ArgumentNullException.ThrowIfNull(eventReceiver);
         ArgumentNullException.ThrowIfNull(eventPublisher);
 
-        this.peerIdentity = peerIdentity;
+        this.identityService = identityService;
         this.rooms = rooms;
         this.eventReceiver = eventReceiver;
         this.eventPublisher = eventPublisher;
@@ -42,6 +42,7 @@ public class KnockRoomController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> MakeKnock(string roomId, string userId)
     {
+        var identity = identityService.GetSelfIdentity();
         SignedRequest request = (SignedRequest)Request.HttpContext.Items[nameof(request)]!;
         var senderId = UserIdentifier.FromId(request.Origin);
         if (senderId.ToString() != userId)
@@ -78,7 +79,7 @@ public class KnockRoomController : ControllerBase
             roomId: roomId,
             snapshot: roomSnapshot,
             eventType: EventTypes.Member,
-            serverKeys: peerIdentity.GetServerKeys(),
+            serverKeys: identity.GetServerKeys(),
             stateKey: userId,
             sender: senderId,
             content: JsonSerializer.SerializeToElement(

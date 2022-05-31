@@ -10,11 +10,7 @@ using MessageHub.HomeServer.Remote;
 using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Rooms.Timeline;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Hosting.Server;
-using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Net.Http.Headers;
-using static MessageHub.ClientServer.InviteController;
 
 namespace MessageHub.ClientServer;
 
@@ -28,23 +24,23 @@ public class CreateRoomController : ControllerBase
     };
 
     private readonly ILogger logger;
-    private readonly IPeerIdentity peerIdentity;
+    private readonly IIdentityService identityService;
     private readonly IAccountData accountData;
     private readonly IEventSaver eventSaver;
 
     public CreateRoomController(
         ILogger<CreateRoomController> logger,
-        IPeerIdentity peerIdentity,
+        IIdentityService identityService,
         IAccountData accountData,
         IEventSaver eventSaver)
     {
         ArgumentNullException.ThrowIfNull(logger);
-        ArgumentNullException.ThrowIfNull(peerIdentity);
+        ArgumentNullException.ThrowIfNull(identityService);
         ArgumentNullException.ThrowIfNull(eventSaver);
         ArgumentNullException.ThrowIfNull(accountData);
 
         this.logger = logger;
-        this.peerIdentity = peerIdentity;
+        this.identityService = identityService;
         this.accountData = accountData;
         this.eventSaver = eventSaver;
     }
@@ -147,9 +143,10 @@ public class CreateRoomController : ControllerBase
                         MatrixErrorCode.InvalidParameter,
                         $"{nameof(parameters.PowerLevelContentOverride)}: {parameters.PowerLevelContentOverride}"));
             }
-        }
+        }        
+        var identity = identityService.GetSelfIdentity();
 
-        string roomId = $"!{Guid.NewGuid()}:{peerIdentity.Id}";
+        string roomId = $"!{Guid.NewGuid()}:{identity.Id}";
 
         var roomSnapshot = new RoomSnapshot();
         PersistentDataUnit pdu;
@@ -158,13 +155,13 @@ public class CreateRoomController : ControllerBase
         var statesMap = new Dictionary<string, ImmutableDictionary<RoomStateKey, string>>();
         void AddEvent(PersistentDataUnit pdu, ImmutableDictionary<RoomStateKey, string> states)
         {
-            pdu = peerIdentity.SignEvent(pdu);
+            pdu = identity.SignEvent(pdu);
             string eventId = EventHash.GetEventId(pdu);
             eventIds.Add(eventId);
             events[eventId] = pdu;
             statesMap[eventId] = states;
         }
-        var serverKeys = peerIdentity.GetServerKeys();
+        var serverKeys = identity.GetServerKeys();
 
         // m.room.create event.
         (roomSnapshot, pdu) = EventCreation.CreateEvent(
@@ -347,7 +344,7 @@ public class CreateRoomController : ControllerBase
                         },
                         ignoreNullOptions),
                     timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-                pdu = peerIdentity.SignEvent(pdu);
+                pdu = identity.SignEvent(pdu);
                 string eventId = EventHash.GetEventId(pdu);
                 var inviteRoomState = events.Values.Select(pdu => new StrippedStateEvent
                 {
@@ -373,7 +370,7 @@ public class CreateRoomController : ControllerBase
                 };
                 logger.LogInformation("Sending invite to {}...", invitedId);
                 await remoteRooms.InviteAsync(roomId, eventId, remoteInviteParameters);
-                var signedPdu = peerIdentity.SignEvent(pdu);
+                var signedPdu = identity.SignEvent(pdu);
                 await eventSaver.SaveAsync(roomId, eventId, pdu, roomSnapshot.States);
                 await eventPublisher.PublishAsync(pdu);
             }

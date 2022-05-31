@@ -1,28 +1,39 @@
 using MessageHub.HomeServer.Events;
+using MessageHub.HomeServer.Notifiers;
 using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Rooms.Timeline;
 
 namespace MessageHub.HomeServer;
 
+public static class EventReceiveErrors
+{
+    public const string NotResolved = "Not resolved";
+    public const string Rejected = "Rejected";
+    public const string InvalidEventId = "Invalid event ID";
+}
+
 public class EventReceiver : IEventReceiver
 {
-    private readonly IPeerIdentity identity;
+    private readonly IIdentityService identityService;
     private readonly IRooms rooms;
     private readonly IEventSaver eventSaver;
+    private readonly UnresolvedEventNotifier unresolvedEventNotifier;
 
     public EventReceiver(
-        IPeerIdentity identity,
+        IIdentityService identityService,
         IRooms rooms,
-        IEventSaver eventSaver)
+        IEventSaver eventSaver,
+        UnresolvedEventNotifier unresolvedEventNotifier)
     {
-        ArgumentNullException.ThrowIfNull(identity);
-        ArgumentNullException.ThrowIfNull(identity);
+        ArgumentNullException.ThrowIfNull(identityService);
         ArgumentNullException.ThrowIfNull(rooms);
         ArgumentNullException.ThrowIfNull(eventSaver);
+        ArgumentNullException.ThrowIfNull(unresolvedEventNotifier);
 
-        this.identity = identity;
+        this.identityService = identityService;
         this.rooms = rooms;
         this.eventSaver = eventSaver;
+        this.unresolvedEventNotifier = unresolvedEventNotifier;
     }
 
     public Task ReceiveEphemeralEventsAsync(EphemeralDataUnit[] edus)
@@ -54,8 +65,14 @@ public class EventReceiver : IEventReceiver
         foreach (var (roomId, pduList) in roomPdus)
         {
             using var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
-            var roomReceiver = new RoomEventsReceiver(roomId, identity, roomEventStore, eventSaver);
-            var roomErrors = await roomReceiver.ReceiveEvents(pduList.ToArray());
+            var roomReceiver = new RoomEventsReceiver(
+                roomId,
+                identityService,
+                roomEventStore,
+                eventSaver,
+                unresolvedEventNotifier);
+            var roomErrors = await roomReceiver.ReceiveEventsAsync(pduList.ToArray());
+            var unresolvedEvents = new List<PersistentDataUnit>();
             foreach (var (eventId, error) in roomErrors)
             {
                 errors[eventId] = error;

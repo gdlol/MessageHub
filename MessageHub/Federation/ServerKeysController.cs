@@ -8,13 +8,13 @@ namespace MessageHub.Federation;
 [AllowAnonymous]
 public class ServerKeysController : ControllerBase
 {
-    private readonly IPeerIdentity peerIdentity;
+    private readonly IIdentityService identityService;
 
-    public ServerKeysController(IPeerIdentity peerIdentity)
+    public ServerKeysController(IIdentityService identityService)
     {
-        ArgumentNullException.ThrowIfNull(peerIdentity);
+        ArgumentNullException.ThrowIfNull(identityService);
 
-        this.peerIdentity = peerIdentity;
+        this.identityService = identityService;
     }
 
     [Route("server")]
@@ -22,6 +22,13 @@ public class ServerKeysController : ControllerBase
     [HttpGet]
     public object GetKeys()
     {
-        return peerIdentity.GetServerKeys();
+        if (identityService.HasSelfIdentity)
+        {
+            return identityService.GetSelfIdentity().GetServerKeys();
+        }
+        else
+        {
+            return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));
+        }
     }
 }

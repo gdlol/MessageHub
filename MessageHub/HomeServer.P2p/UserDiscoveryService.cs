@@ -13,7 +13,7 @@ public class UserDiscoveryService : IUserDiscoveryService
         this.networkProvider = networkProvider;
     }
 
-    public Task<IPeerIdentity[]> SearchUsersAsync(string searchTerm, CancellationToken cancellationToken)
+    public Task<IIdentity[]> SearchUsersAsync(string searchTerm, CancellationToken cancellationToken)
     {
         return networkProvider.SearchPeersAsync(searchTerm, cancellationToken);
     }

@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using System.Text.Json;
 using MessageHub.HomeServer.Events;
-using MessageHub.HomeServer.Formatting;
+using MessageHub.HomeServer.Notifiers;
 using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Rooms.Timeline;
 
@@ -10,25 +10,29 @@ namespace MessageHub.HomeServer;
 public class RoomEventsReceiver
 {
     private readonly string roomId;
-    private readonly IPeerIdentity identity;
+    private readonly IIdentityService identityService;
     private readonly IRoomEventStore roomEventStore;
     private readonly IEventSaver eventSaver;
+    private readonly UnresolvedEventNotifier unresolvedEventNotifier;
 
     public RoomEventsReceiver(
         string roomId,
-        IPeerIdentity identity,
+        IIdentityService identityService,
         IRoomEventStore roomEventStore,
-        IEventSaver eventSaver)
+        IEventSaver eventSaver,
+        UnresolvedEventNotifier unresolvedEventNotifier)
     {
         ArgumentNullException.ThrowIfNull(roomId);
-        ArgumentNullException.ThrowIfNull(identity);
+        ArgumentNullException.ThrowIfNull(identityService);
         ArgumentNullException.ThrowIfNull(roomEventStore);
         ArgumentNullException.ThrowIfNull(eventSaver);
+        ArgumentNullException.ThrowIfNull(unresolvedEventNotifier);
 
         this.roomId = roomId;
-        this.identity = identity;
+        this.identityService = identityService;
         this.roomEventStore = roomEventStore;
         this.eventSaver = eventSaver;
+        this.unresolvedEventNotifier = unresolvedEventNotifier;
     }
 
     public static bool ValidateSender(PersistentDataUnit pdu)
@@ -48,31 +52,43 @@ public class RoomEventsReceiver
 
     private bool VerifySignature(PersistentDataUnit pdu)
     {
-        if (!identity.Verify(pdu.ServerKeys))
-        {
-            return false;
-        }
         if (pdu.ServerKeys.ValidUntilTimestamp < pdu.OriginServerTimestamp)
         {
             return false;
         }
-        return identity.VerifyJson(pdu.Origin, pdu.ToJsonElement());
+        return identityService.VerifyJson(pdu.Origin, pdu.ToJsonElement());
     }
 
-    public static bool VerifyHash(PersistentDataUnit pdu)
+    public (bool, string) ValidateEvent(PersistentDataUnit pdu)
     {
-        ArgumentNullException.ThrowIfNull(pdu);
-
-        if (pdu.Hashes.SingleOrDefault() is not (string algorithm, string hash)
-            || algorithm != "sha256"
-            || hash != UnpaddedBase64Encoder.Encode(EventHash.ComputeHash(pdu)))
+        if (pdu.RoomId != roomId)
         {
-            return false;
+            return (false, $"{nameof(roomId)}: {pdu.RoomId}");
         }
-        return true;
+        string? eventId = EventHash.TryGetEventId(pdu);
+        if (eventId is null)
+        {
+            return (false, EventReceiveErrors.InvalidEventId);
+        }
+        bool isValidEvent = ValidateSender(pdu);
+        if (!isValidEvent)
+        {
+            return (false, $"{nameof(isValidEvent)}: {isValidEvent}");
+        }
+        bool isSignatureValid = VerifySignature(pdu);
+        if (!isSignatureValid)
+        {
+            return (false, $"{nameof(isSignatureValid)}: {isSignatureValid}");
+        }
+        bool isHashValid = EventHash.VerifyHash(pdu);
+        if (!isHashValid)
+        {
+            return (false, $"{nameof(isHashValid)}: {isHashValid}");
+        }
+        return (true, string.Empty);
     }
 
-    public async Task<Dictionary<string, string?>> ReceiveEvents(IEnumerable<PersistentDataUnit> pdus)
+    public async Task<Dictionary<string, string?>> ReceiveEventsAsync(IEnumerable<PersistentDataUnit> pdus)
     {
         var errors = new Dictionary<string, string?>();
         var events = new Dictionary<string, PersistentDataUnit>();
@@ -80,35 +96,20 @@ public class RoomEventsReceiver
         // Validate events.
         foreach (var pdu in pdus)
         {
-            if (pdu.RoomId != roomId)
+            var (isValid, error) = ValidateEvent(pdu);
+            if (isValid)
             {
-                continue;
+                string eventId = EventHash.GetEventId(pdu);
+                errors[eventId] = null;
+                events[eventId] = pdu;
             }
-            string? eventId = EventHash.TryGetEventId(pdu);
-            if (eventId is null)
+            else
             {
-                continue;
+                if (EventHash.TryGetEventId(pdu) is string eventId)
+                {
+                    errors[eventId] = error;
+                }
             }
-            bool isValidEvent = ValidateSender(pdu);
-            if (!isValidEvent)
-            {
-                errors[eventId] = $"{nameof(isValidEvent)}: {isValidEvent}";
-                continue;
-            }
-            bool isSignatureValid = VerifySignature(pdu);
-            if (!isSignatureValid)
-            {
-                errors[eventId] = $"{nameof(isSignatureValid)}: {isSignatureValid}";
-                continue;
-            }
-            bool isHashValid = VerifyHash(pdu);
-            if (!isHashValid)
-            {
-                errors[eventId] = $"{nameof(isHashValid)}: {isHashValid}";
-                continue;
-            }
-            errors[eventId] = null;
-            events[eventId] = pdu;
         }
         var newEventIds = await roomEventStore.GetMissingEventIdsAsync(events.Keys);
         foreach (string existingEventId in events.Keys.Except(newEventIds).ToArray())
@@ -165,9 +166,15 @@ public class RoomEventsReceiver
             }
             earliestEvents = newEarliestEvents;
         }
+        var unresolvedEvents = new List<PersistentDataUnit>();
         foreach (string eventId in events.Keys.Except(sortedResolvedEvents))
         {
-            errors[eventId] = "Not resolved.";
+            errors[eventId] = EventReceiveErrors.NotResolved;
+            unresolvedEvents.Add(events[eventId]);
+        }
+        if (unresolvedEvents.Count > 0)
+        {
+            unresolvedEventNotifier.Notify(unresolvedEvents.ToArray());
         }
 
         // Authorize events.
@@ -259,7 +266,7 @@ public class RoomEventsReceiver
             else
             {
                 rejectedEvents.Add(eventId);
-                errors[eventId] = "Rejected";
+                errors[eventId] = EventReceiveErrors.Rejected;
             }
         }
 

@@ -22,23 +22,23 @@ public class SendMessagesController : ControllerBase
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    private readonly IPeerIdentity peerIdentity;
+    private readonly IIdentityService identityService;
     private readonly IRooms rooms;
     private readonly IEventSaver eventSaver;
     private readonly IEventPublisher eventPublisher;
 
     public SendMessagesController(
-        IPeerIdentity peerIdentity,
+        IIdentityService identityService,
         IRooms rooms,
         IEventSaver eventSaver,
         IEventPublisher eventPublisher)
     {
-        ArgumentNullException.ThrowIfNull(peerIdentity);
+        ArgumentNullException.ThrowIfNull(identityService);
         ArgumentNullException.ThrowIfNull(rooms);
         ArgumentNullException.ThrowIfNull(eventSaver);
         ArgumentNullException.ThrowIfNull(eventPublisher);
 
-        this.peerIdentity = peerIdentity;
+        this.identityService = identityService;
         this.rooms = rooms;
         this.eventSaver = eventSaver;
         this.eventPublisher = eventPublisher;
@@ -63,6 +63,7 @@ public class SendMessagesController : ControllerBase
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(roomId)}: {roomId}"));
         }
+        var identity = identityService.GetSelfIdentity();
 
         var snapshot = await rooms.GetRoomSnapshotAsync(roomId);
         var authorizer = new EventAuthorizer(snapshot.StateContents);
@@ -75,12 +76,12 @@ public class SendMessagesController : ControllerBase
             snapshot: snapshot,
             eventType: eventType,
             stateKey: stateKey,
-            serverKeys: peerIdentity.GetServerKeys(),
+            serverKeys: identity.GetServerKeys(),
             sender: senderId,
             content: body,
             timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
         string eventId = EventHash.GetEventId(pdu);
-        var signedPdu = peerIdentity.SignEvent(pdu);
+        var signedPdu = identity.SignEvent(pdu);
         await eventSaver.SaveAsync(roomId, eventId, signedPdu, snapshot.States);
         await eventPublisher.PublishAsync(signedPdu);
         return new JsonResult(new { event_id = eventId });
@@ -104,6 +105,7 @@ public class SendMessagesController : ControllerBase
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(roomId)}: {roomId}"));
         }
+        var identity = identityService.GetSelfIdentity();
 
         var snapshot = await rooms.GetRoomSnapshotAsync(roomId);
         var authorizer = new EventAuthorizer(snapshot.StateContents);
@@ -116,7 +118,7 @@ public class SendMessagesController : ControllerBase
             snapshot: snapshot,
             eventType: eventType,
             stateKey: null,
-            serverKeys: peerIdentity.GetServerKeys(),
+            serverKeys: identity.GetServerKeys(),
             sender: senderId,
             content: body,
             timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
@@ -127,7 +129,7 @@ public class SendMessagesController : ControllerBase
                 },
                 ignoreNullOptions));
         string eventId = EventHash.GetEventId(pdu);
-        var signedPdu = peerIdentity.SignEvent(pdu);
+        var signedPdu = identity.SignEvent(pdu);
         await eventSaver.SaveAsync(roomId, eventId, signedPdu, snapshot.States);
         await eventPublisher.PublishAsync(signedPdu);
         return new JsonResult(new { event_id = eventId });
@@ -151,6 +153,7 @@ public class SendMessagesController : ControllerBase
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(roomId)}: {roomId}"));
         }
+        var identity = identityService.GetSelfIdentity();
 
         using var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
         var redactedEvent = await roomEventStore.TryLoadEventAsync(eventId);
@@ -178,7 +181,7 @@ public class SendMessagesController : ControllerBase
             snapshot: snapshot,
             eventType: EventTypes.Redact,
             stateKey: null,
-            serverKeys: peerIdentity.GetServerKeys(),
+            serverKeys: identity.GetServerKeys(),
             sender: senderId,
             content: body,
             timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
@@ -190,7 +193,7 @@ public class SendMessagesController : ControllerBase
                 },
                 ignoreNullOptions));
         string redactEventId = EventHash.GetEventId(pdu);
-        var signedPdu = peerIdentity.SignEvent(pdu);
+        var signedPdu = identity.SignEvent(pdu);
         await eventSaver.SaveAsync(roomId, redactEventId, signedPdu, snapshot.States);
         await eventPublisher.PublishAsync(signedPdu);
         return new JsonResult(new { event_id = redactEventId });

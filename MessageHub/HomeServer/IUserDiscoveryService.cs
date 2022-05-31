@@ -2,5 +2,5 @@ namespace MessageHub.HomeServer;
 
 public interface IUserDiscoveryService
 {
-    Task<IPeerIdentity[]> SearchUsersAsync(string searchTerm, CancellationToken cancellationToken);
+    Task<IIdentity[]> SearchUsersAsync(string searchTerm, CancellationToken cancellationToken);
 }

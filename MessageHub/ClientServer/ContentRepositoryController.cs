@@ -9,20 +9,20 @@ namespace MessageHub.ClientServer;
 [Route("_matrix/media/{version}")]
 public class ContentRepositoryController : ControllerBase
 {
-    private readonly IPeerIdentity peerIdentity;
+    private readonly IIdentityService identityService;
     private readonly IContentRepository contentRepository;
     private readonly IRemoteContentRepository remoteContentRepository;
 
     public ContentRepositoryController(
-        IPeerIdentity peerIdentity,
+        IIdentityService identityService,
         IContentRepository contentRepository,
         IRemoteContentRepository remoteContentRepository)
     {
-        ArgumentNullException.ThrowIfNull(peerIdentity);
+        ArgumentNullException.ThrowIfNull(identityService);
         ArgumentNullException.ThrowIfNull(contentRepository);
         ArgumentNullException.ThrowIfNull(remoteContentRepository);
 
-        this.peerIdentity = peerIdentity;
+        this.identityService = identityService;
         this.contentRepository = contentRepository;
         this.remoteContentRepository = remoteContentRepository;
     }
@@ -42,7 +42,7 @@ public class ContentRepositoryController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> Download(string serverName, string mediaId)
     {
-        if (serverName == peerIdentity.Id)
+        if (!identityService.HasSelfIdentity || serverName == identityService.GetSelfIdentity().Id)
         {
             string url = $"mxc://{serverName}/{mediaId}";
             var stream = await contentRepository.DownloadFileAsync(url);
@@ -66,7 +66,7 @@ public class ContentRepositoryController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> Download(string serverName, string mediaId, string fileName)
     {
-        if (serverName == peerIdentity.Id)
+        if (!identityService.HasSelfIdentity || serverName == identityService.GetSelfIdentity().Id)
         {
             string url = $"mxc://{serverName}/{mediaId}";
             var stream = await contentRepository.DownloadFileAsync(url);

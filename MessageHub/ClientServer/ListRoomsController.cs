@@ -14,20 +14,20 @@ namespace MessageHub.ClientServer;
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
 public class ListRoomsController : ControllerBase
 {
-    private readonly IPeerIdentity peerIdentity;
+    private readonly IIdentityService identityService;
     private readonly IRooms rooms;
     private readonly IAccountData accountData;
 
     public ListRoomsController(
-        IPeerIdentity peerIdentity,
+        IIdentityService identityService,
         IRooms rooms,
         IAccountData accountData)
     {
-        ArgumentNullException.ThrowIfNull(peerIdentity);
+        ArgumentNullException.ThrowIfNull(identityService);
         ArgumentNullException.ThrowIfNull(rooms);
         ArgumentNullException.ThrowIfNull(accountData);
 
-        this.peerIdentity = peerIdentity;
+        this.identityService = identityService;
         this.rooms = rooms;
         this.accountData = accountData;
     }
@@ -165,7 +165,8 @@ public class ListRoomsController : ControllerBase
         [FromBody] GetPublicRoomsParameters parameters)
     {
         GetPublicRoomsResponse result;
-        if (server is not null && server != peerIdentity.Id)
+        var identity = identityService.GetSelfIdentity();
+        if (server is not null && server != identity.Id)
         {
             result = new GetPublicRoomsResponse
             {

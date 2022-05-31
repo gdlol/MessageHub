@@ -5,7 +5,7 @@ using MessageHub.HomeServer;
 
 namespace MessageHub.Federation;
 
-public static class PeerIdentityExtensions
+public static class IdentityServiceExtensions
 {
     private static readonly JsonSerializerOptions ignoreNullOptions = new()
     {
@@ -13,7 +13,7 @@ public static class PeerIdentityExtensions
     };
 
     public static SignedRequest SignRequest(
-        this IPeerIdentity identity,
+        this IIdentity identity,
         string destination,
         string requestMethod,
         string requestTarget,
@@ -44,7 +44,7 @@ public static class PeerIdentityExtensions
         return element.Deserialize<SignedRequest>()!;
     }
 
-    public static JsonElement SignResponse(this IPeerIdentity identity, SignedRequest request, object content)
+    public static JsonElement SignResponse(this IIdentity identity, SignedRequest request, object content)
     {
         ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(request);

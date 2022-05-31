@@ -1,11 +1,11 @@
 using System.Text.Json;
 using MessageHub.DependencyInjection;
 using MessageHub.HomeServer.P2p;
+using MessageHub.HomeServer.P2p.Libp2p;
 using Microsoft.AspNetCore.Mvc;
 
 [assembly: ApiController]
 
-var builder = WebApplication.CreateBuilder(args);
 string json = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "config.json"));
 var config = JsonSerializer.Deserialize<Config>(json)!;
 if (string.IsNullOrEmpty(config.ContentPath))
@@ -17,8 +17,12 @@ if (string.IsNullOrEmpty(config.DataPath))
     config.DataPath = Path.Combine(AppContext.BaseDirectory, "Data");
 }
 Directory.CreateDirectory(config.ContentPath);
-builder.Services.AddSingleton(config);
 string url = $"http://{config.ListenAddress}";
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    ContentRootPath = config.ContentPath
+});
+builder.Services.AddSingleton(config);
 builder.WebHost.UseUrls(url);
 builder.WebHost.ConfigureLogging(builder =>
 {
@@ -28,6 +32,16 @@ builder.WebHost.ConfigureLogging(builder =>
     builder.AddFilter("Microsoft.Hosting.Lifetime", LogLevel.Information);
 });
 builder.Services.AddCors();
+builder.Services.AddFasterKV(config.DataPath);
+builder.Services.AddLibp2p(
+    new HostConfig
+    {
+        AdvertisePrivateAddresses = true
+    },
+    new DHTConfig
+    {
+        BootstrapPeers = Array.Empty<string>()
+    });
 builder.Services.AddP2pHomeServer();
 builder.Services.AddMatrixAuthentication();
 builder.Services.AddControllers();

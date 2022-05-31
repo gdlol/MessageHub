@@ -31,6 +31,19 @@ public static class EventHash
         };
     }
 
+    public static bool VerifyHash(PersistentDataUnit pdu)
+    {
+        ArgumentNullException.ThrowIfNull(pdu);
+
+        if (pdu.Hashes.SingleOrDefault() is not (string algorithm, string hash)
+            || algorithm != "sha256"
+            || hash != UnpaddedBase64Encoder.Encode(ComputeHash(pdu)))
+        {
+            return false;
+        }
+        return true;
+    }
+
     public static string? TryGetEventId(PersistentDataUnit pdu)
     {
         ArgumentNullException.ThrowIfNull(pdu);

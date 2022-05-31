@@ -1,4 +1,3 @@
-using System.Collections.Immutable;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using MessageHub.HomeServer.Events;
@@ -6,9 +5,9 @@ using MessageHub.HomeServer.Formatting;
 
 namespace MessageHub.HomeServer;
 
-public static class PeerIdentityExtensions
+public static class IdentityServiceExtensions
 {
-    public static JsonElement SignJson(this IPeerIdentity identity, JsonElement element)
+    public static JsonElement SignJson(this IIdentity identity, JsonElement element)
     {
         ArgumentNullException.ThrowIfNull(identity);
         if (element.ValueKind != JsonValueKind.Object)
@@ -53,18 +52,22 @@ public static class PeerIdentityExtensions
         return JsonSerializer.SerializeToElement(jsonObject);
     }
 
-    public static PersistentDataUnit SignEvent(this IPeerIdentity identity, PersistentDataUnit pdu)
+    public static PersistentDataUnit SignEvent(this IIdentity identity, PersistentDataUnit pdu)
     {
         ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(pdu);
 
+        if (identity.VerifyKeys.ExpireTimestamp < pdu.OriginServerTimestamp)
+        {
+            throw new InvalidOperationException($"{nameof(pdu.OriginServerTimestamp)}: {pdu.OriginServerTimestamp}");
+        }
         var signedElement = identity.SignJson(pdu.ToJsonElement());
         return signedElement.Deserialize<PersistentDataUnit>()!;
     }
 
-    public static bool VerifyJson(this IPeerIdentity self, string peerId, JsonElement element)
+    public static bool VerifyJson(this IIdentityService identityService, string peerId, JsonElement element)
     {
-        ArgumentNullException.ThrowIfNull(self);
+        ArgumentNullException.ThrowIfNull(identityService);
         ArgumentNullException.ThrowIfNull(peerId);
         ArgumentNullException.ThrowIfNull(element);
 
@@ -94,7 +97,7 @@ public static class PeerIdentityExtensions
         {
             return false;
         }
-        if (!self.Verify(serverKeys))
+        if (!identityService.Verify(serverKeys))
         {
             return false;
         }
@@ -124,7 +127,7 @@ public static class PeerIdentityExtensions
             {
                 continue;
             }
-            if (!self.SupportedAlgorithms.Contains(keyIdentifier.Algorithm))
+            if (!identityService.SupportedAlgorithms.Contains(keyIdentifier.Algorithm))
             {
                 continue;
             }
@@ -167,7 +170,7 @@ public static class PeerIdentityExtensions
         var jsonBytes = CanonicalJson.SerializeToBytes(jsonObject);
         foreach (var (algorithm, key, signature) in supportedSignatures)
         {
-            if (self.VerifySignature(algorithm, key, jsonBytes, signature))
+            if (identityService.VerifySignature(algorithm, key, jsonBytes, signature))
             {
                 return true;
             }

@@ -7,15 +7,15 @@ public class RoomDiscoveryService : IRoomDiscoveryService
 {
     private const string aliasesStorageName = "Aliases";
 
-    private readonly IPeerIdentity peerIdentity;
+    private readonly IIdentityService identityService;
     private readonly IStorageProvider storageProvider;
 
-    public RoomDiscoveryService(IPeerIdentity peerIdentity, IStorageProvider storageProvider)
+    public RoomDiscoveryService(IIdentityService identityService, IStorageProvider storageProvider)
     {
-        ArgumentNullException.ThrowIfNull(peerIdentity);
+        ArgumentNullException.ThrowIfNull(identityService);
         ArgumentNullException.ThrowIfNull(storageProvider);
 
-        this.peerIdentity = peerIdentity;
+        this.identityService = identityService;
         this.storageProvider = storageProvider;
     }
 
@@ -35,7 +35,7 @@ public class RoomDiscoveryService : IRoomDiscoveryService
     {
         ArgumentNullException.ThrowIfNull(roomId);
 
-        var result = new[] { peerIdentity.Id };
+        var result = new[] { identityService.GetSelfIdentity().Id };
         return Task.FromResult(result);
     }
 

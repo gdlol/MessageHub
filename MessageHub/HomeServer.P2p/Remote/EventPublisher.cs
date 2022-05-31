@@ -7,28 +7,29 @@ namespace MessageHub.HomeServer.P2p.Remote;
 
 public class EventPublisher : IEventPublisher
 {
-    private readonly IPeerIdentity peerIdentity;
+    private readonly IIdentityService identityService;
     private readonly IRequestHandler requestHandler;
 
-    public EventPublisher(IPeerIdentity peerIdentity, IRequestHandler requestHandler)
+    public EventPublisher(IIdentityService identityService, IRequestHandler requestHandler)
     {
-        ArgumentNullException.ThrowIfNull(peerIdentity);
+        ArgumentNullException.ThrowIfNull(identityService);
         ArgumentNullException.ThrowIfNull(requestHandler);
 
-        this.peerIdentity = peerIdentity;
+        this.identityService = identityService;
         this.requestHandler = requestHandler;
     }
 
     public async Task PublishAsync(PersistentDataUnit pdu)
     {
+        var identity = identityService.GetSelfIdentity();
         string txnId = Guid.NewGuid().ToString();
         var parameters = new PushMessagesRequest
         {
-            Origin = peerIdentity.Id,
+            Origin = identity.Id,
             OriginServerTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             Pdus = new[] { pdu }
         };
-        var request = peerIdentity.SignRequest(
+        var request = identity.SignRequest(
             destination: pdu.RoomId,
             requestMethod: HttpMethods.Put,
             requestTarget: $"/_matrix/federation/v1/send/{txnId}",

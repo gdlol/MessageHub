@@ -16,23 +16,23 @@ namespace MessageHub.Federation;
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Federation)]
 public class JoinRoomController : ControllerBase
 {
-    private readonly IPeerIdentity peerIdentity;
+    private readonly IIdentityService identityService;
     private readonly IRooms rooms;
     private readonly IEventReceiver eventReceiver;
     private readonly IEventPublisher eventPublisher;
 
     public JoinRoomController(
-        IPeerIdentity peerIdentity,
+        IIdentityService identityService,
         IRooms rooms,
         IEventReceiver eventReceiver,
         IEventPublisher eventPublisher)
     {
-        ArgumentNullException.ThrowIfNull(peerIdentity);
+        ArgumentNullException.ThrowIfNull(identityService);
         ArgumentNullException.ThrowIfNull(rooms);
         ArgumentNullException.ThrowIfNull(eventReceiver);
         ArgumentNullException.ThrowIfNull(eventPublisher);
 
-        this.peerIdentity = peerIdentity;
+        this.identityService = identityService;
         this.rooms = rooms;
         this.eventReceiver = eventReceiver;
         this.eventPublisher = eventPublisher;
@@ -42,6 +42,7 @@ public class JoinRoomController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> MakeJoin(string roomId, string userId)
     {
+        var identity = identityService.GetSelfIdentity();
         SignedRequest request = (SignedRequest)Request.HttpContext.Items[nameof(request)]!;
         var senderId = UserIdentifier.FromId(request.Origin);
         if (senderId.ToString() != userId)
@@ -78,7 +79,7 @@ public class JoinRoomController : ControllerBase
             roomId: roomId,
             snapshot: roomSnapshot,
             eventType: EventTypes.Member,
-            serverKeys: peerIdentity.GetServerKeys(),
+            serverKeys: identity.GetServerKeys(),
             stateKey: userId,
             sender: senderId,
             content: JsonSerializer.SerializeToElement(
@@ -129,6 +130,7 @@ public class JoinRoomController : ControllerBase
         [FromRoute] string eventId,
         [FromBody] PersistentDataUnit pdu)
     {
+        var identity = identityService.GetSelfIdentity();
         SignedRequest request = (SignedRequest)Request.HttpContext.Items[nameof(request)]!;
         var senderId = UserIdentifier.FromId(request.Origin);
         if (!rooms.HasRoom(roomId))
@@ -180,7 +182,7 @@ public class JoinRoomController : ControllerBase
         return new JsonResult(new
         {
             auth_chain = authChain,
-            origin = peerIdentity.Id,
+            origin = identity.Id,
             state = statePdus
         });
     }

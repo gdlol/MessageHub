@@ -12,13 +12,11 @@ internal class P2pNode : IDisposable
     private readonly Discovery discovery;
     private readonly MemberStore memberStore;
     private readonly PubSub pubsub;
-    private readonly Notifier<object?> shutdownNotifier;
     private readonly ILogger logger;
     private readonly IPeerResolver resolver;
+    private readonly MdnsService mdnsService;
     private readonly Proxy proxy;
-    private readonly PubSubService pubsubService;
-    private readonly MembershipService membershipService;
-    private readonly Func<ServerKeys, IPeerIdentity?> identityVerifier;
+    private readonly Func<ServerKeys, IIdentity?> identityVerifier;
     private readonly IMemoryCache addressCache;
 
     public P2pNode(
@@ -27,13 +25,11 @@ internal class P2pNode : IDisposable
         Discovery discovery,
         MemberStore memberStore,
         PubSub pubsub,
-        Notifier<object?> shutdownNotifier,
         ILogger logger,
         IPeerResolver resolver,
+        MdnsService mdnsService,
         Proxy proxy,
-        PubSubService pubsubService,
-        MembershipService membershipService,
-        Func<ServerKeys, IPeerIdentity?> identityVerifier,
+        Func<ServerKeys, IIdentity?> identityVerifier,
         IMemoryCache addressCache)
     {
         this.host = host;
@@ -41,38 +37,24 @@ internal class P2pNode : IDisposable
         this.discovery = discovery;
         this.memberStore = memberStore;
         this.pubsub = pubsub;
-        this.shutdownNotifier = shutdownNotifier;
         this.logger = logger;
         this.resolver = resolver;
+        this.mdnsService = mdnsService;
         this.proxy = proxy;
-        this.pubsubService = pubsubService;
-        this.membershipService = membershipService;
         this.identityVerifier = identityVerifier;
         this.addressCache = addressCache;
     }
 
-    public void Shutdown()
-    {
-        pubsubService.Stop();
-        membershipService.Stop();
-        proxy.Stop();
-        shutdownNotifier.Notify(null);
-    }
-
     public void Dispose()
     {
+        proxy.Stop();
         proxy.Dispose();
+        mdnsService.Stop();
+        mdnsService.Dispose();
         pubsub.Dispose();
         memberStore.Dispose();
         discovery.Dispose();
         dht.Dispose();
-    }
-
-    public void Publish(string roomId, JsonElement message)
-    {
-        ArgumentNullException.ThrowIfNull(roomId);
-
-        pubsubService.Publish(roomId, message);
     }
 
     public async Task<JsonElement> SendAsync(SignedRequest request, CancellationToken cancellationToken)
@@ -87,16 +69,16 @@ internal class P2pNode : IDisposable
         var response = host.SendRequest(peerId, request, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
-            logger!.LogInformation("Response status code: {}", response.StatusCode);
+            logger.LogDebug("Response status code: {}", response.StatusCode);
         }
         var result = await response.Content.ReadFromJsonAsync<JsonElement>(
             cancellationToken: cancellationToken);
-        logger!.LogDebug("Response from {} {}: {}", request.Destination, request.Uri, result);
+        logger.LogDebug("Response from {} {}: {}", request.Destination, request.Uri, result);
         response.EnsureSuccessStatusCode();
         return result;
     }
 
-    public async Task<IPeerIdentity?> GetServerIdentityAsync(
+    public async Task<IIdentity?> GetServerIdentityAsync(
         string peerId,
         CancellationToken cancellationToken = default)
     {
@@ -125,12 +107,12 @@ internal class P2pNode : IDisposable
         return identity;
     }
 
-    public IEnumerable<IPeerIdentity> GetPeersForTopic(
+    public IEnumerable<IIdentity> GetPeersForTopic(
         string topic,
-        Func<IPeerIdentity, bool> peerFilter,
+        Func<IIdentity, bool> peerFilter,
         CancellationToken cancellationToken = default)
     {
-        using var queue = new BlockingCollection<IPeerIdentity>();
+        using var queue = new BlockingCollection<IIdentity>();
         using var _ = cancellationToken.Register(() => queue.CompleteAdding());
         Task.Run(async () =>
         {
@@ -210,13 +192,13 @@ internal class P2pNode : IDisposable
         }
     }
 
-    public async Task<IPeerIdentity[]> SearchPeersAsync(
+    public async Task<IIdentity[]> SearchPeersAsync(
         string searchTerm,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(searchTerm))
         {
-            return Array.Empty<IPeerIdentity>();
+            return Array.Empty<IIdentity>();
         }
 
         string p2pPrefix = "/p2p/";
@@ -226,7 +208,7 @@ internal class P2pNode : IDisposable
             if (peerId == host.Id)
             {
                 logger.LogInformation("Peer ID is self ID, returning empty response");
-                return Array.Empty<IPeerIdentity>();
+                return Array.Empty<IIdentity>();
             }
             logger.LogInformation("Finding peer address for {}...", peerId);
             try
@@ -257,7 +239,7 @@ internal class P2pNode : IDisposable
                     "Finding peers with name {} and peer ID prefix {}...",
                     searchTerm[..^peerIdPrefix.Length].Trim('/'),
                     peerIdPrefix);
-                bool verifyIdentity(IPeerIdentity identity)
+                bool verifyIdentity(IIdentity identity)
                 {
                     if (identity.VerifyKeys.Keys.TryGetValue(new KeyIdentifier("libp2p", "PeerID"), out var key))
                     {
@@ -282,6 +264,6 @@ internal class P2pNode : IDisposable
                 }
             }
         }
-        return Array.Empty<IPeerIdentity>();
+        return Array.Empty<IIdentity>();
     }
 }

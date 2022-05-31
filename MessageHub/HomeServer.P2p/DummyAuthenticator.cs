@@ -1,12 +1,9 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
+using System.Text.Json;
 using System.Web;
+using MessageHub.HomeServer.P2p.Notifiers;
 using MessageHub.HomeServer.P2p.Providers;
-using MessageHub.HomeServer.Rooms;
-using MessageHub.HomeServer.Rooms.Timeline;
-using Microsoft.AspNetCore.Hosting.Server;
-using Microsoft.AspNetCore.Hosting.Server.Features;
-using Microsoft.Extensions.Caching.Memory;
 
 namespace MessageHub.HomeServer.P2p;
 
@@ -16,52 +13,38 @@ internal class DummyAuthenticator : IAuthenticator
     private readonly string loginToken;
     private readonly string userId;
     private readonly string accessTokenPrefix;
+    private readonly DummyIdentityService dummyIdentityService;
     private readonly INetworkProvider networkProvider;
-    private readonly IUserProfile userProfile;
-    private readonly ILoggerFactory loggerFactory;
-    private readonly IMemoryCache memoryCache;
-    private readonly Notifier<(string, string[])> membershipUpdateNotifier;
-    private readonly ITimelineLoader timelineLoader;
-    private readonly IRooms rooms;
-    private readonly RoomEventSubscriber roomEventSubscriber;
-    private readonly string selfUrl;
+    private readonly RemoteRequestNotifier remoteRequestNotifier;
+    private readonly EventHandler<(string, JsonElement)> onNotify;
 
     public DummyAuthenticator(
         Config config,
+        DummyIdentityService dummyIdentityService,
         INetworkProvider networkProvider,
-        IUserProfile userProfile,
         ILoggerFactory loggerFactory,
-        IMemoryCache memoryCache,
-        Notifier<(string, string[])> membershipUpdateNotifier,
-        ITimelineLoader timelineLoader,
-        IRooms rooms,
-        RoomEventSubscriber roomEventSubscriber,
-        IServer server)
+        RemoteRequestNotifier remoteRequestNotifier,
+        RemoteRequestHandler remoteRequestHandler)
     {
         ArgumentNullException.ThrowIfNull(config);
+        ArgumentNullException.ThrowIfNull(dummyIdentityService);
         ArgumentNullException.ThrowIfNull(networkProvider);
-        ArgumentNullException.ThrowIfNull(userProfile);
         ArgumentNullException.ThrowIfNull(loggerFactory);
-        ArgumentNullException.ThrowIfNull(memoryCache);
-        ArgumentNullException.ThrowIfNull(membershipUpdateNotifier);
-        ArgumentNullException.ThrowIfNull(timelineLoader);
-        ArgumentNullException.ThrowIfNull(rooms);
-        ArgumentNullException.ThrowIfNull(roomEventSubscriber);
-        ArgumentNullException.ThrowIfNull(server);
+        ArgumentNullException.ThrowIfNull(remoteRequestNotifier);
+        ArgumentNullException.ThrowIfNull(remoteRequestHandler);
 
         this.config = config;
+        this.dummyIdentityService = dummyIdentityService;
         this.networkProvider = networkProvider;
-        this.userProfile = userProfile;
-        this.loggerFactory = loggerFactory;
-        this.memoryCache = memoryCache;
-        this.membershipUpdateNotifier = membershipUpdateNotifier;
-        this.timelineLoader = timelineLoader;
-        this.rooms = rooms;
-        this.roomEventSubscriber = roomEventSubscriber;
+        this.remoteRequestNotifier = remoteRequestNotifier;
+        onNotify = (_, e) =>
+        {
+            var (topic, message) = e;
+            remoteRequestHandler.ReceiveMessage(topic, message);
+        };
         loginToken = config.PeerId;
         accessTokenPrefix = config.PeerId;
         userId = UserIdentifier.FromId(config.PeerId).ToString();
-        selfUrl = server.Features.Get<IServerAddressesFeature>()!.Addresses.First();
     }
 
     private readonly ConcurrentDictionary<string, object?> accessTokens = new();
@@ -89,38 +72,40 @@ internal class DummyAuthenticator : IAuthenticator
         return Task.FromResult(deviceId);
     }
 
-    public async Task<(string userId, string accessToken)?> LogInAsync(string deviceId, string token)
+    public Task<(string userId, string accessToken)?> LogInAsync(string deviceId, string token)
     {
         ArgumentNullException.ThrowIfNull(deviceId);
         ArgumentNullException.ThrowIfNull(token);
 
+        (string, string)? result = null;
         if (token == loginToken)
         {
-            if (DummyIdentity.Self is null)
+            lock (dummyIdentityService)
             {
-                var (keyId, networkKey) = networkProvider.GetVerifyKey();
-                DummyIdentity.Self = new DummyIdentity(
-                    false,
-                    config.PeerId,
-                    new VerifyKeys(new Dictionary<KeyIdentifier, string>
-                    {
-                        [keyId] = networkKey,
-                    }.ToImmutableDictionary(),
-                    DateTimeOffset.UtcNow.AddDays(7).ToUnixTimeMilliseconds()));
+                if (!dummyIdentityService.HasSelfIdentity)
+                {
+                    var (keyId, networkKey) = networkProvider.GetVerifyKey();
+                    var identity = new DummyIdentity(
+                        false,
+                        config.PeerId,
+                        new VerifyKeys(new Dictionary<KeyIdentifier, string>
+                        {
+                            [keyId] = networkKey,
+                        }.ToImmutableDictionary(),
+                        DateTimeOffset.UtcNow.AddDays(7).ToUnixTimeMilliseconds()));
+                    dummyIdentityService.SetSelfIdentity(identity);
+                    remoteRequestNotifier.OnNotify += onNotify;
+                }
             }
 
             string accessToken = accessTokenPrefix + deviceId;
             if (accessTokens.TryAdd(accessToken, null))
             {
-                var uri = new Uri(selfUrl);
-                await networkProvider.InitializeAsync(
-                    DummyIdentity.Self,
-                    userProfile,
-                    loggerFactory,
-                    memoryCache,
-                    serverKeys =>
+                lock (networkProvider)
+                {
+                    networkProvider.Initialize(serverKeys =>
                     {
-                        if (DummyIdentity.Self.Verify(serverKeys))
+                        if (dummyIdentityService.Verify(serverKeys))
                         {
                             var verifyKeys = new VerifyKeys(
                                 serverKeys.VerifyKeys.ToImmutableDictionary(),
@@ -131,19 +116,12 @@ internal class DummyAuthenticator : IAuthenticator
                                 verifyKeys: verifyKeys);
                         }
                         return null;
-                    },
-                    roomEventSubscriber.ReceiveEvent,
-                    membershipUpdateNotifier,
-                    timelineLoader,
-                    rooms,
-                    $"{uri.Host}:{uri.Port}");
+                    });
+                }
             }
-            return (userId, accessToken);
+            result = (userId, accessToken);
         }
-        else
-        {
-            return null;
-        }
+        return Task.FromResult(result);
     }
 
     public Task<string?> AuthenticateAsync(string accessToken)
@@ -160,18 +138,18 @@ internal class DummyAuthenticator : IAuthenticator
         }
     }
 
-    public async Task LogOutAsync(string deviceId)
+    public Task LogOutAsync(string deviceId)
     {
         ArgumentNullException.ThrowIfNull(deviceId);
 
         string accessToken = accessTokenPrefix + deviceId;
         accessTokens.TryRemove(accessToken, out object? _);
-        await networkProvider.ShutdownAsync();
+        return Task.CompletedTask;
     }
 
-    public async Task LogOutAllAsync()
+    public Task LogOutAllAsync()
     {
         accessTokens.Clear();
-        await networkProvider.ShutdownAsync();
+        return Task.CompletedTask;
     }
 }

@@ -15,17 +15,17 @@ namespace MessageHub.Federation;
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Federation)]
 public class InviteController : ControllerBase
 {
-    private readonly IPeerIdentity peerIdentity;
+    private readonly IIdentityService identityService;
     private readonly IRooms rooms;
     private readonly IEventSaver eventSaver;
 
-    public InviteController(IPeerIdentity peerIdentity, IRooms rooms, IEventSaver eventSaver)
+    public InviteController(IIdentityService identityService, IRooms rooms, IEventSaver eventSaver)
     {
-        ArgumentNullException.ThrowIfNull(peerIdentity);
+        ArgumentNullException.ThrowIfNull(identityService);
         ArgumentNullException.ThrowIfNull(rooms);
         ArgumentNullException.ThrowIfNull(eventSaver);
 
-        this.peerIdentity = peerIdentity;
+        this.identityService = identityService;
         this.rooms = rooms;
         this.eventSaver = eventSaver;
     }
@@ -37,6 +37,7 @@ public class InviteController : ControllerBase
         [FromRoute] string eventId,
         [FromBody] InviteParameters parameters)
     {
+        var identity = identityService.GetSelfIdentity();
         SignedRequest request = (SignedRequest)Request.HttpContext.Items[nameof(request)]!;
         var pdu = parameters.Event;
         if (string.IsNullOrEmpty(roomId) || roomId != pdu.RoomId)
@@ -56,7 +57,7 @@ public class InviteController : ControllerBase
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(pdu.EventType)));
         }
-        if (pdu.StateKey != UserIdentifier.FromId(peerIdentity.Id).ToString())
+        if (pdu.StateKey != UserIdentifier.FromId(identity.Id).ToString())
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(pdu.StateKey)));
         }
@@ -83,7 +84,7 @@ public class InviteController : ControllerBase
         }
         await eventSaver.SaveInviteAsync(roomId, parameters.InviteRoomState);
 
-        var signedEvent = peerIdentity.SignJson(pdu.ToJsonElement());
+        var signedEvent = identity.SignEvent(pdu);
         return new JsonResult(new Dictionary<string, object>
         {
             ["event"] = signedEvent
