@@ -43,7 +43,7 @@ public class RoomEventsReceiver
         {
             return false;
         }
-        if (senderIdentifier.PeerId != pdu.Origin)
+        if (senderIdentifier.Id != pdu.Origin)
         {
             return false;
         }

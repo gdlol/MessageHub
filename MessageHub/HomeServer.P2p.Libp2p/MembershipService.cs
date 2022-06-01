@@ -115,7 +115,7 @@ internal class MembershipService
                                 if (memberEvent.MemberShip == MembershipStates.Join)
                                 {
                                     var userIdentifier = UserIdentifier.Parse(roomStateKey.StateKey);
-                                    members.Add(userIdentifier.PeerId);
+                                    members.Add(userIdentifier.Id);
                                 }
                             }
                             logger.LogDebug("Found {} members for {}", members.Count, roomId);

@@ -37,8 +37,8 @@ public class RequestHandler : IRequestHandler
         }
     }
 
-    public Task<Stream> DownloadAsync(string peerId, string url)
+    public Task<Stream> DownloadAsync(string id, string url)
     {
-        return networkProvider.DownloadAsync(peerId, url);
+        return networkProvider.DownloadAsync(id, url);
     }
 }

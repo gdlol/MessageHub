@@ -4,8 +4,8 @@ namespace MessageHub.HomeServer.P2p;
 
 public class Config
 {
-    [JsonPropertyName("peerId")]
-    public string PeerId { get; set; } = default!;
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = default!;
 
     [JsonPropertyName("listenAddress")]
     public string ListenAddress { get; set; } = default!;

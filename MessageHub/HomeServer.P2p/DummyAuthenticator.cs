@@ -42,9 +42,9 @@ internal class DummyAuthenticator : IAuthenticator
             var (topic, message) = e;
             remoteRequestHandler.ReceiveMessage(topic, message);
         };
-        loginToken = config.PeerId;
-        accessTokenPrefix = config.PeerId;
-        userId = UserIdentifier.FromId(config.PeerId).ToString();
+        loginToken = config.Id;
+        accessTokenPrefix = config.Id;
+        userId = UserIdentifier.FromId(config.Id).ToString();
     }
 
     private readonly ConcurrentDictionary<string, object?> accessTokens = new();
@@ -87,7 +87,7 @@ internal class DummyAuthenticator : IAuthenticator
                     var (keyId, networkKey) = networkProvider.GetVerifyKey();
                     var identity = new DummyIdentity(
                         false,
-                        config.PeerId,
+                        config.Id,
                         new VerifyKeys(new Dictionary<KeyIdentifier, string>
                         {
                             [keyId] = networkKey,

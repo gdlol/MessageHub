@@ -199,7 +199,7 @@ internal sealed class EventSaver : IEventSaver
                     if (memberEvent.MemberShip == MembershipStates.Join)
                     {
                         var userIdentifier = UserIdentifier.Parse(roomStateKey.StateKey);
-                        members.Add(userIdentifier.PeerId);
+                        members.Add(userIdentifier.Id);
                     }
                 }
                 notifier.Notify((pdu.RoomId, members.ToArray()));
@@ -358,7 +358,7 @@ internal sealed class EventSaver : IEventSaver
                     if (memberEvent.MemberShip == MembershipStates.Join)
                     {
                         var userIdentifier = UserIdentifier.Parse(roomStateKey.StateKey);
-                        members.Add(userIdentifier.PeerId);
+                        members.Add(userIdentifier.Id);
                     }
                 }
                 notifier.Notify((roomId, members.ToArray()));

@@ -2,11 +2,11 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace MessageHub.HomeServer;
 
-public record class UserIdentifier(string UserName, string PeerId)
+public record class UserIdentifier(string UserName, string Id)
 {
     public override string ToString()
     {
-        return $"@{UserName}:{PeerId}";
+        return $"@{UserName}:{Id}";
     }
 
     public static bool TryParse(string? s, [NotNullWhen(true)] out UserIdentifier? identifier)

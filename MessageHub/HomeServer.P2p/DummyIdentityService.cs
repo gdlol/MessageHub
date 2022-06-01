@@ -89,7 +89,8 @@ public class DummyIdentityService : IIdentityService
     public bool Verify(ServerKeys serverKeys)
     {
         return serverKeys.Signatures.TryGetValue(serverKeys.ServerName, out var signatures)
-            && signatures.ContainsValue($"dummy-{serverKeys.ServerName}");
+            && signatures.TryGetValue(new KeyIdentifier("dummy", serverKeys.ServerName), out string? signature)
+            && signature == $"dummy-{serverKeys.ServerName}";
     }
 
     public bool VerifySignature(string algorithm, string key, byte[] data, byte[] signature)

@@ -65,10 +65,10 @@ public static class IdentityServiceExtensions
         return signedElement.Deserialize<PersistentDataUnit>()!;
     }
 
-    public static bool VerifyJson(this IIdentityService identityService, string peerId, JsonElement element)
+    public static bool VerifyJson(this IIdentityService identityService, string id, JsonElement element)
     {
         ArgumentNullException.ThrowIfNull(identityService);
-        ArgumentNullException.ThrowIfNull(peerId);
+        ArgumentNullException.ThrowIfNull(id);
         ArgumentNullException.ThrowIfNull(element);
 
         // Get signatures mapping.
@@ -93,7 +93,7 @@ public static class IdentityServiceExtensions
         {
             return false;
         }
-        if (serverKeys.ServerName != peerId)
+        if (serverKeys.ServerName != id)
         {
             return false;
         }
@@ -110,7 +110,7 @@ public static class IdentityServiceExtensions
         {
             return false;
         }
-        if (!signatures.TryGetProperty(peerId, out var identitySignatures))
+        if (!signatures.TryGetProperty(id, out var identitySignatures))
         {
             return false;
         }

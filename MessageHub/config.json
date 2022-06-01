@@ -1,4 +1,4 @@
 {
-    "peerId": "dummy",
+    "id": "dummy",
     "listenAddress": "127.0.0.1:8448"
 }

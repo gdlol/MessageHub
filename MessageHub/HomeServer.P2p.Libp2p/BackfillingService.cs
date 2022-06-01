@@ -5,7 +5,6 @@ using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Events.Room;
 using MessageHub.HomeServer.Notifiers;
-using MessageHub.HomeServer.Remote;
 using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Rooms.Timeline;
 
@@ -65,14 +64,14 @@ internal class BackfillingService
                 var events = response.GetProperty("events").Deserialize<PersistentDataUnit[]>();
                 if (events is null)
                 {
-                    logger.LogDebug("Received null events from {}: {}", destination, response);
+                    logger.LogWarning("Received null events from {}: {}", destination, response);
                     return Array.Empty<PersistentDataUnit>();
                 }
                 return events;
             }
             catch (Exception ex)
             {
-                logger.LogDebug(ex, "Error deserializing events from {}: {}", destination, response);
+                logger.LogWarning(ex, "Error deserializing events from {}: {}", destination, response);
                 throw;
             }
         }
@@ -125,7 +124,6 @@ internal class BackfillingService
             {
                 logger.LogDebug("Latest events count: {}", latestEventIds.Count);
                 logger.LogDebug("Received events count: {}", receivedEventIds.Count);
-
 
                 var parameters = new GetMissingEventsParameters
                 {
@@ -217,7 +215,7 @@ internal class BackfillingService
                     var memberEvent = content.Deserialize<MemberEvent>()!;
                     if (memberEvent.MemberShip == MembershipStates.Join)
                     {
-                        members.Add(UserIdentifier.Parse(roomStateKey.StateKey!).PeerId);
+                        members.Add(UserIdentifier.Parse(roomStateKey.StateKey!).Id);
                     }
                 }
             }
@@ -372,7 +370,7 @@ internal class BackfillingService
         {
             throw new InvalidOperationException();
         }
-        logger.LogDebug("Starting backfilling service.");
+        logger.LogInformation("Starting backfilling service.");
         cts = new CancellationTokenSource();
         var token = cts.Token;
         pdusQueue = new BlockingCollection<PersistentDataUnit[]>(boundedCapacity: 1024);
@@ -413,10 +411,9 @@ internal class BackfillingService
             }
             finally
             {
-                logger.LogDebug("Exiting backfilling service.");
+                logger.LogInformation("Exiting backfilling service.");
             }
         });
-
 
         // Periodically advertise latest events
         Task.Run(async () =>
@@ -477,7 +474,7 @@ internal class BackfillingService
             }
             finally
             {
-                logger.LogDebug("Stop advertising latest events.");
+                logger.LogInformation("Stop advertising latest events.");
             }
         });
     }
@@ -488,7 +485,7 @@ internal class BackfillingService
         {
             return;
         }
-        logger.LogDebug("Stopping backfilling service.");
+        logger.LogInformation("Stopping backfilling service.");
         notifier.OnNotify -= onNotify;
         pdusQueue?.CompleteAdding();
         pdusQueue?.Dispose();

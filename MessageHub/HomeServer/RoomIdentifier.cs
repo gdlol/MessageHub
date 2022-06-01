@@ -2,11 +2,11 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace MessageHub.HomeServer;
 
-public record class RoomIdentifier(string Id, string PeerId)
+public record class RoomIdentifier(string Id, string CreatorId)
 {
     public override string ToString()
     {
-        return $"!{Id}:{PeerId}";
+        return $"!{Id}:{CreatorId}";
     }
 
     public static bool TryParse(string? s, [NotNullWhen(true)] out RoomIdentifier? identifier)

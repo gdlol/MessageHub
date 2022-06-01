@@ -40,7 +40,7 @@ public class RemoteRooms : IRemoteRooms
     {
         var userId = UserIdentifier.Parse(parameters.Event.StateKey!);
         var request = identityService.GetSelfIdentity().SignRequest(
-            destination: userId.PeerId,
+            destination: userId.Id,
             requestMethod: HttpMethods.Put,
             requestTarget: $"/_matrix/federation/v2/invite/{roomId}/{eventId}",
             content: parameters);

@@ -75,7 +75,7 @@ public class JoinRoomController : ControllerBase
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(roomId)}: {roomId}"));
         }
 
-        string destination = UserIdentifier.Parse(inviteEvent.Sender).PeerId;
+        string destination = UserIdentifier.Parse(inviteEvent.Sender).Id;
         logger.LogDebug("Sending make join {} to {}...", roomId, destination);
         var pdu = await remoteRooms.MakeJoinAsync(destination, roomId, userId.ToString());
         if (pdu is null)

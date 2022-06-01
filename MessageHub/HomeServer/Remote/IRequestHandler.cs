@@ -6,5 +6,5 @@ namespace MessageHub.HomeServer.Remote;
 public interface IRequestHandler
 {
     Task<JsonElement> SendRequest(SignedRequest signedRequest);
-    Task<Stream> DownloadAsync(string peerId, string url);
+    Task<Stream> DownloadAsync(string id, string url);
 }
