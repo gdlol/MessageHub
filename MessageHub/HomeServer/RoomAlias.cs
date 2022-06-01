@@ -2,17 +2,17 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace MessageHub.HomeServer;
 
-public record class RoomIdentifier(string Id, string CreatorId)
+public record class RoomAlias(string Alias, string CreatorId)
 {
     public override string ToString()
     {
-        return $"!{Id}:{CreatorId}";
+        return $"#{Alias}:{CreatorId}";
     }
 
     public static bool TryParse(string? s, [NotNullWhen(true)] out RoomIdentifier? identifier)
     {
         identifier = null;
-        if (string.IsNullOrEmpty(s) || !s.StartsWith('!'))
+        if (string.IsNullOrEmpty(s) || !s.StartsWith('#'))
         {
             return false;
         }

@@ -132,7 +132,7 @@ public class AccountData : IAccountData
 
     public async Task<string[]> GetPublicRoomListAsync()
     {
-        using var store = storageProvider.GetKeyValueStore(filterStoreName);
+        using var store = storageProvider.GetKeyValueStore(roomVisibilityStoreName);
         if (store.IsEmpty)
         {
             return Array.Empty<string>();

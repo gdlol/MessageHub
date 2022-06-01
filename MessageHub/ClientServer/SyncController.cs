@@ -50,7 +50,7 @@ public class SyncController : ControllerBase
             Filter = filterString,
             FullState = fullState ?? false,
             SetPresence = setPresence ?? SyncParameters.SetPresenceValues.Online,
-            Since = since,
+            Since = since ?? string.Empty,
             Timeout = timeout ?? 0
         };
 
@@ -71,7 +71,7 @@ public class SyncController : ControllerBase
                 period: Timeout.Infinite);
             while (!cts.IsCancellationRequested)
             {
-                if (roomLoader.CurrentBatchId != (parameters.Since ?? string.Empty))
+                if (roomLoader.CurrentBatchId != parameters.Since)
                 {
                     break;
                 }

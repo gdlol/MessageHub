@@ -203,7 +203,7 @@ public class ListRoomsController : ControllerBase
             }
             var filteredChunks = FilterChunks(chunks, parameters.Filter).ToArray();
             string? nextBatch = null;
-            if (parameters.Limit is int limit && limit > filteredChunks.Length)
+            if (parameters.Limit is int limit && limit < filteredChunks.Length)
             {
                 nextBatch = filteredChunks[limit].RoomId;
             }

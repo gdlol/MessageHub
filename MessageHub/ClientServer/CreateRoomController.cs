@@ -109,7 +109,8 @@ public class CreateRoomController : ControllerBase
     public async Task<IActionResult> CreateRoom(
         [FromBody] CreateRoomParameters parameters,
         [FromServices] IRemoteRooms remoteRooms,
-        [FromServices] IEventPublisher eventPublisher)
+        [FromServices] IEventPublisher eventPublisher,
+        [FromServices] IRoomDiscoveryService roomDiscoveryService)
     {
         string? userId = Request.HttpContext.User.Identity?.Name;
         if (userId is null)
@@ -143,7 +144,7 @@ public class CreateRoomController : ControllerBase
                         MatrixErrorCode.InvalidParameter,
                         $"{nameof(parameters.PowerLevelContentOverride)}: {parameters.PowerLevelContentOverride}"));
             }
-        }        
+        }
         var identity = identityService.GetSelfIdentity();
 
         string roomId = $"!{Guid.NewGuid()}:{identity.Id}";
@@ -207,6 +208,7 @@ public class CreateRoomController : ControllerBase
         // Set alias.
         if (parameters.RoomAliasName is string alias)
         {
+            var roomAlias = new RoomAlias(alias, identity.Id);
             (roomSnapshot, pdu) = EventCreation.CreateEvent(
                 roomId: roomId,
                 snapshot: roomSnapshot,
@@ -215,10 +217,11 @@ public class CreateRoomController : ControllerBase
                 serverKeys: serverKeys,
                 sender: senderId,
                 content: JsonSerializer.SerializeToElement(
-                    new CanonicalAliasEvent { Alias = alias },
+                    new CanonicalAliasEvent { Alias = roomAlias.ToString() },
                     ignoreNullOptions),
                 timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
             AddEvent(pdu, roomSnapshot.States);
+            await roomDiscoveryService.SetRoomAliasAsync(roomId, roomAlias.ToString());
         }
 
         // Presets.

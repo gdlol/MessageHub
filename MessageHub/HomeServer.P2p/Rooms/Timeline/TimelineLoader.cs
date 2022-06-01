@@ -45,10 +45,6 @@ internal class TimelineLoader : ITimelineLoader
 
     public async Task<IReadOnlyDictionary<string, string>> GetRoomEventIds(string? batchId)
     {
-        if (string.IsNullOrEmpty(batchId))
-        {
-            return ImmutableDictionary<string, string>.Empty;
-        }
         batchId ??= eventStore.Update().CurrentBatchId;
         using var store = storageProvider.GetEventStore();
         var roomEventIds = await EventStore.GetRoomEventIdsAsync(store, batchId);

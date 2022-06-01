@@ -175,7 +175,7 @@ public class RoomsLoader
     public async Task<(string nextBatch, Rooms rooms)> LoadRoomsAsync(
         string userId,
         bool fullState,
-        string? since,
+        string since,
         RoomFilter? filter)
     {
         bool includeLeave = filter?.IncludeLeave == true;
@@ -186,7 +186,7 @@ public class RoomsLoader
             Knock = new Dictionary<string, KnockedRoom>(),
             Leave = includeLeave ? new Dictionary<string, LeftRoom>() : null
         };
-        if (string.IsNullOrEmpty(since) && timelineLoader.IsEmpty)
+        if (since == string.Empty && timelineLoader.IsEmpty)
         {
             return (string.Empty, rooms);
         }
