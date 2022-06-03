@@ -7,15 +7,13 @@ namespace MessageHub.HomeServer.P2p.Libp2p;
 
 internal class P2pNode : IDisposable
 {
-    private readonly Host host;
-    private readonly DHT dht;
-    private readonly Discovery discovery;
-    private readonly MemberStore memberStore;
-    private readonly PubSub pubsub;
+    public Host Host { get; }
+    public DHT Dht { get; }
+    public Discovery Discovery { get; }
+    public MemberStore MemberStore { get; }
+    public PubSub Pubsub { get; }
+    public IPeerResolver Resolver { get; }
     private readonly ILogger logger;
-    private readonly IPeerResolver resolver;
-    private readonly MdnsService mdnsService;
-    private readonly Proxy proxy;
     private readonly Func<ServerKeys, IIdentity?> identityVerifier;
     private readonly IMemoryCache addressCache;
 
@@ -25,51 +23,48 @@ internal class P2pNode : IDisposable
         Discovery discovery,
         MemberStore memberStore,
         PubSub pubsub,
-        ILogger logger,
-        IPeerResolver resolver,
-        MdnsService mdnsService,
-        Proxy proxy,
+        ILoggerFactory loggerFactory,
         Func<ServerKeys, IIdentity?> identityVerifier,
         IMemoryCache addressCache)
     {
-        this.host = host;
-        this.dht = dht;
-        this.discovery = discovery;
-        this.memberStore = memberStore;
-        this.pubsub = pubsub;
-        this.logger = logger;
-        this.resolver = resolver;
-        this.mdnsService = mdnsService;
-        this.proxy = proxy;
+        Host = host;
+        Dht = dht;
+        Discovery = discovery;
+        MemberStore = memberStore;
+        Pubsub = pubsub;
+        Resolver = new PeerResolver(
+            loggerFactory.CreateLogger<PeerResolver>(),
+            host,
+            dht,
+            discovery,
+            identityVerifier,
+            addressCache);
+        logger = loggerFactory.CreateLogger<P2pNode>();
         this.identityVerifier = identityVerifier;
         this.addressCache = addressCache;
     }
 
     public void Dispose()
     {
-        proxy.Stop();
-        proxy.Dispose();
-        mdnsService.Stop();
-        mdnsService.Dispose();
-        pubsub.Dispose();
-        memberStore.Dispose();
-        discovery.Dispose();
-        dht.Dispose();
+        Pubsub.Dispose();
+        MemberStore.Dispose();
+        Discovery.Dispose();
+        Dht.Dispose();
     }
 
     public async Task<JsonElement> SendAsync(SignedRequest request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        string addressInfo = await resolver.ResolveAddressInfoAsync(
+        var (addressInfo, _) = await Resolver.ResolveAddressInfoAsync(
             request.Destination,
             cancellationToken: cancellationToken);
-        host.Connect(addressInfo, cancellationToken);
+        Host.Connect(addressInfo, cancellationToken);
         var peerId = Host.GetIdFromAddressInfo(addressInfo);
-        var response = host.SendRequest(peerId, request, cancellationToken);
+        var response = Host.SendRequest(peerId, request, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
-            logger.LogDebug("Response status code: {}", response.StatusCode);
+            logger.LogDebug("Response status code from {}: {}", request.Destination, response.StatusCode);
         }
         var result = await response.Content.ReadFromJsonAsync<JsonElement>(
             cancellationToken: cancellationToken);
@@ -83,9 +78,9 @@ internal class P2pNode : IDisposable
         CancellationToken cancellationToken = default)
     {
         logger.LogDebug("Getting server identity of {}...", peerId);
-        string addressInfo = dht.FindPeer(peerId, cancellationToken);
-        host.Connect(addressInfo, cancellationToken);
-        var response = await host.GetServerKeysAsync(peerId, cancellationToken);
+        string addressInfo = Dht.FindPeer(peerId, cancellationToken);
+        Host.Connect(addressInfo, cancellationToken);
+        var response = await Host.GetServerKeysAsync(peerId, cancellationToken);
         var serverKeys = response?.Deserialize<ServerKeys>();
         if (serverKeys is null)
         {
@@ -107,19 +102,19 @@ internal class P2pNode : IDisposable
         return identity;
     }
 
-    public IEnumerable<IIdentity> GetPeersForTopic(
+    public IEnumerable<IIdentity> GetPeersForTopicAsync(
         string topic,
         Func<IIdentity, bool> peerFilter,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var queue = new BlockingCollection<IIdentity>();
-        using var _ = cancellationToken.Register(() => queue.CompleteAdding());
         Task.Run(async () =>
         {
-            var addressInfos = discovery.FindPeers(topic, cancellationToken);
-            logger.LogDebug("Found {} candidate peers for topic: {}...", addressInfos.Count, topic);
             try
             {
+                logger.LogDebug("Finding peers for topic {}...", topic);
+                var addressInfos = Discovery.FindPeers(topic, cancellationToken);
+                logger.LogDebug("Found {} candidate peers for topic {}.", addressInfos.Count, topic);
                 var parallelOptions = new ParallelOptions
                 {
                     CancellationToken = cancellationToken,
@@ -128,7 +123,7 @@ internal class P2pNode : IDisposable
                 await Parallel.ForEachAsync(addressInfos, parallelOptions, async (x, token) =>
                 {
                     var (peerId, addressInfo) = x;
-                    if (peerId == host.Id)
+                    if (peerId == Host.Id)
                     {
                         return;
                     }
@@ -137,17 +132,17 @@ internal class P2pNode : IDisposable
                         token.ThrowIfCancellationRequested();
 
                         logger.LogDebug("Connecting to {}: {}...", peerId, addressInfo);
-                        host.Connect(addressInfo, token);
+                        Host.Connect(addressInfo, token);
                         logger.LogDebug("Connected to {}: {}", peerId, addressInfo);
 
-                        var responseBody = await host.GetServerKeysAsync(peerId, token);
+                        var responseBody = await Host.GetServerKeysAsync(peerId, token);
                         var serverKeys = responseBody?.Deserialize<ServerKeys>();
                         if (serverKeys is null)
                         {
                             logger.LogDebug("Null server keys response from {}", peerId);
                             return;
                         }
-                        logger.LogDebug("Server keys {}: {}", responseBody, peerId);
+                        logger.LogDebug("Server keys from {}: {}", peerId, responseBody);
                         var identity = identityVerifier(serverKeys);
                         if (identity is not null)
                         {
@@ -173,14 +168,15 @@ internal class P2pNode : IDisposable
                     catch (OperationCanceledException) { }
                     catch (Exception ex)
                     {
-                        logger.LogDebug(
-                            ex,
-                            "Error verifying identify of peer {}",
-                            (peerId, addressInfo));
+                        logger.LogDebug("Error verifying identify of peer {}: {}", addressInfo, ex.Message);
                     }
                 });
             }
             catch (OperationCanceledException) { }
+            catch (Exception ex)
+            {
+                logger.LogDebug("Error finding peers for topic {}: {}", topic, ex.Message);
+            }
             finally
             {
                 queue.CompleteAdding();
@@ -193,6 +189,7 @@ internal class P2pNode : IDisposable
     }
 
     public async Task<IIdentity[]> SearchPeersAsync(
+        IIdentity selfIdentity,
         string searchTerm,
         CancellationToken cancellationToken = default)
     {
@@ -200,15 +197,16 @@ internal class P2pNode : IDisposable
         {
             return Array.Empty<IIdentity>();
         }
+        logger.LogInformation("Search term: {}", searchTerm);
 
         string p2pPrefix = "/p2p/";
         if (searchTerm.StartsWith(p2pPrefix))
         {
             string peerId = searchTerm[p2pPrefix.Length..];
-            if (peerId == host.Id)
+            if (peerId == Host.Id)
             {
-                logger.LogInformation("Peer ID is self ID, returning empty response");
-                return Array.Empty<IIdentity>();
+                logger.LogInformation("Peer ID is self peer ID.");
+                return new[] { selfIdentity };
             }
             logger.LogInformation("Finding peer address for {}...", peerId);
             try
@@ -225,7 +223,7 @@ internal class P2pNode : IDisposable
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Error finding peer address for {}", peerId);
+                logger.LogInformation("Error finding peer address for {}: {}", peerId, ex.Message);
             }
         }
         else
@@ -235,32 +233,55 @@ internal class P2pNode : IDisposable
             if (searchTerm.StartsWith('/') && parts.Length >= 2)
             {
                 string peerIdPrefix = parts[^1];
+                string name = searchTerm[..^peerIdPrefix.Length].Trim('/');
                 logger.LogInformation(
                     "Finding peers with name {} and peer ID prefix {}...",
-                    searchTerm[..^peerIdPrefix.Length].Trim('/'),
+                    name,
                     peerIdPrefix);
                 bool verifyIdentity(IIdentity identity)
                 {
-                    if (identity.VerifyKeys.Keys.TryGetValue(new KeyIdentifier("libp2p", "PeerID"), out var key))
+                    if (identity.VerifyKeys.Keys.TryGetValue(AuthenticatedPeer.KeyIdentifier, out var key))
                     {
                         return key.StartsWith(peerIdPrefix);
                     }
                     return false;
                 }
-                var peers = GetPeersForTopic(searchTerm, verifyIdentity, cancellationToken).ToArray();
-                logger.LogInformation(
-                    "Found {} peers with name {} and peer ID prefix {}", peers.Length, parts[0], peerIdPrefix);
-                return peers;
+                try
+                {
+                    var peers = GetPeersForTopicAsync(searchTerm, verifyIdentity, cancellationToken).ToArray();
+                    logger.LogInformation(
+                        "Found {} peers with name {} and peer ID prefix {}", peers.Length, name, peerIdPrefix);
+                    return peers;
+                }
+                catch (Exception ex)
+                {
+                    logger.LogInformation("Error finding peers with name {} and peer ID prefix {}: {}",
+                        name,
+                        peerIdPrefix,
+                        ex.Message);
+                }
             }
             else
             {
-                // Could be the Server ID.
                 if (searchTerm.Length > 20)
                 {
-                    logger.LogInformation("Finding peers with for topic {}...", searchTerm);
-                    var peers = GetPeersForTopic(searchTerm, _ => true, cancellationToken).ToArray();
-                    logger.LogInformation("Found {} peers for topic {}", peers.Length, searchTerm);
-                    return peers;
+                    string id = searchTerm;
+                    if (searchTerm == selfIdentity.Id)
+                    {
+                        logger.LogInformation("ID is self ID.");
+                        return new[] { selfIdentity };
+                    }
+                    logger.LogInformation("Finding peer address for {}...", id);
+                    try
+                    {
+                        var (_, identity) = await Resolver.ResolveAddressInfoAsync(
+                            id, cancellationToken: cancellationToken);
+                        return new[] { identity };
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogInformation("Error finding peer address for {}: {}", id, ex.Message);
+                    }
                 }
             }
         }

@@ -37,8 +37,13 @@ public class SignedRequest
     [JsonPropertyName("signatures")]
     public JsonElement Signatures { get; set; } = default!;
 
+    public JsonElement ToJsonElement() => JsonSerializer.SerializeToElement(this, new JsonSerializerOptions
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    });
+
     public override string ToString()
     {
-        return JsonSerializer.Serialize(this).ToString();
+        return ToJsonElement().ToString();
     }
 }

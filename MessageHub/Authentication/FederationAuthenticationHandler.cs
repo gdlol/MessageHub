@@ -3,7 +3,6 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events;
@@ -17,11 +16,6 @@ namespace MessageHub.Authentication;
 
 public class FederationAuthenticationHandler : AuthenticationHandler<FederationAuthenticationSchemeOptions>
 {
-    private static readonly JsonSerializerOptions ignoreNullOptions = new()
-    {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
-
     private readonly IIdentityService identityService;
     private readonly IRooms rooms;
 
@@ -180,7 +174,7 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
             var error = MatrixError.Create(MatrixErrorCode.Unauthorized);
             return AuthenticateResult.Fail(error.ToString());
         }
-        var requestElement = JsonSerializer.SerializeToElement(request, ignoreNullOptions);
+        var requestElement = request.ToJsonElement();
         if (identityService.VerifyJson(sender, requestElement))
         {
             Request.HttpContext.Items[nameof(request)] = request;

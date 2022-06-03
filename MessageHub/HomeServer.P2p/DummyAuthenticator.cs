@@ -16,7 +16,7 @@ internal class DummyAuthenticator : IAuthenticator
     private readonly DummyIdentityService dummyIdentityService;
     private readonly INetworkProvider networkProvider;
     private readonly RemoteRequestNotifier remoteRequestNotifier;
-    private readonly EventHandler<(string, JsonElement)> onNotify;
+    private readonly EventHandler<RemoteRequest> onNotify;
 
     public DummyAuthenticator(
         Config config,

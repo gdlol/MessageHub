@@ -202,7 +202,7 @@ internal sealed class EventSaver : IEventSaver
                         members.Add(userIdentifier.Id);
                     }
                 }
-                notifier.Notify((pdu.RoomId, members.ToArray()));
+                notifier.Notify(new(pdu.RoomId, members.ToArray()));
             }
         }
         finally
@@ -361,7 +361,7 @@ internal sealed class EventSaver : IEventSaver
                         members.Add(userIdentifier.Id);
                     }
                 }
-                notifier.Notify((roomId, members.ToArray()));
+                notifier.Notify(new(roomId, members.ToArray()));
             }
         }
         finally
