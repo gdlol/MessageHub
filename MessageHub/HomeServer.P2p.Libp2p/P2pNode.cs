@@ -232,17 +232,17 @@ internal class P2pNode : IDisposable
             var parts = searchTerm.Split('/', StringSplitOptions.RemoveEmptyEntries);
             if (searchTerm.StartsWith('/') && parts.Length >= 2)
             {
-                string peerIdPrefix = parts[^1];
-                string name = searchTerm[..^peerIdPrefix.Length].Trim('/');
+                string peerIdSuffix = parts[^1];
+                string name = searchTerm[..^peerIdSuffix.Length].Trim('/');
                 logger.LogInformation(
-                    "Finding peers with name {} and peer ID prefix {}...",
+                    "Finding peers with name {} and peer ID suffix {}...",
                     name,
-                    peerIdPrefix);
+                    peerIdSuffix);
                 bool verifyIdentity(IIdentity identity)
                 {
                     if (identity.VerifyKeys.Keys.TryGetValue(AuthenticatedPeer.KeyIdentifier, out var key))
                     {
-                        return key.StartsWith(peerIdPrefix);
+                        return key.EndsWith(peerIdSuffix);
                     }
                     return false;
                 }
@@ -250,14 +250,14 @@ internal class P2pNode : IDisposable
                 {
                     var peers = GetPeersForTopicAsync(searchTerm, verifyIdentity, cancellationToken).ToArray();
                     logger.LogInformation(
-                        "Found {} peers with name {} and peer ID prefix {}", peers.Length, name, peerIdPrefix);
+                        "Found {} peers with name {} and peer ID suffix {}", peers.Length, name, peerIdSuffix);
                     return peers;
                 }
                 catch (Exception ex)
                 {
-                    logger.LogInformation("Error finding peers with name {} and peer ID prefix {}: {}",
+                    logger.LogInformation("Error finding peers with name {} and peer ID suffix {}: {}",
                         name,
-                        peerIdPrefix,
+                        peerIdSuffix,
                         ex.Message);
                 }
             }

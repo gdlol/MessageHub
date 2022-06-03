@@ -123,7 +123,7 @@ public class RemoteRooms : IRemoteRooms
             if (error is not null)
             {
                 var pdu = pduMap[eventId];
-                logger.LogError("Error receiving event {eventId}: {error}, {pdu}", eventId, error, pdu);
+                logger.LogWarning("Error receiving event {eventId}: {error}, {pdu}", eventId, error, pdu);
             }
         }
     }

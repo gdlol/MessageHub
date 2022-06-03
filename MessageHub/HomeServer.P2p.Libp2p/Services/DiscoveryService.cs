@@ -50,7 +50,8 @@ internal class DiscoveryService : IP2pService
                 string displayName = await context.UserProfile.GetDisplayNameAsync(userId) ?? identity.Id;
                 for (int i = 7; i < hostId.Length; i++)
                 {
-                    string rendezvousPoint = $"/{displayName}/{hostId[..i]}";
+                    string peerIdSuffix = hostId[^i..];
+                    string rendezvousPoint = $"/{displayName}/{peerIdSuffix}";
                     if (i == 7)
                     {
                         context.Logger.LogDebug("Advertising rendezvousPoints: {}...", rendezvousPoint);
