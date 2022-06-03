@@ -1,6 +1,6 @@
 using MessageHub.Federation;
 using MessageHub.Federation.Protocol;
-using MessageHub.HomeServer.P2p.Notifiers;
+using MessageHub.HomeServer.P2p.Libp2p.Notifiers;
 using MessageHub.HomeServer.Services;
 
 namespace MessageHub.HomeServer.P2p.Libp2p.Services.Backfilling;

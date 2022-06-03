@@ -3,6 +3,7 @@ using MessageHub.HomeServer.Notifiers;
 using MessageHub.HomeServer.P2p;
 using MessageHub.HomeServer.P2p.FasterKV;
 using MessageHub.HomeServer.P2p.Libp2p;
+using MessageHub.HomeServer.P2p.Libp2p.Notifiers;
 using MessageHub.HomeServer.P2p.Libp2p.Services;
 using MessageHub.HomeServer.P2p.Libp2p.Services.Backfilling;
 using MessageHub.HomeServer.P2p.Libp2p.Services.Membership;
@@ -70,7 +71,6 @@ public static class P2pHomeServerServiceCollectionExtensions
         services.AddSingleton<MembershipUpdateNotifier>();
         services.AddSingleton<RemoteRequestNotifier>();
         services.AddSingleton<IAccountData, AccountData>();
-        services.AddSingleton<RemoteRequestHandler>();
         services.AddSingleton<IAuthenticator, DummyAuthenticator>();
         services.AddSingleton<IContentRepository, ContentRepository>();
         services.AddSingleton<IEventReceiver, EventReceiver>();

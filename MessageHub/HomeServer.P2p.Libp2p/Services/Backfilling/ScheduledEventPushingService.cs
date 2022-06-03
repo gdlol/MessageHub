@@ -23,7 +23,7 @@ internal class ScheduledEventPushingService : ScheduledService
 
     protected override async Task RunAsync(CancellationToken cancellationToken)
     {
-        logger.LogDebug("Advertising latest events...");
+        logger.LogInformation("Advertising latest events...");
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -58,7 +58,7 @@ internal class ScheduledEventPushingService : ScheduledService
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "Error advertising latest events.");
+            logger.LogInformation(ex, "Error advertising latest events.");
         }
     }
 }

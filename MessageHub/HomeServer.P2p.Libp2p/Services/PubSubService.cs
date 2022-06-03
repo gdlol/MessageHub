@@ -16,6 +16,7 @@ internal class PubSubService : IP2pService
     {
         return BackgroundService.Aggregate(
             new EventPublishService(context),
-            new EventSubscriptionService(context, p2pNode));
+            new EventSubscriptionService(context, p2pNode),
+            new RequestForwardService(context));
     }
 }

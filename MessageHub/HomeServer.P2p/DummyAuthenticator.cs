@@ -1,8 +1,6 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
-using System.Text.Json;
 using System.Web;
-using MessageHub.HomeServer.P2p.Notifiers;
 using MessageHub.HomeServer.P2p.Providers;
 
 namespace MessageHub.HomeServer.P2p;
@@ -15,33 +13,21 @@ internal class DummyAuthenticator : IAuthenticator
     private readonly string accessTokenPrefix;
     private readonly DummyIdentityService dummyIdentityService;
     private readonly INetworkProvider networkProvider;
-    private readonly RemoteRequestNotifier remoteRequestNotifier;
-    private readonly EventHandler<RemoteRequest> onNotify;
 
     public DummyAuthenticator(
         Config config,
         DummyIdentityService dummyIdentityService,
         INetworkProvider networkProvider,
-        ILoggerFactory loggerFactory,
-        RemoteRequestNotifier remoteRequestNotifier,
-        RemoteRequestHandler remoteRequestHandler)
+        ILoggerFactory loggerFactory)
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(dummyIdentityService);
         ArgumentNullException.ThrowIfNull(networkProvider);
         ArgumentNullException.ThrowIfNull(loggerFactory);
-        ArgumentNullException.ThrowIfNull(remoteRequestNotifier);
-        ArgumentNullException.ThrowIfNull(remoteRequestHandler);
 
         this.config = config;
         this.dummyIdentityService = dummyIdentityService;
         this.networkProvider = networkProvider;
-        this.remoteRequestNotifier = remoteRequestNotifier;
-        onNotify = (_, e) =>
-        {
-            var (topic, message) = e;
-            remoteRequestHandler.ReceiveMessage(topic, message);
-        };
         loginToken = config.Id;
         accessTokenPrefix = config.Id;
         userId = UserIdentifier.FromId(config.Id).ToString();
@@ -94,7 +80,6 @@ internal class DummyAuthenticator : IAuthenticator
                         }.ToImmutableDictionary(),
                         DateTimeOffset.UtcNow.AddDays(7).ToUnixTimeMilliseconds()));
                     dummyIdentityService.SetSelfIdentity(identity);
-                    remoteRequestNotifier.OnNotify += onNotify;
                 }
             }
 

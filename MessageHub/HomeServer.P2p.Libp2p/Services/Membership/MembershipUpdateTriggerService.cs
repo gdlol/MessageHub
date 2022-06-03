@@ -23,7 +23,7 @@ internal class MembershipUpdateTriggerService : ScheduledService
 
     protected override async Task RunAsync(CancellationToken cancellationToken)
     {
-        logger.LogDebug("Triggering membership update...");
+        logger.LogInformation("Triggering membership update...");
         try
         {
             var batchStates = await context.TimelineLoader.LoadBatchStatesAsync(_ => true, includeLeave: false);
@@ -51,7 +51,7 @@ internal class MembershipUpdateTriggerService : ScheduledService
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "Error Triggering membership update.");
+            logger.LogInformation(ex, "Error Triggering membership update.");
         }
     }
 }

@@ -45,7 +45,7 @@ public class JoinRoomController : ControllerBase
         var identity = identityService.GetSelfIdentity();
         var userId = UserIdentifier.FromId(identity.Id);
 
-        logger.LogDebug("Joining {}...", roomId);
+        logger.LogInformation("Joining {}...", roomId);
         var batchStates = await timelineLoader.LoadBatchStatesAsync(id => id == roomId, true);
         if (!batchStates.Invites.TryGetValue(roomId, out var roomStates))
         {
@@ -76,7 +76,7 @@ public class JoinRoomController : ControllerBase
         }
 
         string destination = UserIdentifier.Parse(inviteEvent.Sender).Id;
-        logger.LogDebug("Sending make join {} to {}...", roomId, destination);
+        logger.LogInformation("Sending make join {} to {}...", roomId, destination);
         var pdu = await remoteRooms.MakeJoinAsync(destination, roomId, userId.ToString());
         if (pdu is null)
         {
@@ -103,9 +103,9 @@ public class JoinRoomController : ControllerBase
         pdu = identity.SignEvent(pdu);
         var element = pdu.ToJsonElement();
 
-        logger.LogDebug("Sending send join {} to {}...", roomId, destination);
+        logger.LogInformation("Sending send join {} to {}...", roomId, destination);
         await remoteRooms.SendJoinAsync(destination, roomId, eventId, element);
-        logger.LogDebug("Backfill {} from {}...", roomId, destination);
+        logger.LogInformation("Backfill {} from {}...", roomId, destination);
         _ = remoteRooms.BackfillAsync(destination, roomId);
         return new JsonResult(new { room_id = roomId });
     }

@@ -1,7 +1,7 @@
 using System.Text.Json;
 using MessageHub.Federation.Protocol;
+using MessageHub.HomeServer.P2p.Libp2p.Notifiers;
 using MessageHub.HomeServer.P2p.Libp2p.Services;
-using MessageHub.HomeServer.P2p.Notifiers;
 using MessageHub.HomeServer.P2p.Providers;
 using BackgroundService = MessageHub.HomeServer.Services.BackgroundService;
 

@@ -1,4 +1,4 @@
-namespace MessageHub.HomeServer.P2p.Notifiers;
+namespace MessageHub.HomeServer.P2p.Libp2p.Notifiers;
 
 public record TopicMemberUpdate(string Topic, string Id);
 

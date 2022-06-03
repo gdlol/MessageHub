@@ -1,5 +1,5 @@
 using MessageHub.HomeServer.Notifiers;
-using MessageHub.HomeServer.P2p.Notifiers;
+using MessageHub.HomeServer.P2p.Libp2p.Notifiers;
 using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Rooms.Timeline;
 

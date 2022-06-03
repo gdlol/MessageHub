@@ -82,7 +82,7 @@ internal sealed class EventSaver : IEventSaver
             var newEventStore = eventStore.Update();
 
             // Event data update.
-            logger.LogInformation("Saving event {eventId}: {pdu}", eventId, pdu);
+            logger.LogDebug("Saving event {eventId}: {pdu}", eventId, pdu);
             bool isAuthorized = true;
             var snapshot = await EventStore.GetRoomSnapshotAsync(store, roomId);
             var authorizer = new EventAuthorizer(snapshot.StateContents);
@@ -228,7 +228,7 @@ internal sealed class EventSaver : IEventSaver
             foreach (string eventId in eventIds)
             {
                 var pdu = events[eventId];
-                logger.LogInformation("Saving event {eventId}: {pdu}", eventId, pdu);
+                logger.LogDebug("Saving event {eventId}: {pdu}", eventId, pdu);
 
                 var senderId = UserIdentifier.Parse(pdu.Sender);
                 var snapshot = await EventStore.GetRoomSnapshotAsync(store, roomId);

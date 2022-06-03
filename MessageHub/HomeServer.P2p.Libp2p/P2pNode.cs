@@ -233,7 +233,7 @@ internal class P2pNode : IDisposable
             if (searchTerm.StartsWith('/') && parts.Length >= 2)
             {
                 string peerIdSuffix = parts[^1];
-                string name = searchTerm[..^peerIdSuffix.Length].Trim('/');
+                string name = searchTerm[..^peerIdSuffix.Length];
                 logger.LogInformation(
                     "Finding peers with name {} and peer ID suffix {}...",
                     name,
