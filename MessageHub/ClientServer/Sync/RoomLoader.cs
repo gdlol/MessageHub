@@ -178,7 +178,21 @@ public class RoomsLoader
         string since,
         RoomFilter? filter)
     {
+        var roomIdFilter = GetRoomIdFilter(filter?.Rooms, filter?.NotRooms);
+        var batchStates = await timelineLoader.LoadBatchStatesAsync(roomIdFilter, true);
+        var sinceEventIds = await timelineLoader.GetRoomEventIds(since);
+
         bool includeLeave = filter?.IncludeLeave == true;
+        foreach (string roomId in batchStates.LeftRoomIds)
+        {
+            if (batchStates.RoomEventIds.TryGetValue(roomId, out string? currentId)
+                && sinceEventIds.TryGetValue(roomId, out string? sinceId)
+                && currentId != sinceId)
+            {
+                // Recently left room.
+                includeLeave = true;
+            }
+        }
         var rooms = new Rooms
         {
             Invite = new Dictionary<string, InvitedRoom>(),
@@ -191,8 +205,6 @@ public class RoomsLoader
             return (string.Empty, rooms);
         }
 
-        var roomIdFilter = GetRoomIdFilter(filter?.Rooms, filter?.NotRooms);
-        var batchStates = await timelineLoader.LoadBatchStatesAsync(roomIdFilter, includeLeave);
         foreach (var (roomId, stateEvents) in batchStates.Invites)
         {
             rooms.Invite[roomId] = new InvitedRoom
@@ -236,7 +248,6 @@ public class RoomsLoader
             return (since, rooms);
         }
 
-        var sinceEventIds = await timelineLoader.GetRoomEventIds(since);
         var currentEventIds = await timelineLoader.GetRoomEventIds(batchStates.BatchId);
         var timelineEventFilter = GetTimelineEventFilter(filter?.Timeline);
         async Task<(Timeline? timeline, State? stateUpdate)> LoadRecentEvents(string roomId)

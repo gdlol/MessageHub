@@ -67,6 +67,26 @@ public class RemoteRooms : IRemoteRooms
         return requestHandler.SendRequest(request);
     }
 
+    public async Task<PersistentDataUnit> MakeLeaveAsync(string destination, string roomId, string userId)
+    {
+        var request = identityService.GetSelfIdentity().SignRequest(
+            destination: destination,
+            requestMethod: HttpMethods.Get,
+            requestTarget: $"/_matrix/federation/v1/make_leave/{roomId}/{userId}");
+        var result = await requestHandler.SendRequest(request);
+        return JsonSerializer.Deserialize<PersistentDataUnit>(result)!;
+    }
+
+    public Task SendLeaveAsync(string destination, string roomId, string eventId, JsonElement pdu)
+    {
+        var request = identityService.GetSelfIdentity().SignRequest(
+            destination: destination,
+            requestMethod: HttpMethods.Put,
+            requestTarget: $"/_matrix/federation/v1/send_leave/{roomId}/{eventId}",
+            content: pdu);
+        return requestHandler.SendRequest(request);
+    }
+
     public async Task BackfillAsync(string destination, string roomId)
     {
         logger.LogInformation("Backfill {}...", roomId);

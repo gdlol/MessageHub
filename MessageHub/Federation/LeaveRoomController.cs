@@ -109,7 +109,7 @@ public class LeaveRoomController : ControllerBase
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(eventId)));
         }
         var errors = await eventReceiver.ReceivePersistentEventsAsync(new[] { pdu });
-        if (errors.TryGetValue(eventId, out string? error))
+        if (errors.TryGetValue(eventId, out string? error) && !string.IsNullOrEmpty(error))
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.BadState, error));
         }

@@ -29,6 +29,12 @@ internal class TriggeredMembershipService : TriggeredService<MembershipUpdate>
         logger.LogInformation("Updating members nodes for {}...", topic);
         try
         {
+            var identity = context.IdentityService.GetSelfIdentity();
+            if (!memberIds.Contains(identity.Id))
+            {
+                logger.LogInformation("Self id not in members", topic);
+                return;
+            }
             using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(1));
             var parallelOptions = new ParallelOptions
             {

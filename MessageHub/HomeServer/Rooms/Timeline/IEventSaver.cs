@@ -16,5 +16,8 @@ public interface IEventSaver
         IReadOnlyDictionary<string, PersistentDataUnit> events,
         IReadOnlyDictionary<string, ImmutableDictionary<RoomStateKey, string>> states);
     Task SaveInviteAsync(string roomId, IEnumerable<StrippedStateEvent>? states);
+    Task RejectInviteAsync(string roomId);
     Task SaveKnockAsync(string roomId, IEnumerable<StrippedStateEvent>? states);
+    Task RetractKnockAsync(string roomId);
+    Task ForgetAsync(string roomId);
 }

@@ -54,22 +54,23 @@ internal class EventSubscriptionService : TriggeredService<MembershipUpdate>
             if (ids.Contains(identity.Id))
             {
                 bool newTopic = false;
-                var (joinedTopic, tcs) = context.JoinedTopics.GetOrAdd(topic, _ =>
+                var (joinedTopic, cts) = context.JoinedTopics.GetOrAdd(topic, _ =>
                 {
                     logger.LogInformation("Joining topic {}...", topic);
                     newTopic = true;
-                    return (p2pNode.Pubsub.JoinTopic(topic), new CancellationTokenSource());
+                    var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                    return (p2pNode.Pubsub.JoinTopic(topic), cts);
                 });
                 if (newTopic)
                 {
                     Task.Run(async () =>
                     {
                         using var _ = joinedTopic;
-                        using var tcs = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                        using var __ = cts;
                         logger.LogDebug("Start subscribing messages for topic {}...", topic);
                         try
                         {
-                            await Subscribe(joinedTopic, tcs.Token);
+                            await Subscribe(joinedTopic, cts.Token);
                         }
                         catch (OperationCanceledException) { }
                         catch (Exception ex)

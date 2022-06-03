@@ -81,7 +81,8 @@ public class AccountData : IAccountData
     public async Task<(string eventType, JsonElement content)[]> LoadAccountDataAsync(
         string? roomId, Func<string, JsonElement, bool>? filter, int? limit)
     {
-        using var store = storageProvider.GetKeyValueStore(filterStoreName);
+        string storeName = GetRoomDataStoreName(roomId);
+        using var store = storageProvider.GetKeyValueStore(storeName);
         if (store.IsEmpty)
         {
             return Array.Empty<(string eventType, JsonElement content)>();

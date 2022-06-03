@@ -370,6 +370,19 @@ internal sealed class EventSaver : IEventSaver
         }
     }
 
+    private static async Task<EventStore> SaveNewBatchAsync(IKeyValueStore store, EventStore eventStore)
+    {
+        var roomEventIds = await EventStore.GetRoomEventIdsAsync(store, eventStore.CurrentBatchId);
+        if (roomEventIds is null)
+        {
+            roomEventIds = ImmutableDictionary<string, string>.Empty;
+        }
+        string newBatchId = Guid.NewGuid().ToString();
+        await EventStore.PutRoomEventIdsAsync(store, newBatchId, roomEventIds);
+        eventStore = await eventStore.SetCurrentBatchIdAsync(store, newBatchId);
+        return eventStore;
+    }
+
     public async Task SaveInviteAsync(string roomId, IEnumerable<StrippedStateEvent>? states)
     {
         locker.WaitOne();
@@ -386,15 +399,65 @@ internal sealed class EventSaver : IEventSaver
             var invites = newEventStore.Invites.SetItem(roomId, strippedStates);
             newEventStore = await newEventStore.SetInvitesAsync(store, invites);
 
-            var roomEventIds = await EventStore.GetRoomEventIdsAsync(store, newEventStore.CurrentBatchId);
-            if (roomEventIds is null)
-            {
-                roomEventIds = ImmutableDictionary<string, string>.Empty;
-            }
-            string newBatchId = Guid.NewGuid().ToString();
-            await EventStore.PutRoomEventIdsAsync(store, newBatchId, roomEventIds);
-            newEventStore = await newEventStore.SetCurrentBatchIdAsync(store, newBatchId);
+            newEventStore = await SaveNewBatchAsync(store, newEventStore);
+            await store.CommitAsync();
+            EventStore.Instance = newEventStore;
+        }
+        finally
+        {
+            locker.Set();
+        }
+    }
 
+    public async Task RejectInviteAsync(string roomId)
+    {
+        locker.WaitOne();
+        try
+        {
+            using var store = storageProvider.GetEventStore();
+            var newEventStore = eventStore.Update();
+
+            bool foundInvite = false;
+            if (newEventStore.Invites.TryGetValue(roomId, out var stateEvents))
+            {
+                var identity = identityService.GetSelfIdentity();
+                var userId = UserIdentifier.FromId(identity.Id).ToString();
+                var newStateEvents = new List<StrippedStateEvent>();
+                foreach (var stateEvent in stateEvents)
+                {
+                    if (stateEvent.EventType == EventTypes.Member && stateEvent.StateKey == userId)
+                    {
+                        if (foundInvite)
+                        {
+                            logger.LogWarning("Multiple member event encountered.");
+                            continue;
+                        }
+                        foundInvite = true;
+                        newStateEvents.Add(new StrippedStateEvent
+                        {
+                            Content = JsonSerializer.SerializeToElement(new MemberEvent
+                            {
+                                MemberShip = MembershipStates.Leave
+                            }),
+                            Sender = userId,
+                            StateKey = userId,
+                            EventType = EventTypes.Member
+                        });
+                    }
+                    else
+                    {
+                        newStateEvents.Add(stateEvent);
+                    }
+                }
+                var invites = newEventStore.Invites.SetItem(roomId, newStateEvents.ToImmutableList());
+                newEventStore = await newEventStore.SetInvitesAsync(store, invites);
+            }
+            if (!foundInvite)
+            {
+                logger.LogWarning("Invite not found.");
+            }
+
+            newEventStore = await SaveNewBatchAsync(store, newEventStore);
             await store.CommitAsync();
             EventStore.Instance = newEventStore;
         }
@@ -420,15 +483,91 @@ internal sealed class EventSaver : IEventSaver
             var knocks = newEventStore.Knocks.SetItem(roomId, strippedStates);
             newEventStore = await newEventStore.SetKnocksAsync(store, knocks);
 
-            var roomEventIds = await EventStore.GetRoomEventIdsAsync(store, newEventStore.CurrentBatchId);
-            if (roomEventIds is null)
-            {
-                roomEventIds = ImmutableDictionary<string, string>.Empty;
-            }
-            string newBatchId = Guid.NewGuid().ToString();
-            await EventStore.PutRoomEventIdsAsync(store, newBatchId, roomEventIds);
-            newEventStore = await newEventStore.SetCurrentBatchIdAsync(store, newBatchId);
+            newEventStore = await SaveNewBatchAsync(store, newEventStore);
+            await store.CommitAsync();
+            EventStore.Instance = newEventStore;
+        }
+        finally
+        {
+            locker.Set();
+        }
+    }
 
+    public async Task RetractKnockAsync(string roomId)
+    {
+        locker.WaitOne();
+        try
+        {
+            using var store = storageProvider.GetEventStore();
+            var newEventStore = eventStore.Update();
+
+            bool foundKnock = false;
+            if (newEventStore.Knocks.TryGetValue(roomId, out var stateEvents))
+            {
+                var identity = identityService.GetSelfIdentity();
+                var userId = UserIdentifier.FromId(identity.Id).ToString();
+                var newStateEvents = new List<StrippedStateEvent>();
+                foreach (var stateEvent in stateEvents)
+                {
+                    if (stateEvent.EventType == EventTypes.Member && stateEvent.StateKey == userId)
+                    {
+                        if (foundKnock)
+                        {
+                            logger.LogWarning("Multiple member event encountered.");
+                            continue;
+                        }
+                        foundKnock = true;
+                        newStateEvents.Add(new StrippedStateEvent
+                        {
+                            Content = JsonSerializer.SerializeToElement(new MemberEvent
+                            {
+                                MemberShip = MembershipStates.Leave
+                            }),
+                            Sender = userId,
+                            StateKey = userId,
+                            EventType = EventTypes.Member
+                        });
+                    }
+                    else
+                    {
+                        newStateEvents.Add(stateEvent);
+                    }
+                }
+                var knocks = newEventStore.Knocks.SetItem(roomId, newStateEvents.ToImmutableList());
+                newEventStore = await newEventStore.SetKnocksAsync(store, knocks);
+            }
+            if (!foundKnock)
+            {
+                logger.LogWarning("Knock not found.");
+            }
+
+            newEventStore = await SaveNewBatchAsync(store, newEventStore);
+            await store.CommitAsync();
+            EventStore.Instance = newEventStore;
+        }
+        finally
+        {
+            locker.Set();
+        }
+    }
+
+    public async Task ForgetAsync(string roomId)
+    {
+        locker.WaitOne();
+        try
+        {
+            using var store = storageProvider.GetEventStore();
+            var newEventStore = eventStore.Update();
+
+            if (!newEventStore.LeftRoomIds.Contains(roomId))
+            {
+                logger.LogWarning("RoomId not found in left rooms: {}", roomId);
+                return;
+            }
+            var leftRoomIds = newEventStore.LeftRoomIds.Remove(roomId);
+            newEventStore = await newEventStore.SetLeftRoomIdsAsync(store, leftRoomIds);
+
+            newEventStore = await SaveNewBatchAsync(store, newEventStore);
             await store.CommitAsync();
             EventStore.Instance = newEventStore;
         }

@@ -59,9 +59,9 @@ public class AccountDataLoader
             }
             filterFunc = (eventType, _) => filters.All(x => x(eventType, _));
         }
-        var accoutData = await accountData.LoadAccountDataAsync(roomId, filterFunc, limit);
+        var accountData = await this.accountData.LoadAccountDataAsync(roomId, filterFunc, limit);
         var events = new List<Event>();
-        foreach (var (eventType, content) in accoutData)
+        foreach (var (eventType, content) in accountData)
         {
             events.Add(new Event
             {
