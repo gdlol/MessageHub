@@ -424,4 +424,15 @@ func GetNextMessage(ctxHandle ContextHandle, subscriptionHandle SubscriptionHand
 	return nil
 }
 
+//export DownloadFile
+func DownloadFile(ctxHandle ContextHandle, hostHandle HostHandle, peerID StringHandle, url StringHandle, filePath StringHandle) StringHandle {
+	ctx := loadValue(ctxHandle).(*cancellableContext).ctx
+	host := loadValue(hostHandle).(host.Host)
+	err := download(ctx, host, C.GoString(peerID), C.GoString(url), C.GoString(filePath))
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	return nil
+}
+
 func main() {}

@@ -125,9 +125,16 @@ internal sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
         return p2pNode.SendAsync(request, cancellationToken);
     }
 
-    public Task<Stream> DownloadAsync(string peerId, string url)
+    public async Task DownloadAsync(string id, string url, string filePath, CancellationToken cancellationToken)
     {
-        throw new NotImplementedException();
+        if (p2pNode is null)
+        {
+            throw new InvalidOperationException();
+        }
+        logger.LogDebug("Downloading {}...", $"libp2p://{id}{url}");
+        var (addressInfo, _) = await p2pNode.Resolver.ResolveAddressInfoAsync(id, cancellationToken: cancellationToken);
+        string peerId = Host.GetIdFromAddressInfo(addressInfo);
+        p2pNode.Host.DownloadFile(peerId, url, filePath, cancellationToken);
     }
 
     public Task<IIdentity[]> SearchPeersAsync(

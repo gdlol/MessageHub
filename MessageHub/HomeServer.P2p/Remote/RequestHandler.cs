@@ -36,9 +36,4 @@ public class RequestHandler : IRequestHandler
             return await networkProvider.SendAsync(signedRequest, cts.Token);
         }
     }
-
-    public Task<Stream> DownloadAsync(string id, string url)
-    {
-        return networkProvider.DownloadAsync(id, url);
-    }
 }

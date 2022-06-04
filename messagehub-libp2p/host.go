@@ -60,7 +60,7 @@ func createHost(config HostConfig) (host.Host, error) {
 		options = append(options, libp2p.StaticRelays(relayAddrInfos))
 	}
 	if config.PrivateNetworkSecret != nil {
-		info := []byte("messagehub-libp2p private network")
+		info := []byte("libp2p")
 		reader := hkdf.New(sha256.New, []byte(*config.PrivateNetworkSecret), nil, info)
 		psk := make([]byte, 32)
 		_, err := reader.Read(psk)

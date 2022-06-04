@@ -18,20 +18,25 @@ public class ContentRepository : IContentRepository
     {
         ArgumentNullException.ThrowIfNull(file);
 
-        string guid = Guid.NewGuid().ToString();
-        string url = $"mxc://{identityService.GetSelfIdentity().Id}/{guid}";
-        using var fileStream = File.OpenWrite(Path.Combine(config.ContentPath, guid));
+        string serverName = identityService.GetSelfIdentity().Id;
+        string mediaId = Guid.NewGuid().ToString();
+        string url = $"mxc://{serverName}/{mediaId}";
+        string directoryPath = Path.Combine(config.ContentPath, serverName);
+        Directory.CreateDirectory(directoryPath);
+        string filePath = Path.Combine(directoryPath, mediaId);
+        using var fileStream = File.OpenWrite(filePath);
         await file.CopyToAsync(fileStream);
         return url;
     }
 
-    public Task<Stream?> DownloadFileAsync(string url)
+    public Task<Stream?> DownloadFileAsync(string serverName, string mediaId)
     {
         Stream? result = null;
-        if (url.Contains('/'))
+        string directoryPath = Path.Combine(config.ContentPath, serverName);
+        string filePath = Path.Combine(directoryPath, mediaId);
+        if (File.Exists(filePath))
         {
-            string fileName = url.Split('/')[^1];
-            result = File.OpenRead(Path.Combine(config.ContentPath, fileName));
+            result = File.OpenRead(filePath);
         }
         return Task.FromResult(result);
     }

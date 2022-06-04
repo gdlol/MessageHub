@@ -218,4 +218,12 @@ internal unsafe static class NativeMethods
         SubscriptionHandle subscriptionHandle,
         out StringHandle senderID,
         out StringHandle messageJSON);
+
+    [DllImport(Native.DllName)]
+    public static extern StringHandle DownloadFile(
+        ContextHandle ctxHandle,
+        HostHandle hostHandle,
+        StringHandle peerID,
+        StringHandle url,
+        StringHandle filePath);
 }

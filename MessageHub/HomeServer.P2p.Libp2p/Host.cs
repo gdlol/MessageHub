@@ -170,4 +170,14 @@ public sealed class Host : IDisposable
         LibP2pException.Check(error);
         return new Proxy(proxyHandle);
     }
+
+    public void DownloadFile(string peerId, string url, string filePath, CancellationToken cancellationToken)
+    {
+        using var context = new Context(cancellationToken);
+        using var peerIdString = StringHandle.FromString(peerId);
+        using var urlString = StringHandle.FromString(url);
+        using var filePathString = StringHandle.FromString(filePath);
+        using var error = NativeMethods.DownloadFile(context.Handle, handle, peerIdString, urlString, filePathString);
+        LibP2pException.Check(error);
+    }
 }

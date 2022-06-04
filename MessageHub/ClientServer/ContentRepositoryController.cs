@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using MessageHub.Authentication;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Remote;
@@ -38,22 +39,42 @@ public class ContentRepositoryController : ControllerBase
         });
     }
 
+    private static bool IsValidString(string s)
+    {
+        return Regex.IsMatch(s, "^[A-Za-z0-9_-]+$");
+    }
+
     [Route("download/{serverName}/{mediaId}")]
     [HttpGet]
-    public async Task<IActionResult> Download(string serverName, string mediaId)
+    public async Task<IActionResult> Download(
+        [FromRoute] string serverName,
+        [FromRoute] string mediaId,
+        [FromQuery(Name = "allow_remote")] bool? allowRemote)
     {
+        if (!IsValidString(serverName))
+        {
+            return BadRequest(MatrixError.Create(
+                MatrixErrorCode.InvalidParameter,
+                $"{nameof(serverName)}: {serverName}"));
+        }
+        if (!IsValidString(mediaId))
+        {
+            return BadRequest(MatrixError.Create(
+                MatrixErrorCode.InvalidParameter,
+                $"{nameof(mediaId)}: {mediaId}"));
+        }
         if (!identityService.HasSelfIdentity || serverName == identityService.GetSelfIdentity().Id)
         {
-            string url = $"mxc://{serverName}/{mediaId}";
-            var stream = await contentRepository.DownloadFileAsync(url);
+            var stream = await contentRepository.DownloadFileAsync(serverName, mediaId);
             if (stream is not null)
             {
                 return File(stream, "application/octet-stream", mediaId);
             }
         }
-        else
+        else if (allowRemote != false)
         {
-            var stream = await remoteContentRepository.DownloadFileAsync(serverName, mediaId);
+            using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(1));
+            var stream = await remoteContentRepository.DownloadFileAsync(serverName, mediaId, cts.Token);
             if (stream is not null)
             {
                 return File(stream, "application/octet-stream", mediaId);
@@ -64,20 +85,36 @@ public class ContentRepositoryController : ControllerBase
 
     [Route("download/{serverName}/{mediaId}/{fileName}")]
     [HttpGet]
-    public async Task<IActionResult> Download(string serverName, string mediaId, string fileName)
+    public async Task<IActionResult> Download(
+        [FromRoute] string serverName,
+        [FromRoute] string mediaId,
+        [FromRoute] string fileName,
+        [FromQuery(Name = "allow_remote")] bool? allowRemote)
     {
+        if (!IsValidString(serverName))
+        {
+            return BadRequest(MatrixError.Create(
+                MatrixErrorCode.InvalidParameter,
+                $"{nameof(serverName)}: {serverName}"));
+        }
+        if (!IsValidString(mediaId))
+        {
+            return BadRequest(MatrixError.Create(
+                MatrixErrorCode.InvalidParameter,
+                $"{nameof(mediaId)}: {mediaId}"));
+        }
         if (!identityService.HasSelfIdentity || serverName == identityService.GetSelfIdentity().Id)
         {
-            string url = $"mxc://{serverName}/{mediaId}";
-            var stream = await contentRepository.DownloadFileAsync(url);
+            var stream = await contentRepository.DownloadFileAsync(serverName, mediaId);
             if (stream is not null)
             {
                 return File(stream, "application/octet-stream", fileName);
             }
         }
-        else
+        else if (allowRemote != false)
         {
-            var stream = await remoteContentRepository.DownloadFileAsync(serverName, mediaId);
+            using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(1));
+            var stream = await remoteContentRepository.DownloadFileAsync(serverName, mediaId, cts.Token);
             if (stream is not null)
             {
                 return File(stream, "application/octet-stream", fileName);
@@ -88,9 +125,12 @@ public class ContentRepositoryController : ControllerBase
 
     [Route("thumbnail/{serverName}/{mediaId}")]
     [HttpGet]
-    public Task<IActionResult> DownloadThumbnail(string serverName, string mediaId)
+    public Task<IActionResult> DownloadThumbnail(
+        [FromRoute] string serverName,
+        [FromRoute] string mediaId,
+        [FromQuery(Name = "allow_remote")] bool? allowRemote)
     {
-        return Download(serverName, mediaId);
+        return Download(serverName, mediaId, allowRemote);
     }
 
     [Route("upload")]

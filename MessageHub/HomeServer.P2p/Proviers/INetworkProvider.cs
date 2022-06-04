@@ -10,7 +10,7 @@ public interface INetworkProvider
     void Shutdown();
     void Publish(string roomId, JsonElement message);
     Task<JsonElement> SendAsync(SignedRequest request, CancellationToken cancellationToken);
-    Task<Stream> DownloadAsync(string id, string url);
+    Task DownloadAsync(string id, string url, string filePath, CancellationToken cancellationToken);
     Task<IIdentity[]> SearchPeersAsync(
         IIdentity selfIdentity,
         string searchTerm,
