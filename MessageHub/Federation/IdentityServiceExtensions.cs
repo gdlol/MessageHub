@@ -40,7 +40,7 @@ public static class IdentityServiceExtensions
             request.Content = JsonSerializer.SerializeToElement(content, ignoreNullOptions);
         }
         var element = JsonSerializer.SerializeToElement(request, ignoreNullOptions);
-        element = identity.SignJson(element);
+        element = identity.SignJson(element, request.OriginServerTimestamp);
         return element.Deserialize<SignedRequest>()!;
     }
 
@@ -57,6 +57,6 @@ public static class IdentityServiceExtensions
             Signatures = JsonSerializer.SerializeToElement<object?>(null)
         };
         var element = JsonSerializer.SerializeToElement(response, ignoreNullOptions);
-        return identity.SignJson(element);
+        return identity.SignJson(element, request.OriginServerTimestamp);
     }
 }

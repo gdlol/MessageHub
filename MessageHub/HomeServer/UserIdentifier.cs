@@ -18,6 +18,10 @@ public record class UserIdentifier(string UserName, string Id)
         }
         s = s[1..];
         var parts = s.Split(':', 2);
+        if (parts.Length != 2)
+        {
+            return false;
+        }
         identifier = new UserIdentifier(parts[0], parts[1]);
         return true;
     }
@@ -37,6 +41,6 @@ public record class UserIdentifier(string UserName, string Id)
     {
         ArgumentNullException.ThrowIfNull(id);
 
-        return new UserIdentifier(id[..Math.Min(7, id.Length)], id);
+        return new UserIdentifier("p2p", id);
     }
 }

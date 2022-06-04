@@ -46,13 +46,13 @@ internal class DiscoveryService : IP2pService
                 stoppingToken.ThrowIfCancellationRequested();
                 context.Logger.LogDebug("Advertising ID: {}", identity.Id);
                 p2pNode.Discovery.Advertise(identity.Id, stoppingToken);
-                string hostId = p2pNode.Host.Id;
-                string userId = UserIdentifier.FromId(identity.Id).ToString();
-                string displayName = await context.UserProfile.GetDisplayNameAsync(userId) ?? identity.Id;
-                for (int i = 7; i < hostId.Length; i++)
+                var userId = UserIdentifier.FromId(identity.Id);
+                string displayName = await context.UserProfile.GetDisplayNameAsync(userId.ToString())
+                    ?? userId.UserName;
+                for (int i = 7; i < identity.Id.Length; i++)
                 {
-                    string peerIdSuffix = hostId[^i..];
-                    string rendezvousPoint = $"/{displayName}/{peerIdSuffix}";
+                    string peerIdSuffix = identity.Id[^i..];
+                    string rendezvousPoint = $"{displayName}:{peerIdSuffix}";
                     if (i == 7)
                     {
                         context.Logger.LogDebug("Advertising rendezvousPoints: {}...", rendezvousPoint);

@@ -4,15 +4,19 @@ package main
 import "C"
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"unsafe"
 
+	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
+	mc "github.com/multiformats/go-multicodec"
+	mh "github.com/multiformats/go-multihash"
 )
 
 //export Alloc
@@ -432,6 +436,43 @@ func DownloadFile(ctxHandle ContextHandle, hostHandle HostHandle, peerID StringH
 	if err != nil {
 		return C.CString(err.Error())
 	}
+	return nil
+}
+
+//export EncodeEd25519PublicKey
+func EncodeEd25519PublicKey(hexPublicKey StringHandle, result *StringHandle) StringHandle {
+	*result = nil
+	publicKey, err := hex.DecodeString(C.GoString(hexPublicKey))
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	prefix := cid.Prefix{
+		Version:  1,
+		Codec:    uint64(mc.Ed25519Pub),
+		MhType:   mh.IDENTITY,
+		MhLength: -1,
+	}
+	id, err := prefix.Sum(publicKey)
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	*result = C.CString(id.String())
+	return nil
+}
+
+//export DecodeEd25519PublicKey
+func DecodeEd25519PublicKey(s StringHandle, result *StringHandle) StringHandle {
+	*result = nil
+	id, err := cid.Decode(C.GoString(s))
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	hash, err := mh.Decode(id.Hash())
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	hexPublicKey := hex.EncodeToString(hash.Digest)
+	*result = C.CString(hexPublicKey)
 	return nil
 }
 

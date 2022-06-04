@@ -226,4 +226,10 @@ internal unsafe static class NativeMethods
         StringHandle peerID,
         StringHandle url,
         StringHandle filePath);
+
+    [DllImport(Native.DllName)]
+    public static extern StringHandle EncodeEd25519PublicKey(StringHandle hexPublicKey, out StringHandle result);
+
+    [DllImport(Native.DllName)]
+    public static extern StringHandle DecodeEd25519PublicKey(StringHandle s, out StringHandle result);
 }

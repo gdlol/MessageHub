@@ -10,7 +10,7 @@ public interface IIdentity : IDisposable
     VerifyKeys VerifyKeys { get; }
     ServerKeys GetServerKeys();
     IIdentity AsReadOnly();
-    byte[] CreateSignature(string algorithm, string keyName, byte[] data);
+    byte[] CreateSignature(string algorithm, string keyName, byte[] data, long timestamp);
 }
 
 public interface IIdentityService

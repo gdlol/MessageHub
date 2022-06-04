@@ -8,6 +8,7 @@ using MessageHub.HomeServer.P2p.Libp2p.Services;
 using MessageHub.HomeServer.P2p.Libp2p.Services.Backfilling;
 using MessageHub.HomeServer.P2p.Libp2p.Services.Membership;
 using MessageHub.HomeServer.P2p.Libp2p.Services.PubSub;
+using MessageHub.HomeServer.P2p.LocalIdentity;
 using MessageHub.HomeServer.P2p.Notifiers;
 using MessageHub.HomeServer.P2p.Providers;
 using MessageHub.HomeServer.P2p.Remote;
@@ -71,17 +72,17 @@ public static class P2pHomeServerServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
+        var identityService = new LocalIdentityService();
+        services.AddSingleton(identityService);
+        services.AddSingleton<IIdentityService>(identityService);
         services.AddSingleton<UserProfileUpdateNotifier>();
         services.AddSingleton<UnresolvedEventNotifier>();
         services.AddSingleton<MembershipUpdateNotifier>();
         services.AddSingleton<RemoteRequestNotifier>();
         services.AddSingleton<IAccountData, AccountData>();
-        services.AddSingleton<IAuthenticator, DummyAuthenticator>();
+        services.AddSingleton<IAuthenticator, LocalAuthenticator>();
         services.AddSingleton<IContentRepository, ContentRepository>();
         services.AddSingleton<IEventReceiver, EventReceiver>();
-        var identityService = new DummyIdentityService();
-        services.AddSingleton(identityService);
-        services.AddSingleton<IIdentityService>(identityService);
         services.AddSingleton<IRoomDiscoveryService, RoomDiscoveryService>();
         services.AddSingleton<IUserDiscoveryService, UserDiscoveryService>();
         services.AddSingleton<IUserProfile, UserProfile>();

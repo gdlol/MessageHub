@@ -7,7 +7,7 @@ namespace MessageHub.HomeServer;
 
 public static class IdentityServiceExtensions
 {
-    public static JsonElement SignJson(this IIdentity identity, JsonElement element)
+    public static JsonElement SignJson(this IIdentity identity, JsonElement element, long timestamp)
     {
         ArgumentNullException.ThrowIfNull(identity);
         if (element.ValueKind != JsonValueKind.Object)
@@ -36,7 +36,7 @@ public static class IdentityServiceExtensions
             {
                 continue;
             }
-            var signature = identity.CreateSignature(algorithm, keyName, jsonBytes);
+            var signature = identity.CreateSignature(algorithm, keyName, jsonBytes, timestamp);
             var signatureString = UnpaddedBase64Encoder.Encode(signature);
             signatures[keyIdentifier] = signatureString;
         }
@@ -57,11 +57,7 @@ public static class IdentityServiceExtensions
         ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(pdu);
 
-        if (identity.VerifyKeys.ExpireTimestamp < pdu.OriginServerTimestamp)
-        {
-            throw new InvalidOperationException($"{nameof(pdu.OriginServerTimestamp)}: {pdu.OriginServerTimestamp}");
-        }
-        var signedElement = identity.SignJson(pdu.ToJsonElement());
+        var signedElement = identity.SignJson(pdu.ToJsonElement(), pdu.OriginServerTimestamp);
         return signedElement.Deserialize<PersistentDataUnit>()!;
     }
 

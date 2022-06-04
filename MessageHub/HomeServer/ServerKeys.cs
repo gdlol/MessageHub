@@ -9,7 +9,7 @@ public class ServerKeys
     public string ServerName { get; init; } = default!;
 
     [JsonPropertyName("signatures")]
-    public Signatures Signatures { get; init; } = default!;
+    public Signatures Signatures { get; set; } = default!;
 
     [JsonPropertyName("valid_until_ts")]
     public long ValidUntilTimestamp { get; init; }
