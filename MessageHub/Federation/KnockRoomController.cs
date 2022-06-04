@@ -55,13 +55,14 @@ public class KnockRoomController : ControllerBase
         }
         var roomSnapshot = await rooms.GetRoomSnapshotAsync(roomId);
         var eventAuthorizer = new EventAuthorizer(roomSnapshot.StateContents);
+        var knockContent = JsonSerializer.SerializeToElement(
+            new MemberEvent { MemberShip = MembershipStates.Knock },
+            new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull });
         if (!eventAuthorizer.Authorize(
             eventType: EventTypes.Member,
             stateKey: userId,
             sender: senderId,
-            content: JsonSerializer.SerializeToElement(
-                new MemberEvent { MemberShip = MembershipStates.Knock },
-                new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull })))
+            content: knockContent))
         {
             if (eventAuthorizer.TryGetJoinRulesEvent()?.JoinRule == JoinRules.Knock)
             {
@@ -82,9 +83,7 @@ public class KnockRoomController : ControllerBase
             serverKeys: identity.GetServerKeys(),
             stateKey: userId,
             sender: senderId,
-            content: JsonSerializer.SerializeToElement(
-                new MemberEvent { MemberShip = MembershipStates.Knock },
-                new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull }),
+            content: knockContent,
             timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
         return new JsonResult(pdu);
     }
@@ -97,19 +96,38 @@ public class KnockRoomController : ControllerBase
         [FromBody] PersistentDataUnit pdu)
     {
         SignedRequest request = (SignedRequest)Request.HttpContext.Items[nameof(request)]!;
-        var senderId = UserIdentifier.FromId(request.Origin);
+        var sender = UserIdentifier.FromId(request.Origin);
         if (!rooms.HasRoom(roomId))
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));
+        }
+        if (pdu.RoomId != roomId
+            || EventHash.TryGetEventId(pdu) != eventId
+            || pdu.EventType != EventTypes.Member
+            || pdu.Sender != sender.ToString())
+        {
+            return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter));
+        }
+        try
+        {
+            var memberEvent = pdu.Content.Deserialize<MemberEvent>();
+            if (memberEvent?.MemberShip != MembershipStates.Knock)
+            {
+                return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter));
+            }
+        }
+        catch (Exception)
+        {
+            return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter));
         }
         var roomSnapshot = await rooms.GetRoomSnapshotAsync(roomId);
         var eventAuthorizer = new EventAuthorizer(roomSnapshot.StateContents);
         if (!eventAuthorizer.Authorize(
             eventType: EventTypes.Member,
-            stateKey: senderId.ToString(),
-            sender: senderId,
+            stateKey: sender.ToString(),
+            sender: sender,
             content: JsonSerializer.SerializeToElement(
-                new MemberEvent { MemberShip = MembershipStates.Join },
+                new MemberEvent { MemberShip = MembershipStates.Knock },
                 new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull })))
         {
             if (eventAuthorizer.TryGetJoinRulesEvent()?.JoinRule == JoinRules.Knock)

@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 using MessageHub.Authentication;
 using MessageHub.HomeServer;
+using MessageHub.HomeServer.Notifiers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -26,16 +27,20 @@ public class UserProfileController : ControllerBase
     }
 
     private readonly IUserProfile userProfile;
+    private readonly UserProfileUpdateNotifier notifier;
 
-    public UserProfileController(IUserProfile userProfile)
+    public UserProfileController(IUserProfile userProfile, UserProfileUpdateNotifier notifier)
     {
         ArgumentNullException.ThrowIfNull(userProfile);
+        ArgumentNullException.ThrowIfNull(notifier);
 
         this.userProfile = userProfile;
+        this.notifier = notifier;
     }
 
     [Route("{userId}")]
     [HttpGet]
+    [AllowAnonymous]
     public async Task<IActionResult> GetProfile(string userId)
     {
         if (string.IsNullOrEmpty(userId))
@@ -54,6 +59,7 @@ public class UserProfileController : ControllerBase
 
     [Route("{userId}/avatar_url")]
     [HttpGet]
+    [AllowAnonymous]
     public async Task<IActionResult> GetAvatarUrl(string userId)
     {
         if (string.IsNullOrEmpty(userId))
@@ -77,11 +83,13 @@ public class UserProfileController : ControllerBase
         }
 
         await userProfile.SetAvatarUrlAsync(userId, requestBody.AvatarUrl);
+        notifier.Notify(new(ProfileUpdateType.AvatarUrl, requestBody.AvatarUrl));
         return new JsonResult(new object());
     }
 
     [Route("{userId}/displayname")]
     [HttpGet]
+    [AllowAnonymous]
     public async Task<IActionResult> GetDisplayName(string userId)
     {
         if (string.IsNullOrEmpty(userId))
@@ -105,6 +113,7 @@ public class UserProfileController : ControllerBase
         }
 
         await userProfile.SetDisplayNameAsync(userId, requestBody.DisplayName);
+        notifier.Notify(new(ProfileUpdateType.DisplayName, requestBody.DisplayName));
         return new JsonResult(new object());
     }
 }

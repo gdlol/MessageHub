@@ -25,22 +25,26 @@ public class CreateRoomController : ControllerBase
 
     private readonly ILogger logger;
     private readonly IIdentityService identityService;
+    private readonly IUserProfile userProfile;
     private readonly IAccountData accountData;
     private readonly IEventSaver eventSaver;
 
     public CreateRoomController(
         ILogger<CreateRoomController> logger,
         IIdentityService identityService,
+        IUserProfile userProfile,
         IAccountData accountData,
         IEventSaver eventSaver)
     {
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(identityService);
+        ArgumentNullException.ThrowIfNull(userProfile);
         ArgumentNullException.ThrowIfNull(eventSaver);
         ArgumentNullException.ThrowIfNull(accountData);
 
         this.logger = logger;
         this.identityService = identityService;
+        this.userProfile = userProfile;
         this.accountData = accountData;
         this.eventSaver = eventSaver;
     }
@@ -177,6 +181,8 @@ public class CreateRoomController : ControllerBase
         AddEvent(pdu, roomSnapshot.States);
 
         // Join sender.
+        string? avatarUrl = await userProfile.GetAvatarUrlAsync(userId);
+        string? displayName = await userProfile.GetDisplayNameAsync(userId);
         (roomSnapshot, pdu) = EventCreation.CreateEvent(
             roomId: roomId,
             snapshot: roomSnapshot,
@@ -186,6 +192,8 @@ public class CreateRoomController : ControllerBase
             sender: senderId,
             content: JsonSerializer.SerializeToElement(new MemberEvent
             {
+                AvatarUrl = avatarUrl,
+                DisplayName = displayName,
                 MemberShip = MembershipStates.Join
             },
             ignoreNullOptions),
@@ -342,6 +350,8 @@ public class CreateRoomController : ControllerBase
                     content: JsonSerializer.SerializeToElement(
                         new MemberEvent
                         {
+                            AvatarUrl = avatarUrl,
+                            DisplayName = displayName,
                             IsDirect = parameters.IsDirect,
                             MemberShip = MembershipStates.Invite
                         },

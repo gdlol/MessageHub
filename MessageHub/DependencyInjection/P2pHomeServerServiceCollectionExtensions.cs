@@ -16,6 +16,7 @@ using MessageHub.HomeServer.P2p.Rooms.Timeline;
 using MessageHub.HomeServer.Remote;
 using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Rooms.Timeline;
+using MessageHub.HomeServer.Services;
 
 namespace MessageHub.DependencyInjection;
 
@@ -24,6 +25,7 @@ public static class P2pHomeServerServiceCollectionExtensions
     public static IServiceCollection AddFasterKV(this IServiceCollection services, string dataPath)
     {
         ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(dataPath);
 
         services.AddSingleton(new FasterStorageConfig
         {
@@ -39,6 +41,8 @@ public static class P2pHomeServerServiceCollectionExtensions
         DHTConfig dhtConfig)
     {
         ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(hostConfig);
+        ArgumentNullException.ThrowIfNull(dhtConfig);
 
         services.AddSingleton(hostConfig);
         services.AddSingleton(dhtConfig);
@@ -67,6 +71,7 @@ public static class P2pHomeServerServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
+        services.AddSingleton<UserProfileUpdateNotifier>();
         services.AddSingleton<UnresolvedEventNotifier>();
         services.AddSingleton<MembershipUpdateNotifier>();
         services.AddSingleton<RemoteRequestNotifier>();
@@ -93,6 +98,8 @@ public static class P2pHomeServerServiceCollectionExtensions
         services.AddSingleton<IRooms, Rooms>();
         services.AddSingleton<IEventSaver, EventSaver>();
         services.AddSingleton<ITimelineLoader, TimelineLoader>();
+        services.AddSingleton<ProfileUpdateService>();
+        services.AddHostedService<HostedProfileUpdateService>();
         return services;
     }
 }

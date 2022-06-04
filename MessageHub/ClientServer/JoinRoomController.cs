@@ -17,22 +17,26 @@ public class JoinRoomController : ControllerBase
 {
     private readonly ILogger logger;
     private readonly IIdentityService identityService;
+    private readonly IUserProfile userProfile;
     private readonly IRemoteRooms remoteRooms;
     private readonly ITimelineLoader timelineLoader;
 
     public JoinRoomController(
         ILogger<JoinRoomController> logger,
         IIdentityService identityService,
+        IUserProfile userProfile,
         IRemoteRooms remoteRooms,
         ITimelineLoader timelineLoader)
     {
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(identityService);
+        ArgumentNullException.ThrowIfNull(userProfile);
         ArgumentNullException.ThrowIfNull(remoteRooms);
         ArgumentNullException.ThrowIfNull(timelineLoader);
 
         this.logger = logger;
         this.identityService = identityService;
+        this.userProfile = userProfile;
         this.remoteRooms = remoteRooms;
         this.timelineLoader = timelineLoader;
     }
@@ -83,8 +87,12 @@ public class JoinRoomController : ControllerBase
             logger.LogWarning("Null make join response");
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(roomId)}: {roomId}"));
         }
+        string? avatarUrl = await userProfile.GetAvatarUrlAsync(userId.ToString());
+        string? displayName = await userProfile.GetDisplayNameAsync(userId.ToString());
         pdu.Content = JsonSerializer.SerializeToElement(new MemberEvent
         {
+            AvatarUrl = avatarUrl,
+            DisplayName = displayName,
             MemberShip = MembershipStates.Join
         },
         new JsonSerializerOptions

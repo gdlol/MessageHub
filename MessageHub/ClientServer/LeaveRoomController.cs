@@ -193,6 +193,23 @@ public class LeaveRoomController : ControllerBase
                 }
             }
 
+            var leaveContent = JsonSerializer.SerializeToElement(new MemberEvent
+            {
+                MemberShip = MembershipStates.Leave
+            },
+            new JsonSerializerOptions
+            {
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+            }); 
+            var eventAuthorizer = new EventAuthorizer(snapshot.StateContents);
+            if (!eventAuthorizer.Authorize(
+                eventType: EventTypes.Member,
+                stateKey: userId,
+                sender: sender,
+                content: leaveContent))
+            {
+                return Unauthorized(MatrixError.Create(MatrixErrorCode.Unauthorized));
+            }
             var (newSnapshot, pdu) = EventCreation.CreateEvent(
                 roomId: roomId,
                 snapshot: snapshot,
@@ -200,14 +217,7 @@ public class LeaveRoomController : ControllerBase
                 stateKey: userId,
                 serverKeys: identity.GetServerKeys(),
                 sender: sender,
-                content: JsonSerializer.SerializeToElement(new MemberEvent
-                {
-                    MemberShip = MembershipStates.Leave
-                },
-                new JsonSerializerOptions
-                {
-                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-                }),
+                content: leaveContent,
                 timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
             pdu = identity.SignEvent(pdu);
             string eventId = EventHash.GetEventId(pdu);
@@ -304,7 +314,7 @@ public class LeaveRoomController : ControllerBase
             timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
         string eventId = EventHash.GetEventId(pdu);
         var signedPdu = identity.SignEvent(pdu);
-        
+
         await eventPublisher.PublishAsync(signedPdu);
         await Task.Delay(TimeSpan.FromSeconds(2));
         await eventSaver.SaveAsync(roomId, eventId, signedPdu, snapshot.States);

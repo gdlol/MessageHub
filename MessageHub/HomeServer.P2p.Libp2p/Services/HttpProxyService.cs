@@ -9,14 +9,15 @@ internal class HttpProxyService : IP2pService
 {
     public class Context
     {
+        private IServer server;
+
         public ILogger Logger { get; }
-        public Uri SelfUri { get; }
+        public Uri SelfUri => new Uri(server.Features.Get<IServerAddressesFeature>()!.Addresses.First());
 
         public Context(ILogger<HttpProxyService> logger, IServer server)
         {
             Logger = logger;
-            string selfUrl = server.Features.Get<IServerAddressesFeature>()!.Addresses.First();
-            SelfUri = new Uri(selfUrl);
+            this.server = server;
         }
     }
 

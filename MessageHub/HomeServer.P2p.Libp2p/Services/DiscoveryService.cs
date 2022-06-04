@@ -1,3 +1,4 @@
+using MessageHub.HomeServer.Notifiers;
 using MessageHub.HomeServer.Services;
 using BackgroundService = MessageHub.HomeServer.Services.BackgroundService;
 
@@ -10,33 +11,33 @@ internal class DiscoveryService : IP2pService
         public ILogger Logger { get; }
         public IIdentityService IdentityService { get; }
         public IUserProfile UserProfile { get; }
+        public UserProfileUpdateNotifier Notifier { get; }
 
-        public Context(ILogger<DiscoveryService> logger, IIdentityService identityService, IUserProfile userProfile)
+        public Context(
+            ILogger<DiscoveryService> logger,
+            IIdentityService identityService,
+            IUserProfile userProfile,
+            UserProfileUpdateNotifier notifier)
         {
             Logger = logger;
             IdentityService = identityService;
             UserProfile = userProfile;
+            Notifier = notifier;
         }
     }
 
-    private class Service : ScheduledService
+    private class Runner
     {
         private readonly Context context;
         private readonly P2pNode p2pNode;
 
-        public Service(Context context, P2pNode p2pNode)
-            : base(initialDelay: TimeSpan.FromSeconds(3), interval: TimeSpan.FromMinutes(1))
+        public Runner(Context context, P2pNode p2pNode)
         {
             this.context = context;
             this.p2pNode = p2pNode;
         }
 
-        protected override void OnError(Exception error)
-        {
-            context.Logger.LogError(error, "Error running backfilling service.");
-        }
-
-        protected override async Task RunAsync(CancellationToken stoppingToken)
+        public async Task RunAsync(CancellationToken stoppingToken)
         {
             context.Logger.LogInformation("Advertising discovery points...");
             try
@@ -67,6 +68,59 @@ internal class DiscoveryService : IP2pService
         }
     }
 
+    private class ScheduledDiscoveryService : ScheduledService
+    {
+        private readonly ILogger logger;
+        private readonly Runner runner;
+
+        public ScheduledDiscoveryService(ILogger logger, Runner runner)
+            : base(initialDelay: TimeSpan.FromSeconds(3), interval: TimeSpan.FromMinutes(1))
+        {
+            this.logger = logger;
+            this.runner = runner;
+        }
+
+        protected override void OnError(Exception error)
+        {
+            logger.LogError(error, "Error running discovery service.");
+        }
+
+        protected override Task RunAsync(CancellationToken stoppingToken)
+        {
+            return runner.RunAsync(stoppingToken);
+        }
+    }
+
+    private class TriggerDiscoveryService : TriggeredService<UserProfileUpdate>
+    {
+        private readonly ILogger logger;
+        private readonly Runner runner;
+
+        public TriggerDiscoveryService(ILogger logger, Runner runner, UserProfileUpdateNotifier notifier)
+            : base(notifier)
+        {
+            this.logger = logger;
+            this.runner = runner;
+        }
+
+        protected override void OnError(Exception error)
+        {
+            logger.LogError(error, "Error running discovery service.");
+        }
+
+        protected override Task RunAsync(UserProfileUpdate value, CancellationToken stoppingToken)
+        {
+            if (value.UpdateType == ProfileUpdateType.DisplayName)
+            {
+                return runner.RunAsync(stoppingToken);
+            }
+            else
+            {
+                return Task.CompletedTask;
+            }
+        }
+    }
+
     private readonly Context context;
 
     public DiscoveryService(Context context)
@@ -76,6 +130,9 @@ internal class DiscoveryService : IP2pService
 
     public BackgroundService Create(P2pNode p2pNode)
     {
-        return new Service(context, p2pNode);
+        var runner = new Runner(context, p2pNode);
+        return BackgroundService.Aggregate(
+            new ScheduledDiscoveryService(context.Logger, runner),
+            new TriggerDiscoveryService(context.Logger, runner, context.Notifier));
     }
 }

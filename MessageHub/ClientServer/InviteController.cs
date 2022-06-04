@@ -28,6 +28,7 @@ public class InviteController : ControllerBase
     }
 
     private readonly IIdentityService identityService;
+    private readonly IUserProfile userProfile;
     private readonly IRooms rooms;
     private readonly IRemoteRooms remoteRooms;
     private readonly IEventSaver eventSaver;
@@ -35,18 +36,21 @@ public class InviteController : ControllerBase
 
     public InviteController(
         IIdentityService identityService,
+        IUserProfile userProfile,
         IRooms rooms,
         IRemoteRooms remoteRooms,
         IEventSaver eventSaver,
         IEventPublisher eventPublisher)
     {
         ArgumentNullException.ThrowIfNull(identityService);
+        ArgumentNullException.ThrowIfNull(userProfile);
         ArgumentNullException.ThrowIfNull(rooms);
         ArgumentNullException.ThrowIfNull(remoteRooms);
         ArgumentNullException.ThrowIfNull(eventSaver);
         ArgumentNullException.ThrowIfNull(eventPublisher);
 
         this.identityService = identityService;
+        this.userProfile = userProfile;
         this.rooms = rooms;
         this.remoteRooms = remoteRooms;
         this.eventSaver = eventSaver;
@@ -62,23 +66,28 @@ public class InviteController : ControllerBase
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(roomId)}: {roomId}"));
         }
         var identity = identityService.GetSelfIdentity();
-        var senderId = UserIdentifier.FromId(identity.Id);
+        var sender = UserIdentifier.FromId(identity.Id);
         var roomSnapshot = await rooms.GetRoomSnapshotAsync(roomId);
         using var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
 
         // Authorize event.
+        string? avatarUrl = await userProfile.GetAvatarUrlAsync(sender.ToString());
+        string? displayName = await userProfile.GetDisplayNameAsync(sender.ToString());
+        var content = JsonSerializer.SerializeToElement(
+            new MemberEvent
+            {
+                AvatarUrl = avatarUrl,
+                DisplayName = displayName,
+                MemberShip = MembershipStates.Invite,
+                Reason = parameters.Reason
+            },
+            new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull });
         var eventAuthorizer = new EventAuthorizer(roomSnapshot.StateContents);
         if (!eventAuthorizer.Authorize(
             eventType: EventTypes.Member,
             stateKey: parameters.UserId,
-            sender: senderId,
-            content: JsonSerializer.SerializeToElement(
-                new MemberEvent
-                {
-                    MemberShip = MembershipStates.Invite,
-                    Reason = parameters.Reason
-                },
-                new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull })))
+            sender: sender,
+            content: content))
         {
             return Unauthorized(MatrixError.Create(MatrixErrorCode.Unauthorized));
         }
@@ -88,10 +97,8 @@ public class InviteController : ControllerBase
             eventType: EventTypes.Member,
             stateKey: parameters.UserId,
             serverKeys: identity.GetServerKeys(),
-            sender: senderId,
-            content: JsonSerializer.SerializeToElement(
-                new MemberEvent { MemberShip = MembershipStates.Invite },
-                new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull }),
+            sender: sender,
+            content: content,
             timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
         pdu = identity.SignEvent(pdu);
         string eventId = EventHash.GetEventId(pdu);
