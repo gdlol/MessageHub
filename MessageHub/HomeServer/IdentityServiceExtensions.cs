@@ -89,11 +89,7 @@ public static class IdentityServiceExtensions
         {
             return false;
         }
-        if (serverKeys.ServerName != id)
-        {
-            return false;
-        }
-        if (!identityService.Verify(serverKeys))
+        if (identityService.Verify(serverKeys) != id)
         {
             return false;
         }

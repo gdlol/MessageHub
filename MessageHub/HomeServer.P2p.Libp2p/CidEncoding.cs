@@ -12,13 +12,4 @@ public static class CidEncoding
         using var _ = result;
         return result.ToString();
     }
-
-    public static byte[] DecodeEd25519PublicKey(string cid)
-    {
-        using var s = StringHandle.FromString(cid);
-        using var error = NativeMethods.DecodeEd25519PublicKey(s, out var result);
-        LibP2pException.Check(error);
-        using var _ = result;
-        return Convert.FromHexString(result.ToString());
-    }
 }

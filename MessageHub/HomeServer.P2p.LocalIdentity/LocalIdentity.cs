@@ -43,8 +43,9 @@ public sealed class LocalIdentity : IIdentity
         this.key = key;
         this.serverKeys = JsonSerializer.SerializeToElement(serverKeys);
         validUntilTimestamp = serverKeys.ValidUntilTimestamp;
-        Id = serverKeys.ServerName;
-        Signature = serverKeys.Signatures[Id][ServerKeyIdentifier];
+        var publicKeyBlob = UnpaddedBase64Encoder.DecodeBytes(serverKeys.ServerName);
+        Id = CidEncoding.EncodeEd25519PublicKey(publicKeyBlob);
+        Signature = serverKeys.Signatures[serverKeys.ServerName][ServerKeyIdentifier];
         VerifyKeys = new VerifyKeys(serverKeys.VerifyKeys.ToImmutableDictionary(), serverKeys.ValidUntilTimestamp);
     }
 
@@ -55,11 +56,11 @@ public sealed class LocalIdentity : IIdentity
         verifyKeys = new VerifyKeys(
             verifyKeys.Keys.SetItem(
                 VerifyKeyIdentifier,
-                CidEncoding.EncodeEd25519PublicKey(verifyKey.PublicKey.Export(KeyBlobFormat.RawPublicKey))),
+                UnpaddedBase64Encoder.Encode(verifyKey.PublicKey.Export(KeyBlobFormat.RawPublicKey))),
             verifyKeys.ExpireTimestamp);
         var serverKeys = new ServerKeys
         {
-            ServerName = CidEncoding.EncodeEd25519PublicKey(serverKey.PublicKey.Export(KeyBlobFormat.RawPublicKey)),
+            ServerName = UnpaddedBase64Encoder.Encode(serverKey.PublicKey.Export(KeyBlobFormat.RawPublicKey)),
             ValidUntilTimestamp = verifyKeys.ExpireTimestamp,
             VerifyKeys = verifyKeys.Keys.ToDictionary(x => x.Key, x => x.Value)
         };

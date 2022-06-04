@@ -30,21 +30,21 @@ public class LocalIdentityService : IIdentityService
         selfIdentity = identity;
     }
 
-    public bool Verify(ServerKeys serverKeys)
+    public string? Verify(ServerKeys serverKeys)
     {
         if (!serverKeys.Signatures.TryGetValue(serverKeys.ServerName, out var signatures))
         {
-            return false;
+            return null;
         }
         if (!signatures.TryGetValue(LocalIdentity.ServerKeyIdentifier, out string? signature))
         {
-            return false;
+            return null;
         }
-        var publicKeyBlob = CidEncoding.DecodeEd25519PublicKey(serverKeys.ServerName);
+        var publicKeyBlob = UnpaddedBase64Encoder.DecodeBytes(serverKeys.ServerName);
         var signatureAlgorithm = SignatureAlgorithm.Ed25519;
         if (!PublicKey.TryImport(signatureAlgorithm, publicKeyBlob, KeyBlobFormat.RawPublicKey, out var publicKey))
         {
-            return false;
+            return null;
         }
         var signatureData = UnpaddedBase64Encoder.DecodeBytes(signature);
         var element = JsonSerializer.SerializeToElement(serverKeys, ignoreNullOptions);
@@ -55,7 +55,11 @@ public class LocalIdentityService : IIdentityService
         }
         jsonObject.Remove(nameof(signatures));
         var data = CanonicalJson.SerializeToBytes(jsonObject);
-        return signatureAlgorithm.Verify(publicKey!, data, signatureData);
+        if (!signatureAlgorithm.Verify(publicKey!, data, signatureData))
+        {
+            return null;
+        }
+        return CidEncoding.EncodeEd25519PublicKey(publicKeyBlob);
     }
 
     public bool VerifySignature(string algorithm, string key, byte[] data, byte[] signature)
@@ -64,7 +68,7 @@ public class LocalIdentityService : IIdentityService
         {
             throw new NotSupportedException($"{nameof(algorithm)}: {algorithm}");
         }
-        var publicKeyBlob = CidEncoding.DecodeEd25519PublicKey(key);
+        var publicKeyBlob = UnpaddedBase64Encoder.DecodeBytes(key);
         var signatureAlgorithm = SignatureAlgorithm.Ed25519;
         if (!PublicKey.TryImport(signatureAlgorithm, publicKeyBlob, KeyBlobFormat.RawPublicKey, out var publicKey))
         {

@@ -18,6 +18,6 @@ public interface IIdentityService
     bool HasSelfIdentity { get; }
     IIdentity GetSelfIdentity();
     IReadOnlySet<string> SupportedAlgorithms { get; }
-    bool Verify(ServerKeys serverKeys);
+    string? Verify(ServerKeys serverKeys);
     bool VerifySignature(string algorithm, string key, byte[] data, byte[] signature);
 }

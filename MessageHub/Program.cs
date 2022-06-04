@@ -59,6 +59,17 @@ app.Map("/.well-known/matrix/client", () => new Dictionary<string, object>
     ["m.homeserver"] = new { base_url = url },
     ["m.identity_server"] = new { base_url = url }
 });
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/_matrix/media"))
+    {
+        context.Response.Headers.Add(
+            "Content-Security-Policy",
+            "sandbox; default-src 'none'; script-src 'none'; plugin-types application/pdf; "
+            + "style-src 'unsafe-inline'; object-src 'self';");
+    }
+    await next();
+});
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

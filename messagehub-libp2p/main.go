@@ -449,7 +449,7 @@ func EncodeEd25519PublicKey(hexPublicKey StringHandle, result *StringHandle) Str
 	prefix := cid.Prefix{
 		Version:  1,
 		Codec:    uint64(mc.Ed25519Pub),
-		MhType:   mh.IDENTITY,
+		MhType:   mh.SHA2_256,
 		MhLength: -1,
 	}
 	id, err := prefix.Sum(publicKey)
@@ -457,22 +457,6 @@ func EncodeEd25519PublicKey(hexPublicKey StringHandle, result *StringHandle) Str
 		return C.CString(err.Error())
 	}
 	*result = C.CString(id.String())
-	return nil
-}
-
-//export DecodeEd25519PublicKey
-func DecodeEd25519PublicKey(s StringHandle, result *StringHandle) StringHandle {
-	*result = nil
-	id, err := cid.Decode(C.GoString(s))
-	if err != nil {
-		return C.CString(err.Error())
-	}
-	hash, err := mh.Decode(id.Hash())
-	if err != nil {
-		return C.CString(err.Error())
-	}
-	hexPublicKey := hex.EncodeToString(hash.Digest)
-	*result = C.CString(hexPublicKey)
 	return nil
 }
 

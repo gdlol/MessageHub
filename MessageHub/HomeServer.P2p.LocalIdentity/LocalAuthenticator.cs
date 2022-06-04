@@ -146,7 +146,7 @@ internal class LocalAuthenticator : IAuthenticator
                 {
                     networkProvider.Initialize(serverKeys =>
                     {
-                        if (localIdentityService.Verify(serverKeys))
+                        if (localIdentityService.Verify(serverKeys) is not null)
                         {
                             return LocalIdentity.Create(serverKeys);
                         }
