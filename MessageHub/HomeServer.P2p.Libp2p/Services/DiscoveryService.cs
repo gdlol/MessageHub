@@ -63,7 +63,7 @@ internal class DiscoveryService : IP2pService
             catch (OperationCanceledException) { }
             catch (Exception ex)
             {
-                context.Logger.LogInformation("Error advertising discovery points.", ex.Message);
+                context.Logger.LogInformation(ex, "Error advertising discovery points.");
             }
         }
     }

@@ -143,7 +143,7 @@ public class SearchUserController : ControllerBase
                 }
             }
         }
-        var users = new List<SearchResponse.User>();
+        var users = new Dictionary<string, SearchResponse.User>();
         var searchTokens = requestBody.SearchTerm.Split(
             ' ',
             StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -166,48 +166,71 @@ public class SearchUserController : ControllerBase
                 return user.UserId.Contains(token) || user.DisplayName?.Contains(token) == true;
             }))
             {
-                users.Add(user);
+                users.TryAdd(user.UserId, user);
             }
         }
         bool limited = false;
         {
-            if (requestBody.Limit is int limit && limit > users.Count)
-            {
-                users = users.Take(limit).ToList();
-                limited = true;
-            }
-            else
+            if (!(requestBody.Limit is int limit && limit > users.Count))
             {
                 // Find remote users.
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                var remoteUsers = new ConcurrentBag<SearchResponse.User>();
                 try
                 {
-                    var remoteUsers = await userDiscoveryService.SearchUsersAsync(requestBody.SearchTerm, cts.Token);
-                    foreach (var identity in remoteUsers)
-                    {
-                        users.Add(new SearchResponse.User
+                    var remoteIdentities = await userDiscoveryService.SearchUsersAsync(
+                        requestBody.SearchTerm,
+                        cts.Token);
+                    await Parallel.ForEachAsync(
+                        remoteIdentities,
+                        new ParallelOptions
                         {
-                            UserId = UserIdentifier.FromId(identity.Id).ToString()
+                            CancellationToken = cts.Token,
+                            MaxDegreeOfParallelism = 3
+                        },
+                        async (identity, token) =>
+                        {
+                            string? avatarUrl = null;
+                            string? displayName = null;
+                            var userId = UserIdentifier.FromId(identity.Id).ToString();
+                            try
+                            {
+                                var profile = await userDiscoveryService.GetUserProfileAsync(userId, token);
+                                (avatarUrl, displayName) = profile;
+                            }
+                            catch (Exception ex)
+                            {
+                                logger.LogInformation(ex, "Error getting user profile from {}: {}", identity.Id);
+                            }
+                            remoteUsers.Add(new SearchResponse.User
+                            {
+                                AvatarUrl = avatarUrl,
+                                DisplayName = displayName,
+                                UserId = UserIdentifier.FromId(identity.Id).ToString()
+                            });
                         });
-                    }
                 }
                 catch (Exception ex)
                 {
                     logger.LogWarning(ex, "Error searching remote users");
                 }
+                foreach (var user in remoteUsers)
+                {
+                    users.TryAdd(user.UserId!, user);
+                }
             }
         }
         {
             if (requestBody.Limit is int limit && limit > users.Count)
             {
-                users = users.Take(limit).ToList();
+                users = users.OrderBy(x => x.Key).Take(limit).ToDictionary(x => x.Key, x => x.Value);
                 limited = true;
             }
         }
         return new JsonResult(new SearchResponse
         {
             Limited = limited,
-            Results = users.ToArray()
+            Results = users.Values.ToArray()
         });
     }
 }
