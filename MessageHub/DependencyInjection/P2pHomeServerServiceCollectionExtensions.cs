@@ -70,20 +70,27 @@ public static class P2pHomeServerServiceCollectionExtensions
         return services;
     }
 
-    public static IServiceCollection AddP2pHomeServer(this IServiceCollection services)
+    public static IServiceCollection AddLocalIdentity(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        var identityService = new LocalIdentityService();
-        services.AddSingleton(identityService);
-        services.AddSingleton<IIdentityService>(identityService);
+        services.AddSingleton<LocalIdentityService>();
+        services.AddSingleton<LocalAuthenticator>();
+        services.AddSingleton<KeyRotationService>();
+        services.AddHostedService<HostedKeyRotationService>();
+        services.AddSingleton<IIdentityService>(provider => provider.GetRequiredService<LocalIdentityService>());
+        services.AddSingleton<IAuthenticator>(provider => provider.GetRequiredService<LocalAuthenticator>());
+        return services;
+    }
+
+    public static IServiceCollection AddP2pHomeServer(this IServiceCollection services)
+    {
         services.AddSingleton<AuthenticatedRequestNotifier>();
         services.AddSingleton<UserProfileUpdateNotifier>();
         services.AddSingleton<UnresolvedEventNotifier>();
         services.AddSingleton<MembershipUpdateNotifier>();
         services.AddSingleton<RemoteRequestNotifier>();
         services.AddSingleton<IAccountData, AccountData>();
-        services.AddSingleton<IAuthenticator, LocalAuthenticator>();
         services.AddSingleton<IContentRepository, ContentRepository>();
         services.AddSingleton<IEventReceiver, EventReceiver>();
         services.AddSingleton<IRoomDiscoveryService, RoomDiscoveryService>();

@@ -15,7 +15,7 @@ internal class PubSubServiceContext
     public IIdentityService IdentityService { get; }
     public IRooms Rooms { get; }
     public IHttpClientFactory HttpClientFactory { get; }
-    public string SelfUrl => server.Features.Get<IServerAddressesFeature>()!.Addresses.First();
+    public Uri SelfUri => new(server.Features.Get<IServerAddressesFeature>()!.Addresses.First());
     public MembershipUpdateNotifier MembershipUpdateNotifier { get; }
     public PublishEventNotifier PublishEventNotifier { get; }
     public RemoteRequestNotifier RemoteRequestNotifier { get; }

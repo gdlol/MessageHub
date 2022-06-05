@@ -67,7 +67,7 @@ internal sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
 
     public (KeyIdentifier, string) GetVerifyKey()
     {
-        return (AuthenticatedPeer.KeyIdentifier, host.Id);
+        return (AuthorizedPeer.KeyIdentifier, host.Id);
     }
 
     public void Dispose()
@@ -75,7 +75,7 @@ internal sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
         host.Dispose();
     }
 
-    public void Initialize(Func<ServerKeys, IIdentity?> identityVerifier)
+    public void Initialize(Func<ServerKeys, IIdentity?> tryGetIdentity)
     {
         logger.LogInformation("Initializing libp2p...");
         logger.LogInformation("Host ID: {}", host.Id);
@@ -112,7 +112,7 @@ internal sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
             memberStore: memberStore,
             pubsub: pubsub,
             loggerFactory: loggerFactory,
-            identityVerifier: identityVerifier,
+            tryGetIdentity: tryGetIdentity,
             addressCache: memoryCache);
 
         logger.LogInformation("Starting background services...");

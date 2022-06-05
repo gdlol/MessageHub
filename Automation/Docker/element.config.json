@@ -1,0 +1,22 @@
+{
+    "default_server_config": {
+        "m.homeserver": {
+            "base_url": "http://127.84.48.2"
+        }
+    },
+    "disable_custom_urls": true,
+    "disable_guests": true,
+    "disable_login_language_selector": false,
+    "disable_3pid_login": true,
+    "brand": "MessageHub",
+    "bug_report_endpoint_url": "https://element.io/bugreports/submit",
+    "uisi_autorageshake_app": "element-auto-uisi",
+    "default_country_code": "GB",
+    "show_labs_settings": false,
+    "features": {},
+    "default_federate": true,
+    "default_theme": "light",
+    "setting_defaults": {
+        "breadcrumbs": true
+    }
+}

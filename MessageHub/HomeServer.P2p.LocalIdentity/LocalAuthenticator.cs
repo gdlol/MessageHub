@@ -42,7 +42,7 @@ internal class LocalAuthenticator : IAuthenticator
         this.userProfile = userProfile;
     }
 
-    private async Task<(bool created, Key key)> CreateOrGetPrivateKeyAsync()
+    internal async Task<(bool created, Key key)> CreateOrGetPrivateKeyAsync()
     {
         locker.WaitOne();
         try
@@ -74,6 +74,18 @@ internal class LocalAuthenticator : IAuthenticator
         {
             locker.Set();
         }
+    }
+
+    internal LocalIdentity CreateIdentity(Key key)
+    {
+        var (keyId, networkKey) = networkProvider.GetVerifyKey();
+        var localIdentity = LocalIdentity.Create(
+            key,
+            new VerifyKeys(new Dictionary<KeyIdentifier, string>
+            {
+                [keyId] = networkKey,
+            }.ToImmutableDictionary(), DateTimeOffset.UtcNow.AddDays(7).ToUnixTimeMilliseconds()));
+        return localIdentity;
     }
 
     public string GetSsoRedirectUrl(string redirectUrl)

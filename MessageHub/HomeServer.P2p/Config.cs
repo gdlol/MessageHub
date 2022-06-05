@@ -13,6 +13,9 @@ public class Config
     [JsonPropertyName("dataPath")]
     public string DataPath { get; set; } = default!;
 
+    [JsonPropertyName("libp2p.port")]
+    public int P2pPort { get; set; }
+
     [JsonPropertyName("libp2p.staticRelays")]
     public string[]? StaticRelays { get; set; }
 

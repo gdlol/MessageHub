@@ -9,10 +9,10 @@ internal class HttpProxyService : IP2pService
 {
     public class Context
     {
-        private IServer server;
+        private readonly IServer server;
 
         public ILogger Logger { get; }
-        public Uri SelfUri => new Uri(server.Features.Get<IServerAddressesFeature>()!.Addresses.First());
+        public Uri SelfUri => new(server.Features.Get<IServerAddressesFeature>()!.Addresses.First());
 
         public Context(ILogger<HttpProxyService> logger, IServer server)
         {
@@ -42,18 +42,15 @@ internal class HttpProxyService : IP2pService
             context.Logger.LogInformation("Starting HTTP proxy service...");
             context.Logger.LogInformation("Self URI: {}", context.SelfUri);
 
-            var addresses = await Dns.GetHostAddressesAsync(context.SelfUri.Host, stoppingToken);
-            if (addresses.Length == 0)
+            if (!IPAddress.TryParse(context.SelfUri.Host, out var selfAddress)
+                || selfAddress.Equals(IPAddress.Any)
+                || selfAddress.Equals(IPAddress.IPv6Any))
             {
-                context.Logger.LogError("Cannot resolve self address.");
-                return;
+                selfAddress = IPAddress.Loopback;
             }
-            string host = addresses[0].ToString();
-            context.Logger.LogInformation("Host: {}", host);
-
             var tcs = new TaskCompletionSource();
             using var _ = stoppingToken.Register(tcs.SetResult);
-            using var proxy = p2pNode.Host.StartProxyRequests($"{host}:{context.SelfUri.Port}");
+            using var proxy = p2pNode.Host.StartProxyRequests($"{selfAddress}:{context.SelfUri.Port}");
             await tcs.Task;
 
             context.Logger.LogInformation("Stopping HTTP proxy service.");

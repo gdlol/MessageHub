@@ -6,7 +6,7 @@ namespace MessageHub.HomeServer.P2p.Providers;
 public interface INetworkProvider
 {
     (KeyIdentifier, string) GetVerifyKey();
-    void Initialize(Func<ServerKeys, IIdentity?> identityVerifier);
+    void Initialize(Func<ServerKeys, IIdentity?> tryGetIdentity);
     void Shutdown();
     void Publish(string roomId, JsonElement message);
     Task<JsonElement> SendAsync(SignedRequest request, CancellationToken cancellationToken);

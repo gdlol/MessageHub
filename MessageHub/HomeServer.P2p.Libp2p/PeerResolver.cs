@@ -9,7 +9,7 @@ public class PeerResolver : IPeerResolver
     private readonly Host host;
     private readonly DHT dht;
     private readonly Discovery discovery;
-    private readonly Func<ServerKeys, IIdentity?> identityVerifier;
+    private readonly Func<ServerKeys, IIdentity?> tryGetIdentity;
     private readonly IMemoryCache addressCache;
 
     public PeerResolver(
@@ -17,21 +17,21 @@ public class PeerResolver : IPeerResolver
         Host host,
         DHT dht,
         Discovery discovery,
-        Func<ServerKeys, IIdentity?> identityVerifier,
+        Func<ServerKeys, IIdentity?> tryGetIdentity,
         IMemoryCache addressCache)
     {
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(host);
         ArgumentNullException.ThrowIfNull(dht);
         ArgumentNullException.ThrowIfNull(discovery);
-        ArgumentNullException.ThrowIfNull(identityVerifier);
+        ArgumentNullException.ThrowIfNull(tryGetIdentity);
         ArgumentNullException.ThrowIfNull(addressCache);
 
         this.logger = logger;
         this.host = host;
         this.dht = dht;
         this.discovery = discovery;
-        this.identityVerifier = identityVerifier;
+        this.tryGetIdentity = tryGetIdentity;
         this.addressCache = addressCache;
     }
 
@@ -44,7 +44,7 @@ public class PeerResolver : IPeerResolver
 
         if (rendezvousPoint is null)
         {
-            rendezvousPoint = id;
+            rendezvousPoint = $"p2p:{id}";
         }
         var tcs = new TaskCompletionSource<(string, IIdentity)>();
         using var _ = cancellationToken.Register(() => tcs.TrySetCanceled());
@@ -65,9 +65,9 @@ public class PeerResolver : IPeerResolver
                 token.ThrowIfCancellationRequested();
 
                 IEnumerable<(string, string)> addressInfos;
+                (string, string)? cachedInfo = null;
                 try
                 {
-                    (string, string)? cachedInfo = null;
                     if (addressCache.TryGetValue(id, out string addressInfo))
                     {
                         logger.LogDebug("Found address info in cache for id {}: {}", id, addressInfo);
@@ -125,21 +125,9 @@ public class PeerResolver : IPeerResolver
                             return;
                         }
                         logger.LogDebug("Server keys from {}: {}", peerId, responseBody);
-                        var identity = identityVerifier(serverKeys);
-                        if (identity?.Id == id
-                            && identity.VerifyKeys.Keys.TryGetValue(
-                                AuthenticatedPeer.KeyIdentifier,
-                                out var authenticatedPeerId))
+                        var identity = tryGetIdentity(serverKeys);
+                        if (identity is not null && AuthorizedPeer.Verify(identity, peerId))
                         {
-                            logger.LogDebug("Found authenticated peer ID for {}: {}", id, authenticatedPeerId);
-                            if (peerId != authenticatedPeerId)
-                            {
-                                addressInfo = dht.FindPeer(authenticatedPeerId, token);
-
-                                logger.LogDebug("Connecting to {}: {}...", authenticatedPeerId, addressInfo);
-                                host.Connect(addressInfo, token);
-                                logger.LogDebug("Connected to {}: {}", authenticatedPeerId, addressInfo);
-                            }
                             if (tcs.TrySetResult((addressInfo, identity)))
                             {
                                 cts.Cancel();
@@ -165,6 +153,10 @@ public class PeerResolver : IPeerResolver
                         logger.LogDebug(
                             "Error verifying identify of peer {} for id {}: {}",
                             (peerId, addressInfo), id, ex.Message);
+                        if ((peerId, addressInfo).Equals(cachedInfo))
+                        {
+                            addressCache.Remove(id);
+                        }
                     }
                 });
                 await Task.Delay(TimeSpan.FromSeconds(3), token);

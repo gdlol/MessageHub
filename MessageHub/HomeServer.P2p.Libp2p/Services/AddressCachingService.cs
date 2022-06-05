@@ -47,7 +47,7 @@ internal class AddressCachingService : IP2pService
         protected override Task RunAsync(ServerKeys value, CancellationToken stoppingToken)
         {
             var identity = context.IdentityService.GetSelfIdentity();
-            var remoteIdentity = p2pNode.VerifyIdentity(value);
+            var remoteIdentity = p2pNode.TryGetIdentity(value);
             if (remoteIdentity is null)
             {
                 context.Logger.LogWarning("Identity verification failed: {}", JsonSerializer.SerializeToElement(value));
@@ -61,7 +61,7 @@ internal class AddressCachingService : IP2pService
             {
                 return Task.CompletedTask;
             }
-            if (!value.VerifyKeys.TryGetValue(AuthenticatedPeer.KeyIdentifier, out var peerId))
+            if (!value.VerifyKeys.TryGetValue(AuthorizedPeer.KeyIdentifier, out var peerId))
             {
                 context.Logger.LogWarning("PeerId not found: {}", JsonSerializer.SerializeToElement(value));
             }

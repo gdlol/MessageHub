@@ -29,6 +29,7 @@ import (
 	gostream "github.com/libp2p/go-libp2p-gostream"
 	p2phttp "github.com/libp2p/go-libp2p-http"
 	"github.com/libp2p/go-libp2p-peerstore/pstoreds"
+	quic "github.com/libp2p/go-libp2p-quic-transport"
 	"github.com/libp2p/go-libp2p/p2p/host/autorelay"
 	"github.com/libp2p/go-tcp-transport"
 	"github.com/multiformats/go-multiaddr"
@@ -63,12 +64,12 @@ func createHost(config HostConfig) (*HostNode, error) {
 	dbPath := filepath.Join(dataPath, "datastore.db")
 	ds, err := leveldb.NewDatastore(dbPath, nil)
 	if err != nil {
-		log.Fatalln(fmt.Errorf("Error creating DataStore: %w", err))
+		return nil, fmt.Errorf("Error creating DataStore: %w", err)
 	}
 	ps, err := pstoreds.NewPeerstore(context.Background(), ds, pstoreds.DefaultOpts())
 	if err != nil {
-		log.Fatalln(fmt.Errorf("Error creating PeerStore: %w", err))
 		ds.Close()
+		return nil, fmt.Errorf("Error creating PeerStore: %w", err)
 	}
 	success := false
 	defer func() {
@@ -85,6 +86,7 @@ func createHost(config HostConfig) (*HostNode, error) {
 		libp2p.AutoNATServiceRateLimit(60, 3, time.Minute),
 		libp2p.EnableHolePunching(),
 		libp2p.EnableRelayService(),
+		libp2p.EnableRelay(),
 		libp2p.EnableAutoRelay(autorelay.WithPeerSource(peerSource)),
 	}
 	if config.StaticRelays != nil {
@@ -98,7 +100,21 @@ func createHost(config HostConfig) (*HostNode, error) {
 		}
 		options = append(options, libp2p.StaticRelays(relayAddrInfos))
 	}
-	if config.PrivateNetworkSecret != nil {
+	if config.PrivateNetworkSecret == nil {
+		listenAddresses := []string{
+			fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", config.Port),
+			fmt.Sprintf("/ip4/0.0.0.0/udp/%d/quic", config.Port),
+			fmt.Sprintf("/ip6/::/tcp/%d", config.Port),
+			fmt.Sprintf("/ip6/::/udp/%d/quic", config.Port),
+		}
+		transportOptions := []libp2p.Option{
+			libp2p.ChainOptions(
+				libp2p.Transport(tcp.NewTCPTransport),
+				libp2p.Transport(quic.NewTransport)),
+			libp2p.ListenAddrStrings(listenAddresses...),
+		}
+		options = append(options, transportOptions...)
+	} else {
 		info := []byte("libp2p")
 		reader := hkdf.New(sha256.New, []byte(*config.PrivateNetworkSecret), nil, info)
 		psk := make([]byte, 32)
@@ -107,9 +123,17 @@ func createHost(config HostConfig) (*HostNode, error) {
 			return nil, fmt.Errorf("Error configuring private network: %w", err)
 		}
 		options = append(options, libp2p.PrivateNetwork(pnet.PSK(psk)))
-		options = append(options, libp2p.Transport(tcp.NewTCPTransport))
-		options = append(options, libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
-		options = append(options, libp2p.ListenAddrStrings("/ip6/::/tcp/0"))
+		options = append(options, libp2p.ConnectionGater(&privateAddressGater{}))
+
+		listenAddresses := []string{
+			fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", config.Port),
+			fmt.Sprintf("/ip6/::/tcp/%d", config.Port),
+		}
+		transportOptions := []libp2p.Option{
+			libp2p.Transport(tcp.NewTCPTransport),
+			libp2p.ListenAddrStrings(listenAddresses...),
+		}
+		options = append(options, transportOptions...)
 	}
 	host, err := libp2p.New(options...)
 	if err != nil {

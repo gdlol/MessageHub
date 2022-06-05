@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer.Events;
@@ -45,7 +46,13 @@ internal class RequestForwardService : QueuedService<RemoteRequest>
             {
                 return;
             }
-            var uri = new Uri($"{context.SelfUrl}{signedRequest.Uri}");
+            if (!IPAddress.TryParse(context.SelfUri.Host, out var selfAddress)
+                || selfAddress.Equals(IPAddress.Any)
+                || selfAddress.Equals(IPAddress.IPv6Any))
+            {
+                selfAddress = IPAddress.Loopback;
+            }
+            var uri = new Uri($"http://{selfAddress}:{context.SelfUri.Port}{signedRequest.Uri}");
             var request = new HttpRequestMessage
             {
                 Method = new HttpMethod(signedRequest.Method),

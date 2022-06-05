@@ -62,7 +62,7 @@ public sealed class DHT : IDisposable
         }
     }
 
-    public string FindPeer(string peerId, CancellationToken cancellationToken = default)
+    public string? FindPeer(string peerId, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(peerId);
 
@@ -73,6 +73,10 @@ public sealed class DHT : IDisposable
         {
             cancellationToken.ThrowIfCancellationRequested();
             LibP2pException.Check(error);
+        }
+        if (resultJSON.IsInvalid)
+        {
+            return null;
         }
         using var _ = resultJSON;
         return resultJSON.ToString();

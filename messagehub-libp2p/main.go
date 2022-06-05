@@ -313,6 +313,9 @@ func FindPeer(ctxHandle ContextHandle, dhtHandle DHTHandle, peerID StringHandle,
 	if err != nil {
 		return C.CString(err.Error())
 	}
+	if addrInfo.ID.Validate() != nil || len(addrInfo.Addrs) == 0 {
+		return nil
+	}
 	result, err := addrInfo.MarshalJSON()
 	if err != nil {
 		return C.CString(err.Error())

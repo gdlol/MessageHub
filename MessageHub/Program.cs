@@ -27,15 +27,17 @@ builder.WebHost.UseUrls(url);
 builder.WebHost.ConfigureLogging(builder =>
 {
     builder.AddFilter("Default", LogLevel.Information);
-    builder.AddFilter(nameof(MessageHub), LogLevel.Debug);
     builder.AddFilter("Microsoft", LogLevel.Warning);
     builder.AddFilter("Microsoft.Hosting.Lifetime", LogLevel.Information);
+    builder.AddFilter("MessageHub", LogLevel.Debug);
+    builder.AddFilter("MessageHub.Authentication", LogLevel.Information);
 });
 builder.Services.AddCors();
 builder.Services.AddFasterKV(config.DataPath);
 builder.Services.AddLibp2p(
     new HostConfig
     {
+        Port = config.P2pPort,
         StaticRelays = config.StaticRelays,
         DataPath = config.DataPath,
         PrivateNetworkSecret = config.PrivateNetworkSecret
@@ -44,6 +46,7 @@ builder.Services.AddLibp2p(
     {
         BootstrapPeers = config.BootstrapPeers
     });
+builder.Services.AddLocalIdentity();
 builder.Services.AddP2pHomeServer();
 builder.Services.AddMatrixAuthentication();
 builder.Services.AddControllers();
