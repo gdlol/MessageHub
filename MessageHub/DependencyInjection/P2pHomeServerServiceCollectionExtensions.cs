@@ -5,6 +5,7 @@ using MessageHub.HomeServer.P2p.FasterKV;
 using MessageHub.HomeServer.P2p.Libp2p;
 using MessageHub.HomeServer.P2p.Libp2p.Notifiers;
 using MessageHub.HomeServer.P2p.Libp2p.Services;
+using MessageHub.HomeServer.P2p.Libp2p.Services.Advertising;
 using MessageHub.HomeServer.P2p.Libp2p.Services.Backfilling;
 using MessageHub.HomeServer.P2p.Libp2p.Services.Membership;
 using MessageHub.HomeServer.P2p.Libp2p.Services.PubSub;
@@ -57,8 +58,8 @@ public static class P2pHomeServerServiceCollectionExtensions
         services.AddSingleton<AddressCachingService>();
         services.AddSingleton<MdnsBackgroundService.Context>();
         services.AddSingleton<MdnsBackgroundService>();
-        services.AddSingleton<DiscoveryService.Context>();
-        services.AddSingleton<DiscoveryService>();
+        services.AddSingleton<AdvertisingServiceContext>();
+        services.AddSingleton<AdvertisingService>();
         services.AddSingleton<PubSubServiceContext>();
         services.AddSingleton<PubSubService>();
         services.AddSingleton<MembershipServiceContext>();

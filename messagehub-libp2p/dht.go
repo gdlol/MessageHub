@@ -7,9 +7,10 @@ import (
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
+	"github.com/libp2p/go-libp2p-kad-dht/dual"
 )
 
-func createDHT(ctx context.Context, host host.Host, config DHTConfig) (*dht.IpfsDHT, error) {
+func createDHT(ctx context.Context, host host.Host, config DHTConfig) (*dual.DHT, error) {
 	options := make([]dht.Option, 0)
 	if config.BootstrapPeers == nil {
 		options = append(options, dht.BootstrapPeers(dht.GetDefaultBootstrapPeerAddrInfos()...))
@@ -24,14 +25,6 @@ func createDHT(ctx context.Context, host host.Host, config DHTConfig) (*dht.Ipfs
 		}
 		options = append(options, dht.BootstrapPeers(bootstrapPeers...))
 	}
-	if config.FilterPrivateAddresses {
-		filterOptions := []dht.Option{
-			dht.QueryFilter(dht.PublicQueryFilter),
-			dht.RoutingTableFilter(dht.PublicRoutingTableFilter),
-		}
-		options = append(options, filterOptions...)
-	}
-	options = append(options, dht.Mode(dht.ModeServer))
-	ipfsDHT, err := dht.New(ctx, host, options...)
-	return ipfsDHT, err
+	dualDHT, err := dual.New(ctx, host, dual.DHTOption(options...))
+	return dualDHT, err
 }

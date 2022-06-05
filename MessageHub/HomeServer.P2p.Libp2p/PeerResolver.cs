@@ -67,33 +67,30 @@ public class PeerResolver : IPeerResolver
                 IEnumerable<(string, string)> addressInfos;
                 try
                 {
+                    (string, string)? cachedInfo = null;
                     if (addressCache.TryGetValue(id, out string addressInfo))
                     {
                         logger.LogDebug("Found address info in cache for id {}: {}", id, addressInfo);
                         string peerId = Host.GetIdFromAddressInfo(addressInfo);
-                        IEnumerable<(string, string)> GetPeers()
-                        {
-                            yield return (peerId, addressInfo);
-                            var peers = discovery.FindPeers(rendezvousPoint, token);
-                            foreach (var (id, info) in peers)
-                            {
-                                if ((id, info).Equals((peerId, addressInfo)))
-                                {
-                                    continue;
-                                }
-                                yield return (id, info);
-                            }
-                        }
-                        addressInfos = GetPeers();
+                        cachedInfo = (peerId, addressInfo);
                     }
-                    else
+                    IEnumerable<(string, string)> GetPeers()
                     {
-                        addressInfos = discovery.FindPeers(rendezvousPoint, token)
-                            .AsEnumerable()
-                            .Select(x => (x.Key, x.Value))
-                            .ToArray();
-                        logger.LogDebug("Found {} candidate peers for id: {}...", addressInfos.Count(), id);
+                        if (cachedInfo is not null)
+                        {
+                            yield return cachedInfo.Value;
+                        }
+                        var peers = discovery.FindPeers(rendezvousPoint, token);
+                        foreach (var (id, info) in peers)
+                        {
+                            if ((id, info).Equals(cachedInfo))
+                            {
+                                continue;
+                            }
+                            yield return (id, info);
+                        }
                     }
+                    addressInfos = GetPeers();
                 }
                 catch (OperationCanceledException)
                 {

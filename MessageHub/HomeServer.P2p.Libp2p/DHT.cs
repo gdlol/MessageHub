@@ -7,7 +7,6 @@ namespace MessageHub.HomeServer.P2p.Libp2p;
 public class DHTConfig
 {
     public string[]? BootstrapPeers { get; init; }
-    public bool FilterPrivateAddresses { get; init; }
 }
 
 public sealed class DHT : IDisposable

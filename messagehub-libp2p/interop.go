@@ -20,6 +20,7 @@ type ProxyHandle = ObjectHandle
 type MdnsServiceHandle = ObjectHandle
 type DHTHandle = ObjectHandle
 type DiscoveryHandle = ObjectHandle
+type PeerChanHandle = ObjectHandle
 type MemberStoreHandle = ObjectHandle
 type PubSubHandle = ObjectHandle
 type TopicHandle = ObjectHandle

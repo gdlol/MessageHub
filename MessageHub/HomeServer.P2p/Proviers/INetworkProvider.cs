@@ -11,7 +11,7 @@ public interface INetworkProvider
     void Publish(string roomId, JsonElement message);
     Task<JsonElement> SendAsync(SignedRequest request, CancellationToken cancellationToken);
     Task DownloadAsync(string id, string url, string filePath, CancellationToken cancellationToken);
-    Task<IIdentity[]> SearchPeersAsync(
+    Task<IEnumerable<IIdentity>> SearchPeersAsync(
         IIdentity selfIdentity,
         string searchTerm,
         CancellationToken cancellationToken = default);

@@ -29,7 +29,7 @@ internal sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
         AddressCachingService addressCachingService,
         HttpProxyService httpProxyService,
         MdnsBackgroundService mdnsBackgroundService,
-        DiscoveryService discoveryService,
+        AdvertisingService advertisingService,
         PubSubService pubsubService,
         MembershipService membershipService,
         BackfillingService backfillingService)
@@ -42,7 +42,7 @@ internal sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
         ArgumentNullException.ThrowIfNull(addressCachingService);
         ArgumentNullException.ThrowIfNull(httpProxyService);
         ArgumentNullException.ThrowIfNull(mdnsBackgroundService);
-        ArgumentNullException.ThrowIfNull(discoveryService);
+        ArgumentNullException.ThrowIfNull(advertisingService);
         ArgumentNullException.ThrowIfNull(pubsubService);
         ArgumentNullException.ThrowIfNull(membershipService);
         ArgumentNullException.ThrowIfNull(backfillingService);
@@ -58,7 +58,7 @@ internal sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
             addressCachingService,
             httpProxyService,
             mdnsBackgroundService,
-            discoveryService,
+            advertisingService,
             pubsubService,
             membershipService,
             backfillingService
@@ -106,14 +106,14 @@ internal sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
         var pubsub = PubSub.Create(dht, memberStore);
 
         p2pNode = new P2pNode(
-            host,
-            dht,
-            discovery,
-            memberStore,
-            pubsub,
-            loggerFactory,
-            identityVerifier,
-            memoryCache);
+            host: host,
+            dht: dht,
+            discovery: discovery,
+            memberStore: memberStore,
+            pubsub: pubsub,
+            loggerFactory: loggerFactory,
+            identityVerifier: identityVerifier,
+            addressCache: memoryCache);
 
         logger.LogInformation("Starting background services...");
         backgroundService = BackgroundService.Aggregate(p2pServices.Select(x => x.Create(p2pNode)).ToArray());
@@ -159,7 +159,7 @@ internal sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
         p2pNode.Host.DownloadFile(peerId, url, filePath, cancellationToken);
     }
 
-    public Task<IIdentity[]> SearchPeersAsync(
+    public Task<IEnumerable<IIdentity>> SearchPeersAsync(
         IIdentity selfIdentity,
         string searchTerm,
         CancellationToken cancellationToken = default)

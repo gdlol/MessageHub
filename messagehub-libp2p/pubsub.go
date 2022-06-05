@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/libp2p/go-libp2p-core/peer"
-	dht "github.com/libp2p/go-libp2p-kad-dht"
+	"github.com/libp2p/go-libp2p-kad-dht/dual"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
 )
@@ -72,12 +72,12 @@ func (store *MemberStore) filterPeer(pid peer.ID, topic string) bool {
 	return false
 }
 
-func createPubSub(ctx context.Context, ipfsDHT *dht.IpfsDHT, store *MemberStore) (*pubsub.PubSub, error) {
-	discovery := routing.NewRoutingDiscovery(ipfsDHT)
+func createPubSub(ctx context.Context, dualDHT *dual.DHT, store *MemberStore) (*pubsub.PubSub, error) {
+	discovery := routing.NewRoutingDiscovery(dualDHT)
 	options := []pubsub.Option{
 		pubsub.WithDiscovery(discovery),
 		pubsub.WithPeerFilter(store.filterPeer),
 	}
-	gossipSub, err := pubsub.NewGossipSub(ctx, ipfsDHT.Host(), options...)
+	gossipSub, err := pubsub.NewGossipSub(ctx, dualDHT.WAN.Host(), options...)
 	return gossipSub, err
 }

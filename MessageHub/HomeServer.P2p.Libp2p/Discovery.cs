@@ -1,4 +1,3 @@
-using System.Text.Json;
 using MessageHub.HomeServer.P2p.Libp2p.Native;
 
 namespace MessageHub.HomeServer.P2p.Libp2p;
@@ -41,7 +40,7 @@ public sealed class Discovery : IDisposable
         }
     }
 
-    public Dictionary<string, string> FindPeers(string topic, CancellationToken cancellationToken = default)
+    public IEnumerable<(string peerId, string addressInfo)> FindPeers(string topic, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(topic);
 
@@ -53,12 +52,19 @@ public sealed class Discovery : IDisposable
             cancellationToken.ThrowIfCancellationRequested();
             LibP2pException.Check(error);
         }
-        using var _ = resultHandle;
-        var result = JsonSerializer.Deserialize<Dictionary<string, string>>(resultHandle.ToString());
-        if (result is null)
+        using var peerChannel = new PeerChannel(resultHandle);
+        while (true)
         {
-            throw new InvalidOperationException();
+            cancellationToken.ThrowIfCancellationRequested();
+            if (peerChannel.TryGetNextPeer(context, out string? addressInfo))
+            {
+                string peerId = Host.GetIdFromAddressInfo(addressInfo);
+                yield return (peerId, addressInfo);
+            }
+            else
+            {
+                break;
+            }
         }
-        return result;
     }
 }

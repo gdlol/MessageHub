@@ -2,9 +2,7 @@
     "listenAddress": "127.0.0.1:8448",
     "contentPath": null,
     "dataPath": null,
-    "libp2p.advertisePrivateAddresses": true,
     "libp2p.staticRelays": null,
     "libp2p.privateNetworkSecret": null,
-    "libp2p.dht.bootstrapPeers": null,
-    "libp2p.dht.filterPrivateAddresses": false
+    "libp2p.dht.bootstrapPeers": null
 }

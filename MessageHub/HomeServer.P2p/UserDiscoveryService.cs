@@ -24,7 +24,7 @@ public class UserDiscoveryService : IUserDiscoveryService
         this.networkProvider = networkProvider;
     }
 
-    public Task<IIdentity[]> SearchUsersAsync(string searchTerm, CancellationToken cancellationToken)
+    public Task<IEnumerable<IIdentity>> SearchUsersAsync(string searchTerm, CancellationToken cancellationToken)
     {
         var identity = identityService.GetSelfIdentity();
         return networkProvider.SearchPeersAsync(identity, searchTerm, cancellationToken);

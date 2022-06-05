@@ -87,11 +87,6 @@ func createHost(config HostConfig) (*HostNode, error) {
 		libp2p.EnableRelayService(),
 		libp2p.EnableAutoRelay(autorelay.WithPeerSource(peerSource)),
 	}
-	if !config.AdvertisePrivateAddresses {
-		options = append(options, libp2p.AddrsFactory(func(m []multiaddr.Multiaddr) []multiaddr.Multiaddr {
-			return multiaddr.FilterAddrs(m, manet.IsPublicAddr)
-		}))
-	}
 	if config.StaticRelays != nil {
 		relayAddrInfos := make([]peer.AddrInfo, 0)
 		for _, s := range *config.StaticRelays {

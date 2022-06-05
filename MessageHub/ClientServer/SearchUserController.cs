@@ -182,9 +182,6 @@ public class SearchUserController : ControllerBase
                     var remoteIdentities = await userDiscoveryService.SearchUsersAsync(
                         requestBody.SearchTerm,
                         cts.Token);
-                    logger.LogDebug(
-                        "Remote identities: {}",
-                        JsonSerializer.Serialize(remoteIdentities.Select(x => x.Id)));
                     await Parallel.ForEachAsync(
                         remoteIdentities,
                         new ParallelOptions
@@ -194,6 +191,8 @@ public class SearchUserController : ControllerBase
                         },
                         async (identity, token) =>
                         {
+                            logger.LogDebug("Remote identity: {}", identity.Id);
+
                             string? avatarUrl = null;
                             string? displayName = null;
                             var userId = UserIdentifier.FromId(identity.Id).ToString();

@@ -122,7 +122,6 @@ internal class P2pNode : IDisposable
             {
                 logger.LogDebug("Finding peers for topic {}...", topic);
                 var addressInfos = Discovery.FindPeers(topic, token);
-                logger.LogDebug("Found {} candidate peers for topic {}.", addressInfos.Count, topic);
                 var parallelOptions = new ParallelOptions
                 {
                     CancellationToken = token,
@@ -198,7 +197,7 @@ internal class P2pNode : IDisposable
         }
     }
 
-    public async Task<IIdentity[]> SearchPeersAsync(
+    public async Task<IEnumerable<IIdentity>> SearchPeersAsync(
         IIdentity selfIdentity,
         string searchTerm,
         CancellationToken cancellationToken = default)
@@ -253,7 +252,7 @@ internal class P2pNode : IDisposable
                 }
                 string name = searchTerm[..^(idSuffix.Length + 1)];
                 logger.LogInformation(
-                    "Finding peers with name {} and peer ID suffix {}...",
+                    "Finding peers with name {} and ID suffix {}...",
                     name,
                     idSuffix);
                 bool verifyIdentity(IIdentity identity)
@@ -262,14 +261,12 @@ internal class P2pNode : IDisposable
                 }
                 try
                 {
-                    var peers = GetPeersForTopicAsync(searchTerm, verifyIdentity, cancellationToken).ToArray();
-                    logger.LogInformation(
-                        "Found {} peers with name {} and peer ID suffix {}", peers.Length, name, idSuffix);
+                    var peers = GetPeersForTopicAsync(searchTerm, verifyIdentity, cancellationToken);
                     return peers;
                 }
                 catch (Exception ex)
                 {
-                    logger.LogInformation("Error finding peers with name {} and peer ID suffix {}: {}",
+                    logger.LogInformation("Error finding peers with name {} and ID suffix {}: {}",
                         name,
                         idSuffix,
                         ex.Message);

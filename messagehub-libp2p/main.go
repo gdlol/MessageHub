@@ -13,7 +13,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
-	dht "github.com/libp2p/go-libp2p-kad-dht"
+	"github.com/libp2p/go-libp2p-kad-dht/dual"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	mc "github.com/multiformats/go-multicodec"
@@ -267,24 +267,23 @@ func CreateDHT(ctxHandle ContextHandle, hostHandle HostHandle, configJSON String
 	*dhtHandle = nil
 	ctx := loadValue(ctxHandle).(*cancellableContext).ctx
 	host := loadValue(hostHandle).(*HostNode).host
-	jsonString := C.GoString(configJSON)
 	var config DHTConfig
-	err := json.Unmarshal([]byte(jsonString), &config)
+	err := json.Unmarshal([]byte(C.GoString(configJSON)), &config)
 	if err != nil {
 		return C.CString(fmt.Sprint("Error parsing JSON config: %w", err))
 	}
-	ipfsDHT, err := createDHT(ctx, host, config)
+	dualDHT, err := createDHT(ctx, host, config)
 	if err != nil {
 		return C.CString(err.Error())
 	}
-	*dhtHandle = saveValue(ipfsDHT)
+	*dhtHandle = saveValue(dualDHT)
 	return nil
 }
 
 //export CloseDHT
 func CloseDHT(handle DHTHandle) StringHandle {
-	ipfsDHT := loadValue(handle).(*dht.IpfsDHT)
-	err := ipfsDHT.Close()
+	dualDHT := loadValue(handle).(*dual.DHT)
+	err := dualDHT.Close()
 	if err != nil {
 		return C.CString(err.Error())
 	}
@@ -294,8 +293,8 @@ func CloseDHT(handle DHTHandle) StringHandle {
 //export BootstrapDHT
 func BootstrapDHT(ctxHandle ContextHandle, dhtHandle DHTHandle) StringHandle {
 	ctx := loadValue(ctxHandle).(*cancellableContext).ctx
-	ipfsDHT := loadValue(dhtHandle).(*dht.IpfsDHT)
-	err := ipfsDHT.Bootstrap(ctx)
+	dualDHT := loadValue(dhtHandle).(*dual.DHT)
+	err := dualDHT.Bootstrap(ctx)
 	if err != nil {
 		return C.CString(err.Error())
 	}
@@ -305,12 +304,12 @@ func BootstrapDHT(ctxHandle ContextHandle, dhtHandle DHTHandle) StringHandle {
 //export FindPeer
 func FindPeer(ctxHandle ContextHandle, dhtHandle DHTHandle, peerID StringHandle, resultJSON *StringHandle) StringHandle {
 	ctx := loadValue(ctxHandle).(*cancellableContext).ctx
-	ipfsDHT := loadValue(dhtHandle).(*dht.IpfsDHT)
+	dualDHT := loadValue(dhtHandle).(*dual.DHT)
 	p2pPeerID, err := peer.Decode(C.GoString(peerID))
 	if err != nil {
 		return C.CString(err.Error())
 	}
-	addrInfo, err := ipfsDHT.FindPeer(ctx, p2pPeerID)
+	addrInfo, err := dualDHT.FindPeer(ctx, p2pPeerID)
 	if err != nil {
 		return C.CString(err.Error())
 	}
@@ -324,8 +323,8 @@ func FindPeer(ctxHandle ContextHandle, dhtHandle DHTHandle, peerID StringHandle,
 
 //export CreateDiscovery
 func CreateDiscovery(dhtHandle DHTHandle) DiscoveryHandle {
-	ipfsDHT := loadValue(dhtHandle).(*dht.IpfsDHT)
-	discovery := routing.NewRoutingDiscovery(ipfsDHT)
+	dualDHT := loadValue(dhtHandle).(*dual.DHT)
+	discovery := routing.NewRoutingDiscovery(dualDHT)
 	return saveValue(discovery)
 }
 
@@ -341,27 +340,36 @@ func Advertise(ctxHandle ContextHandle, discoveryHandle DiscoveryHandle, topic S
 }
 
 //export FindPeers
-func FindPeers(ctxHandle ContextHandle, discoveryHandle DiscoveryHandle, topic StringHandle, resultJSON *StringHandle) StringHandle {
-	*resultJSON = nil
+func FindPeers(ctxHandle ContextHandle, discoveryHandle DiscoveryHandle, topic StringHandle, result *PeerChanHandle) StringHandle {
+	*result = nil
 	ctx := loadValue(ctxHandle).(*cancellableContext).ctx
 	discovery := loadValue(discoveryHandle).(*routing.RoutingDiscovery)
+	fmt.Printf("libp2p: Finding peers for topic: %v...\n", C.GoString(topic))
 	peers, err := discovery.FindPeers(ctx, C.GoString(topic))
 	if err != nil {
 		return C.CString(err.Error())
 	}
-	result := make(map[string]string, 0)
-	for addrInfo := range peers {
-		addrInfoJson, err := addrInfo.MarshalJSON()
-		if err != nil {
-			return C.CString(err.Error())
+	*result = saveValue(peers)
+	return nil
+}
+
+//export TryGetNextPeer
+func TryGetNextPeer(ctxHandle ContextHandle, peerChan PeerChanHandle, resultJSON *StringHandle) StringHandle {
+	*resultJSON = nil
+	ctx := loadValue(ctxHandle).(*cancellableContext).ctx
+	peers := loadValue(peerChan).(<-chan peer.AddrInfo)
+	select {
+	case <-ctx.Done():
+		return nil
+	case addrInfo, ok := <-peers:
+		if ok {
+			result, err := addrInfo.MarshalJSON()
+			if err != nil {
+				return C.CString(err.Error())
+			}
+			*resultJSON = C.CString(string(result))
 		}
-		result[peer.Encode(addrInfo.ID)] = string(addrInfoJson)
 	}
-	json, err := json.Marshal(result)
-	if err != nil {
-		return C.CString(err.Error())
-	}
-	*resultJSON = C.CString(string(json))
 	return nil
 }
 
@@ -406,9 +414,9 @@ func RemoveMember(memberStoreHandle MemberStoreHandle, topic StringHandle, peerI
 func CreatePubSub(ctxHandle ContextHandle, dhtHandle DHTHandle, memberStoreHandle MemberStoreHandle, pubsubHandle *PubSubHandle) StringHandle {
 	*pubsubHandle = nil
 	ctx := loadValue(ctxHandle).(*cancellableContext).ctx
-	ipfsDHT := loadValue(dhtHandle).(*dht.IpfsDHT)
+	dualDHT := loadValue(dhtHandle).(*dual.DHT)
 	memberStore := loadValue(memberStoreHandle).(*MemberStore)
-	gossipSub, err := createPubSub(ctx, ipfsDHT, memberStore)
+	gossipSub, err := createPubSub(ctx, dualDHT, memberStore)
 	if err != nil {
 		return C.CString(err.Error())
 	}

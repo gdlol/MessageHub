@@ -69,6 +69,8 @@ internal sealed class DHTHandle : ObjectHandle
 
 internal sealed class DiscoveryHandle : ObjectHandle { }
 
+internal sealed class PeerChanHandle : ObjectHandle { }
+
 internal sealed class MemberStoreHandle : ObjectHandle { }
 
 internal sealed class PubSubHandle : ObjectHandle { }
@@ -173,6 +175,13 @@ internal unsafe static class NativeMethods
         ContextHandle ctxHandle,
         DiscoveryHandle discoveryHandle,
         StringHandle topic,
+        out PeerChanHandle result);
+
+
+    [DllImport(Native.DllName)]
+    public static extern StringHandle TryGetNextPeer(
+        ContextHandle ctxHandle,
+        PeerChanHandle peerChan,
         out StringHandle resultJSON);
 
     [DllImport(Native.DllName)]

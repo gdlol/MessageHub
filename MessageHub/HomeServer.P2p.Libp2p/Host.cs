@@ -9,7 +9,6 @@ namespace MessageHub.HomeServer.P2p.Libp2p;
 
 public class HostConfig
 {
-    public bool AdvertisePrivateAddresses { get; init; }
     public string[]? StaticRelays { get; init; }
     public string DataPath { get; init; } = default!;
     public string? PrivateNetworkSecret { get; init; }
