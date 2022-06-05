@@ -3,6 +3,7 @@ using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer.P2p.Libp2p.Notifiers;
 using MessageHub.HomeServer.P2p.Libp2p.Services;
 using MessageHub.HomeServer.P2p.Providers;
+using Microsoft.Extensions.Caching.Memory;
 using BackgroundService = MessageHub.HomeServer.Services.BackgroundService;
 
 namespace MessageHub.HomeServer.P2p.Libp2p;
@@ -13,7 +14,7 @@ internal sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
     private readonly ILogger logger;
     private readonly DHTConfig dhtConfig;
     private readonly Host host;
-    private readonly AddressCache addressCache;
+    private readonly IMemoryCache memoryCache;
     private readonly PublishEventNotifier publishEventNotifier;
     private readonly IP2pService[] p2pServices;
     private P2pNode? p2pNode;
@@ -23,8 +24,9 @@ internal sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
         ILoggerFactory loggerFactory,
         HostConfig hostConfig,
         DHTConfig dhtConfig,
-        AddressCache addressCache,
+        IMemoryCache memoryCache,
         PublishEventNotifier publishEventNotifier,
+        AddressCachingService addressCachingService,
         HttpProxyService httpProxyService,
         MdnsBackgroundService mdnsBackgroundService,
         DiscoveryService discoveryService,
@@ -35,8 +37,9 @@ internal sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
         ArgumentNullException.ThrowIfNull(loggerFactory);
         ArgumentNullException.ThrowIfNull(hostConfig);
         ArgumentNullException.ThrowIfNull(dhtConfig);
-        ArgumentNullException.ThrowIfNull(addressCache);
+        ArgumentNullException.ThrowIfNull(memoryCache);
         ArgumentNullException.ThrowIfNull(publishEventNotifier);
+        ArgumentNullException.ThrowIfNull(addressCachingService);
         ArgumentNullException.ThrowIfNull(httpProxyService);
         ArgumentNullException.ThrowIfNull(mdnsBackgroundService);
         ArgumentNullException.ThrowIfNull(discoveryService);
@@ -48,10 +51,11 @@ internal sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
         logger = loggerFactory.CreateLogger<Libp2pNetworkProvider>();
         this.dhtConfig = dhtConfig;
         host = Host.Create(hostConfig);
-        this.addressCache = addressCache;
+        this.memoryCache = memoryCache;
         this.publishEventNotifier = publishEventNotifier;
         p2pServices = new IP2pService[]
         {
+            addressCachingService,
             httpProxyService,
             mdnsBackgroundService,
             discoveryService,
@@ -73,7 +77,7 @@ internal sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
 
     public void Initialize(Func<ServerKeys, IIdentity?> identityVerifier)
     {
-        logger.LogInformation("Initializing Libp2p...");
+        logger.LogInformation("Initializing libp2p...");
         logger.LogInformation("Host ID: {}", host.Id);
         if (p2pNode is not null)
         {
@@ -82,7 +86,21 @@ internal sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
         }
 
         var dht = DHT.Create(host, dhtConfig);
+        logger.LogInformation("Bootstrapping DHT...");
         dht.Bootstrap();
+        Task.Run(() =>
+        {
+            try
+            {
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                int count = host.ConnectToSavedPeers(cts.Token);
+                logger.LogInformation("Connected to {} peers.", count);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error connecting to saved peers.");
+            }
+        });
         var discovery = Discovery.Create(dht);
         var memberStore = new MemberStore();
         var pubsub = PubSub.Create(dht, memberStore);
@@ -95,9 +113,13 @@ internal sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
             pubsub,
             loggerFactory,
             identityVerifier,
-            addressCache);
+            memoryCache);
+
+        logger.LogInformation("Starting background services...");
         backgroundService = BackgroundService.Aggregate(p2pServices.Select(x => x.Create(p2pNode)).ToArray());
         backgroundService.Start();
+
+        logger.LogInformation("Initialized libp2p.");
     }
 
     public void Shutdown()

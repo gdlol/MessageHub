@@ -350,8 +350,6 @@ public class CreateRoomController : ControllerBase
                     content: JsonSerializer.SerializeToElement(
                         new MemberEvent
                         {
-                            AvatarUrl = avatarUrl,
-                            DisplayName = displayName,
                             IsDirect = parameters.IsDirect,
                             MemberShip = MembershipStates.Invite
                         },

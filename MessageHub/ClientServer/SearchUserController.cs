@@ -174,13 +174,17 @@ public class SearchUserController : ControllerBase
             if (!(requestBody.Limit is int limit && limit > users.Count))
             {
                 // Find remote users.
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
                 var remoteUsers = new ConcurrentBag<SearchResponse.User>();
                 try
                 {
+                    logger.LogDebug("Searching remote users: {}", requestBody.SearchTerm);
                     var remoteIdentities = await userDiscoveryService.SearchUsersAsync(
                         requestBody.SearchTerm,
                         cts.Token);
+                    logger.LogDebug(
+                        "Remote identities: {}",
+                        JsonSerializer.Serialize(remoteIdentities.Select(x => x.Id)));
                     await Parallel.ForEachAsync(
                         remoteIdentities,
                         new ParallelOptions
@@ -197,19 +201,22 @@ public class SearchUserController : ControllerBase
                             {
                                 var profile = await userDiscoveryService.GetUserProfileAsync(userId, token);
                                 (avatarUrl, displayName) = profile;
+                                remoteUsers.Add(new SearchResponse.User
+                                {
+                                    AvatarUrl = avatarUrl,
+                                    DisplayName = displayName,
+                                    UserId = UserIdentifier.FromId(identity.Id).ToString()
+                                });
+                                cts.CancelAfter(TimeSpan.FromSeconds(1));
                             }
+                            catch (OperationCanceledException) { }
                             catch (Exception ex)
                             {
                                 logger.LogInformation(ex, "Error getting user profile from {}: {}", identity.Id);
                             }
-                            remoteUsers.Add(new SearchResponse.User
-                            {
-                                AvatarUrl = avatarUrl,
-                                DisplayName = displayName,
-                                UserId = UserIdentifier.FromId(identity.Id).ToString()
-                            });
                         });
                 }
+                catch (OperationCanceledException) { }
                 catch (Exception ex)
                 {
                     logger.LogWarning(ex, "Error searching remote users");
@@ -227,6 +234,7 @@ public class SearchUserController : ControllerBase
                 limited = true;
             }
         }
+        logger.LogDebug("Found {} users: {}", users.Count, JsonSerializer.SerializeToElement(users.Values));
         return new JsonResult(new SearchResponse
         {
             Limited = limited,

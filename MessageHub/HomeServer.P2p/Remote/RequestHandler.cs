@@ -32,7 +32,7 @@ public class RequestHandler : IRequestHandler
         else
         {
             using var cts = new CancellationTokenSource();
-            cts.CancelAfter(TimeSpan.FromSeconds(10));
+            cts.CancelAfter(TimeSpan.FromSeconds(60));
             return await networkProvider.SendAsync(signedRequest, cts.Token);
         }
     }

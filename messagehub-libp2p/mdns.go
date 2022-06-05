@@ -20,7 +20,10 @@ type mdnsNotifee struct {
 }
 
 func (notifee mdnsNotifee) HandlePeerFound(addrInfo peer.AddrInfo) {
-	notifee.host.Connect(notifee.ctx, addrInfo)
+	err := notifee.host.Connect(notifee.ctx, addrInfo)
+	if err != nil {
+		notifee.host.ConnManager().Protect(addrInfo.ID, "mdns")
+	}
 }
 
 func newMdnsService(ctx context.Context, host host.Host, serviceName string) mdnsService {

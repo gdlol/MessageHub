@@ -49,11 +49,12 @@ public static class P2pHomeServerServiceCollectionExtensions
         services.AddSingleton(dhtConfig);
         services.AddHttpClient();
         services.AddMemoryCache();
-        services.AddSingleton<AddressCache>();
         services.AddSingleton<PublishEventNotifier>();
         services.AddSingleton<TopicMemberUpdateNotifier>();
         services.AddSingleton<HttpProxyService.Context>();
         services.AddSingleton<HttpProxyService>();
+        services.AddSingleton<AddressCachingService.Context>();
+        services.AddSingleton<AddressCachingService>();
         services.AddSingleton<MdnsBackgroundService.Context>();
         services.AddSingleton<MdnsBackgroundService>();
         services.AddSingleton<DiscoveryService.Context>();
@@ -75,6 +76,7 @@ public static class P2pHomeServerServiceCollectionExtensions
         var identityService = new LocalIdentityService();
         services.AddSingleton(identityService);
         services.AddSingleton<IIdentityService>(identityService);
+        services.AddSingleton<AuthenticatedRequestNotifier>();
         services.AddSingleton<UserProfileUpdateNotifier>();
         services.AddSingleton<UnresolvedEventNotifier>();
         services.AddSingleton<MembershipUpdateNotifier>();

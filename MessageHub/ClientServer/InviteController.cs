@@ -28,7 +28,6 @@ public class InviteController : ControllerBase
     }
 
     private readonly IIdentityService identityService;
-    private readonly IUserProfile userProfile;
     private readonly IRooms rooms;
     private readonly IRemoteRooms remoteRooms;
     private readonly IEventSaver eventSaver;
@@ -36,21 +35,18 @@ public class InviteController : ControllerBase
 
     public InviteController(
         IIdentityService identityService,
-        IUserProfile userProfile,
         IRooms rooms,
         IRemoteRooms remoteRooms,
         IEventSaver eventSaver,
         IEventPublisher eventPublisher)
     {
         ArgumentNullException.ThrowIfNull(identityService);
-        ArgumentNullException.ThrowIfNull(userProfile);
         ArgumentNullException.ThrowIfNull(rooms);
         ArgumentNullException.ThrowIfNull(remoteRooms);
         ArgumentNullException.ThrowIfNull(eventSaver);
         ArgumentNullException.ThrowIfNull(eventPublisher);
 
         this.identityService = identityService;
-        this.userProfile = userProfile;
         this.rooms = rooms;
         this.remoteRooms = remoteRooms;
         this.eventSaver = eventSaver;
@@ -71,13 +67,9 @@ public class InviteController : ControllerBase
         using var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
 
         // Authorize event.
-        string? avatarUrl = await userProfile.GetAvatarUrlAsync(sender.ToString());
-        string? displayName = await userProfile.GetDisplayNameAsync(sender.ToString());
         var content = JsonSerializer.SerializeToElement(
             new MemberEvent
             {
-                AvatarUrl = avatarUrl,
-                DisplayName = displayName,
                 MemberShip = MembershipStates.Invite,
                 Reason = parameters.Reason
             },

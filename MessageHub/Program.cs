@@ -36,11 +36,15 @@ builder.Services.AddFasterKV(config.DataPath);
 builder.Services.AddLibp2p(
     new HostConfig
     {
-        AdvertisePrivateAddresses = true
+        AdvertisePrivateAddresses = config.AdvertisePrivateAddresses,
+        StaticRelays = config.StaticRelays,
+        DataPath = config.DataPath,
+        PrivateNetworkSecret = config.PrivateNetworkSecret
     },
     new DHTConfig
     {
-        BootstrapPeers = Array.Empty<string>()
+        BootstrapPeers = config.BootstrapPeers,
+        FilterPrivateAddresses = config.FilterPrivateAddresses
     });
 builder.Services.AddP2pHomeServer();
 builder.Services.AddMatrixAuthentication();

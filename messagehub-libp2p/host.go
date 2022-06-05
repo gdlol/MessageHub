@@ -9,17 +9,27 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/netip"
+	"os"
+	"path/filepath"
+	"sync"
 	"time"
 
+	"github.com/ipfs/go-datastore"
+	leveldb "github.com/ipfs/go-ds-leveldb"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/libp2p/go-libp2p-core/pnet"
 	gostream "github.com/libp2p/go-libp2p-gostream"
 	p2phttp "github.com/libp2p/go-libp2p-http"
+	"github.com/libp2p/go-libp2p-peerstore/pstoreds"
+	"github.com/libp2p/go-libp2p/p2p/host/autorelay"
 	"github.com/libp2p/go-tcp-transport"
 	"github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
@@ -37,11 +47,45 @@ type SignedRequest struct {
 	Signatures            map[string]map[string]string `json:"signatures"`
 }
 
-func createHost(config HostConfig) (host.Host, error) {
+type HostNode struct {
+	ds   datastore.Batching
+	ps   peerstore.Peerstore
+	host host.Host
+}
+
+func createHost(config HostConfig) (*HostNode, error) {
+	// Create peer store
+	dataPath := filepath.Join(config.DataPath, "libp2p")
+	err := os.MkdirAll(dataPath, os.ModePerm)
+	if err != nil {
+		return nil, fmt.Errorf("Error creating dataPath: %w", err)
+	}
+	dbPath := filepath.Join(dataPath, "datastore.db")
+	ds, err := leveldb.NewDatastore(dbPath, nil)
+	if err != nil {
+		log.Fatalln(fmt.Errorf("Error creating DataStore: %w", err))
+	}
+	ps, err := pstoreds.NewPeerstore(context.Background(), ds, pstoreds.DefaultOpts())
+	if err != nil {
+		log.Fatalln(fmt.Errorf("Error creating PeerStore: %w", err))
+		ds.Close()
+	}
+	success := false
+	defer func() {
+		if !success {
+			ps.Close()
+			ds.Close()
+		}
+	}()
+
+	peerSource := make(chan peer.AddrInfo)
 	options := []libp2p.Option{
+		libp2p.Peerstore(ps),
 		libp2p.EnableNATService(),
 		libp2p.AutoNATServiceRateLimit(60, 3, time.Minute),
 		libp2p.EnableHolePunching(),
+		libp2p.EnableRelayService(),
+		libp2p.EnableAutoRelay(autorelay.WithPeerSource(peerSource)),
 	}
 	if !config.AdvertisePrivateAddresses {
 		options = append(options, libp2p.AddrsFactory(func(m []multiaddr.Multiaddr) []multiaddr.Multiaddr {
@@ -76,7 +120,75 @@ func createHost(config HostConfig) (host.Host, error) {
 	if err != nil {
 		return nil, err
 	}
-	return host, nil
+	peerNotifiee := &network.NotifyBundle{
+		ConnectedF: func(n network.Network, c network.Conn) {
+			peerSource <- peer.AddrInfo{
+				ID:    c.RemotePeer(),
+				Addrs: []multiaddr.Multiaddr{c.RemoteMultiaddr()},
+			}
+		},
+	}
+	host.Network().Notify(peerNotifiee)
+	success = true
+	hostNode := &HostNode{
+		ds:   ds,
+		ps:   ps,
+		host: host,
+	}
+	return hostNode, nil
+}
+
+func connectToSavedPeers(ctx context.Context, host host.Host) int {
+	// Load saved AddrInfos from PeerStore.
+	maxCandidateCount := 20
+	savedAddrInfos := make([]peer.AddrInfo, 0, maxCandidateCount)
+	ps := host.Peerstore()
+	savedPeerIDs := ps.Peers()
+	if len(savedPeerIDs) > 0 {
+		for _, i := range rand.Perm(len(savedPeerIDs)) {
+			peerID := savedPeerIDs[i]
+			if peerID == host.ID() {
+				continue
+			}
+			addrInfo := ps.PeerInfo(peerID)
+			publicAddrs := multiaddr.FilterAddrs(addrInfo.Addrs, manet.IsPublicAddr)
+			if len(publicAddrs) == 0 {
+				continue
+			}
+			publicAddrInfo := peer.AddrInfo{
+				ID:    addrInfo.ID,
+				Addrs: publicAddrs,
+			}
+			savedAddrInfos = append(savedAddrInfos, publicAddrInfo)
+			if len(savedAddrInfos) >= maxCandidateCount {
+				break
+			}
+		}
+	}
+
+	if len(savedAddrInfos) > 0 {
+		connectPeer := func(wg *sync.WaitGroup, addrInfo peer.AddrInfo) {
+			defer wg.Done()
+			timeoutCtx, timeoutCancel := context.WithTimeout(ctx, time.Second*10)
+			defer timeoutCancel()
+
+			host.Connect(timeoutCtx, addrInfo)
+		}
+
+		var wg sync.WaitGroup
+		for _, addrInfo := range savedAddrInfos {
+			select {
+			case <-ctx.Done():
+				break
+			default:
+				wg.Add(1)
+				go connectPeer(&wg, addrInfo)
+			}
+		}
+		wg.Wait()
+	}
+
+	return len(host.Network().Peers())
 }
 
 func sendRequest(ctx context.Context, host host.Host, peerID peer.ID, signedRequest SignedRequest) (int, []byte, error) {

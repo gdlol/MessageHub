@@ -6,11 +6,12 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"unsafe"
 
 	"github.com/ipfs/go-cid"
-	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -37,7 +38,9 @@ func Release(id ObjectHandle) {
 
 //export CreateContext
 func CreateContext() ContextHandle {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx := context.Background()
+	ctx = network.WithUseTransient(ctx, "")
+	ctx, cancel := context.WithCancel(ctx)
 	result := cancellableContext{
 		ctx:    ctx,
 		cancel: cancel,
@@ -60,19 +63,32 @@ func CreateHost(configJSON StringHandle, handle *HostHandle) StringHandle {
 	if err != nil {
 		return C.CString(fmt.Sprint("Error parsing JSON config: %w", err))
 	}
-	host, err := createHost(config)
+	hostNode, err := createHost(config)
 	if err != nil {
 		return C.CString(err.Error())
 	}
-	*handle = saveValue(host)
+	*handle = saveValue(hostNode)
 	return nil
 }
 
 //export CloseHost
 func CloseHost(handle HostHandle) StringHandle {
-	host := loadValue(handle).(host.Host)
-	err := host.Close()
+	hostNode := loadValue(handle).(*HostNode)
+	var errs []error
+	err := hostNode.ps.Close()
 	if err != nil {
+		errs = append(errs, fmt.Errorf("Close ps: %w", err))
+	}
+	err = hostNode.ds.Close()
+	if err != nil {
+		errs = append(errs, fmt.Errorf("Close ds: %w", err))
+	}
+	err = hostNode.host.Close()
+	if err != nil {
+		errs = append(errs, fmt.Errorf("Close host: %w", err))
+	}
+	if len(errs) > 0 {
+		err = errors.New(fmt.Sprintf("%v", errs))
 		return C.CString(err.Error())
 	}
 	return nil
@@ -80,7 +96,7 @@ func CloseHost(handle HostHandle) StringHandle {
 
 //export GetHostID
 func GetHostID(handle HostHandle) StringHandle {
-	host := loadValue(handle).(host.Host)
+	host := loadValue(handle).(*HostNode).host
 	id := peer.Encode(host.ID())
 	return C.CString(id)
 }
@@ -88,7 +104,7 @@ func GetHostID(handle HostHandle) StringHandle {
 //export GetHostAddressInfo
 func GetHostAddressInfo(hostHandle HostHandle, resultJSON *StringHandle) StringHandle {
 	*resultJSON = nil
-	host := loadValue(hostHandle).(host.Host)
+	host := loadValue(hostHandle).(*HostNode).host
 	addrInfo := peer.AddrInfo{
 		ID:    host.ID(),
 		Addrs: host.Addrs(),
@@ -117,10 +133,29 @@ func GetIDFromAddressInfo(addrInfo StringHandle, peerID *StringHandle) StringHan
 	return nil
 }
 
+//export GetPeerInfo
+func GetPeerInfo(hostHandle HostHandle, peerID StringHandle, resultJSON *StringHandle) StringHandle {
+	*resultJSON = nil
+	host := loadValue(hostHandle).(*HostNode).host
+	p2pPeerID, err := peer.Decode(C.GoString(peerID))
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	addrInfo := host.Peerstore().PeerInfo(p2pPeerID)
+	if len(addrInfo.Addrs) > 0 {
+		result, err := addrInfo.MarshalJSON()
+		if err != nil {
+			return C.CString(err.Error())
+		}
+		*resultJSON = C.CString(string(result))
+	}
+	return nil
+}
+
 //export ConnectHost
 func ConnectHost(ctxHandle ContextHandle, hostHandle HostHandle, addrInfo StringHandle) StringHandle {
 	ctx := loadValue(ctxHandle).(*cancellableContext).ctx
-	host := loadValue(hostHandle).(host.Host)
+	host := loadValue(hostHandle).(*HostNode).host
 	var peerAddrInfo peer.AddrInfo
 	err := peerAddrInfo.UnmarshalJSON([]byte(C.GoString(addrInfo)))
 	if err != nil {
@@ -133,12 +168,31 @@ func ConnectHost(ctxHandle ContextHandle, hostHandle HostHandle, addrInfo String
 	return nil
 }
 
+//export ProtectPeer
+func ProtectPeer(hostHandle HostHandle, peerID StringHandle, tag StringHandle) StringHandle {
+	host := loadValue(hostHandle).(*HostNode).host
+	p2pPeerID, err := peer.Decode(C.GoString(peerID))
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	host.ConnManager().Protect(p2pPeerID, C.GoString(tag))
+	return nil
+}
+
+//export ConnectToSavedPeers
+func ConnectToSavedPeers(ctxHandle ContextHandle, hostHandle HostHandle) StringHandle {
+	ctx := loadValue(ctxHandle).(*cancellableContext).ctx
+	host := loadValue(hostHandle).(*HostNode).host
+	count := connectToSavedPeers(ctx, host)
+	return C.CString(fmt.Sprint(count))
+}
+
 //export SendRequest
 func SendRequest(ctxHandle ContextHandle, hostHandle HostHandle, peerID StringHandle, signedRequestJSON StringHandle, responseStatus *int, responseBody *StringHandle) StringHandle {
 	*responseStatus = 0
 	*responseBody = nil
 	ctx := loadValue(ctxHandle).(*cancellableContext).ctx
-	host := loadValue(hostHandle).(host.Host)
+	host := loadValue(hostHandle).(*HostNode).host
 	p2pPeerID, err := peer.Decode(C.GoString(peerID))
 	if err != nil {
 		return C.CString(err.Error())
@@ -161,7 +215,7 @@ func SendRequest(ctxHandle ContextHandle, hostHandle HostHandle, peerID StringHa
 //export StartProxyRequests
 func StartProxyRequests(hostHandle HostHandle, proxy StringHandle, result *ProxyHandle) StringHandle {
 	*result = nil
-	host := loadValue(hostHandle).(host.Host)
+	host := loadValue(hostHandle).(*HostNode).host
 	closeProxy, err := proxyRequests(host, C.GoString(proxy))
 	if err != nil {
 		return C.CString(err.Error())
@@ -182,7 +236,7 @@ func StopProxyRequests(proxyHandle ProxyHandle) StringHandle {
 
 //export CreateMdnsService
 func CreateMdnsService(hostHandle HostHandle, serviceName StringHandle) MdnsServiceHandle {
-	host := loadValue(hostHandle).(host.Host)
+	host := loadValue(hostHandle).(*HostNode).host
 	service := newMdnsService(context.Background(), host, C.GoString(serviceName))
 	return saveValue(service)
 }
@@ -212,7 +266,7 @@ func StopMdnsService(mdnsServiceHandle MdnsServiceHandle) StringHandle {
 func CreateDHT(ctxHandle ContextHandle, hostHandle HostHandle, configJSON StringHandle, dhtHandle *DHTHandle) StringHandle {
 	*dhtHandle = nil
 	ctx := loadValue(ctxHandle).(*cancellableContext).ctx
-	host := loadValue(hostHandle).(host.Host)
+	host := loadValue(hostHandle).(*HostNode).host
 	jsonString := C.GoString(configJSON)
 	var config DHTConfig
 	err := json.Unmarshal([]byte(jsonString), &config)
@@ -431,7 +485,7 @@ func GetNextMessage(ctxHandle ContextHandle, subscriptionHandle SubscriptionHand
 //export DownloadFile
 func DownloadFile(ctxHandle ContextHandle, hostHandle HostHandle, peerID StringHandle, url StringHandle, filePath StringHandle) StringHandle {
 	ctx := loadValue(ctxHandle).(*cancellableContext).ctx
-	host := loadValue(hostHandle).(host.Host)
+	host := loadValue(hostHandle).(*HostNode).host
 	err := download(ctx, host, C.GoString(peerID), C.GoString(url), C.GoString(filePath))
 	if err != nil {
 		return C.CString(err.Error())

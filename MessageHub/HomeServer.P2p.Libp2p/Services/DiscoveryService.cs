@@ -40,30 +40,32 @@ internal class DiscoveryService : IP2pService
         public async Task RunAsync(CancellationToken stoppingToken)
         {
             context.Logger.LogInformation("Advertising discovery points...");
-            try
+            while (true)
             {
-                var identity = context.IdentityService.GetSelfIdentity();
-                stoppingToken.ThrowIfCancellationRequested();
-                context.Logger.LogDebug("Advertising ID: {}", identity.Id);
-                p2pNode.Discovery.Advertise(identity.Id, stoppingToken);
-                var userId = UserIdentifier.FromId(identity.Id);
-                string displayName = await context.UserProfile.GetDisplayNameAsync(userId.ToString())
-                    ?? userId.UserName;
-                for (int i = 7; i < identity.Id.Length; i++)
+                try
                 {
-                    string peerIdSuffix = identity.Id[^i..];
-                    string rendezvousPoint = $"{displayName}:{peerIdSuffix}";
-                    if (i == 7)
+                    var identity = context.IdentityService.GetSelfIdentity();
+                    stoppingToken.ThrowIfCancellationRequested();
+                    context.Logger.LogDebug("Advertising ID: {}", identity.Id);
+                    p2pNode.Discovery.Advertise(identity.Id, stoppingToken);
+                    var userId = UserIdentifier.FromId(identity.Id);
+                    string displayName = await context.UserProfile.GetDisplayNameAsync(userId.ToString())
+                        ?? userId.UserName;
+                    for (int i = 7; i < 11; i++)
                     {
-                        context.Logger.LogDebug("Advertising rendezvousPoints: {}...", rendezvousPoint);
+                        string peerIdSuffix = identity.Id[^i..];
+                        string rendezvousPoint = $"{displayName}:{peerIdSuffix}";
+                        context.Logger.LogDebug("Advertising rendezvousPoint: {}", rendezvousPoint);
+                        p2pNode.Discovery.Advertise(rendezvousPoint, stoppingToken);
                     }
-                    p2pNode.Discovery.Advertise(rendezvousPoint, stoppingToken);
+                    break;
                 }
-            }
-            catch (OperationCanceledException) { }
-            catch (Exception ex)
-            {
-                context.Logger.LogInformation(ex, "Error advertising discovery points.");
+                catch (OperationCanceledException) { }
+                catch (Exception ex)
+                {
+                    context.Logger.LogInformation(ex, "Error advertising discovery points.");
+                    await Task.Delay(TimeSpan.FromSeconds(3), stoppingToken);
+                }
             }
         }
     }
@@ -74,7 +76,7 @@ internal class DiscoveryService : IP2pService
         private readonly Runner runner;
 
         public ScheduledDiscoveryService(ILogger logger, Runner runner)
-            : base(initialDelay: TimeSpan.FromSeconds(3), interval: TimeSpan.FromMinutes(1))
+            : base(initialDelay: TimeSpan.FromSeconds(3), interval: TimeSpan.FromMinutes(30))
         {
             this.logger = logger;
             this.runner = runner;

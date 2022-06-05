@@ -1,5 +1,6 @@
 using MessageHub.Federation;
 using MessageHub.Federation.Protocol;
+using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.P2p.Libp2p.Notifiers;
 using MessageHub.HomeServer.Services;
 
@@ -32,19 +33,31 @@ internal class TopicMemberUpdateEventPushingService : QueuedService<TopicMemberU
         {
             string roomId = topic;
             var identity = context.IdentityService.GetSelfIdentity();
-            var batchStates = await context.TimelineLoader.LoadBatchStatesAsync(
-                x => x == roomId,
-                includeLeave: false);
-            if (batchStates.RoomEventIds.TryGetValue(roomId, out string? latestEventId))
+            if (!context.Rooms.HasRoom(roomId))
             {
-                var roomEventStore = await context.Rooms.GetRoomEventStoreAsync(roomId);
-                var pdu = await roomEventStore.LoadEventAsync(latestEventId);
+                logger.LogWarning("Room not found :{}", roomId);
+                return;
+            }
+            var snapshot = await context.Rooms.GetRoomSnapshotAsync(roomId);
+            if (snapshot.LatestEventIds.Count >= 20)
+            {
+                logger.LogWarning("More than 20 ({}) branches in room {}.", snapshot.LatestEventIds.Count, roomId);
+            }
+            var roomEventStore = await context.Rooms.GetRoomEventStoreAsync(roomId);
+            foreach (string[] chunk in snapshot.LatestEventIds.Chunk(100))
+            {
+                var pdus = new List<PersistentDataUnit>();
+                foreach (string eventId in chunk)
+                {
+                    var pdu = await roomEventStore.LoadEventAsync(eventId);
+                    pdus.Add(pdu);
+                }
                 string txnId = Guid.NewGuid().ToString();
                 var parameters = new PushMessagesRequest
                 {
                     Origin = identity.Id,
                     OriginServerTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                    Pdus = new[] { pdu }
+                    Pdus = pdus.ToArray()
                 };
                 var request = identity.SignRequest(
                     destination: id,
@@ -52,10 +65,6 @@ internal class TopicMemberUpdateEventPushingService : QueuedService<TopicMemberU
                     requestTarget: $"/_matrix/federation/v1/send/{txnId}",
                     content: parameters);
                 await p2pNode.SendAsync(request, stoppingToken);
-            }
-            else
-            {
-                logger.LogWarning("Latest event id not found for room {}.", roomId);
             }
         }
         catch (Exception ex)

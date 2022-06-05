@@ -87,6 +87,21 @@ public sealed class Host : IDisposable
         return id.ToString();
     }
 
+    public string? TryGetAddressInfo(string peerId)
+    {
+        ArgumentNullException.ThrowIfNull(peerId);
+
+        using var peerIdString = StringHandle.FromString(peerId);
+        using var error = NativeMethods.GetPeerInfo(handle, peerIdString, out var resultJSON);
+        LibP2pException.Check(error);
+        if (resultJSON.IsInvalid)
+        {
+            return null;
+        }
+        using var _ = resultJSON;
+        return resultJSON.ToString();
+    }
+
     public void Connect(string addressInfo, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(addressInfo);
@@ -99,6 +114,21 @@ public sealed class Host : IDisposable
             cancellationToken.ThrowIfCancellationRequested();
             LibP2pException.Check(error);
         }
+    }
+
+    public void Protect(string peerId, string tag)
+    {
+        using var peerIdString = StringHandle.FromString(peerId);
+        using var tagString = StringHandle.FromString(tag);
+        using var error = NativeMethods.ProtectPeer(handle, peerIdString, tagString);
+        LibP2pException.Check(error);
+    }
+
+    public int ConnectToSavedPeers(CancellationToken cancellationToken)
+    {
+        using var context = new Context(cancellationToken);
+        using var count = NativeMethods.ConnectToSavedPeers(context.Handle, handle);
+        return int.Parse(count.ToString());
     }
 
     public HttpResponseMessage SendRequest(
@@ -140,6 +170,8 @@ public sealed class Host : IDisposable
 
     public async Task<JsonElement?> GetServerKeysAsync(string peerId, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(peerId);
+
         var response = SendRequest(peerId, new SignedRequest
         {
             Method = HttpMethod.Get.ToString(),
@@ -173,6 +205,10 @@ public sealed class Host : IDisposable
 
     public void DownloadFile(string peerId, string url, string filePath, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(peerId);
+        ArgumentNullException.ThrowIfNull(url);
+        ArgumentNullException.ThrowIfNull(filePath);
+
         using var context = new Context(cancellationToken);
         using var peerIdString = StringHandle.FromString(peerId);
         using var urlString = StringHandle.FromString(url);

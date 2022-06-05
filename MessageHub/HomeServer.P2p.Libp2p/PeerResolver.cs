@@ -151,6 +151,7 @@ public class PeerResolver : IPeerResolver
                                     id,
                                     addressInfo,
                                     DateTimeOffset.FromUnixTimeMilliseconds(serverKeys.ValidUntilTimestamp));
+                                host.Protect(Host.GetIdFromAddressInfo(addressInfo), nameof(MessageHub));
                             }
                         }
                         else

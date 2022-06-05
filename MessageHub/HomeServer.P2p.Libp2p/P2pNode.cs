@@ -8,7 +8,7 @@ namespace MessageHub.HomeServer.P2p.Libp2p;
 internal class P2pNode : IDisposable
 {
     public Host Host { get; }
-    public DHT Dht { get; }
+    public DHT DHT { get; }
     public Discovery Discovery { get; }
     public MemberStore MemberStore { get; }
     public PubSub Pubsub { get; }
@@ -28,7 +28,7 @@ internal class P2pNode : IDisposable
         IMemoryCache addressCache)
     {
         Host = host;
-        Dht = dht;
+        DHT = dht;
         Discovery = discovery;
         MemberStore = memberStore;
         Pubsub = pubsub;
@@ -49,7 +49,12 @@ internal class P2pNode : IDisposable
         Pubsub.Dispose();
         MemberStore.Dispose();
         Discovery.Dispose();
-        Dht.Dispose();
+        DHT.Dispose();
+    }
+
+    public IIdentity? VerifyIdentity(ServerKeys serverKeys)
+    {
+        return identityVerifier(serverKeys);
     }
 
     public async Task<JsonElement> SendAsync(SignedRequest request, CancellationToken cancellationToken)
@@ -78,7 +83,7 @@ internal class P2pNode : IDisposable
         CancellationToken cancellationToken = default)
     {
         logger.LogDebug("Getting server identity of {}...", peerId);
-        string addressInfo = Dht.FindPeer(peerId, cancellationToken);
+        string addressInfo = DHT.FindPeer(peerId, cancellationToken);
         Host.Connect(addressInfo, cancellationToken);
         var response = await Host.GetServerKeysAsync(peerId, cancellationToken);
         var serverKeys = response?.Deserialize<ServerKeys>();
@@ -94,6 +99,7 @@ internal class P2pNode : IDisposable
                 identity.Id,
                 addressInfo,
                 DateTimeOffset.FromUnixTimeMilliseconds(serverKeys.ValidUntilTimestamp));
+            Host.Protect(Host.GetIdFromAddressInfo(addressInfo), nameof(MessageHub));
         }
         else
         {
@@ -107,17 +113,19 @@ internal class P2pNode : IDisposable
         Func<IIdentity, bool> peerFilter,
         CancellationToken cancellationToken)
     {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var token = cts.Token;
         using var queue = new BlockingCollection<IIdentity>();
         Task.Run(async () =>
         {
             try
             {
                 logger.LogDebug("Finding peers for topic {}...", topic);
-                var addressInfos = Discovery.FindPeers(topic, cancellationToken);
+                var addressInfos = Discovery.FindPeers(topic, token);
                 logger.LogDebug("Found {} candidate peers for topic {}.", addressInfos.Count, topic);
                 var parallelOptions = new ParallelOptions
                 {
-                    CancellationToken = cancellationToken,
+                    CancellationToken = token,
                     MaxDegreeOfParallelism = 8
                 };
                 await Parallel.ForEachAsync(addressInfos, parallelOptions, async (x, token) =>
@@ -154,6 +162,8 @@ internal class P2pNode : IDisposable
                                     identity.Id,
                                     addressInfo,
                                     DateTimeOffset.FromUnixTimeMilliseconds(serverKeys.ValidUntilTimestamp));
+                                Host.Protect(Host.GetIdFromAddressInfo(addressInfo), nameof(MessageHub));
+                                cts.CancelAfter(TimeSpan.FromSeconds(1));
                             }
                             else
                             {
@@ -208,6 +218,10 @@ internal class P2pNode : IDisposable
                 logger.LogInformation("Peer ID is self peer ID.");
                 return new[] { selfIdentity };
             }
+            if (peerId.Length < 20)
+            {
+                return Array.Empty<IIdentity>();
+            }
             logger.LogInformation("Finding peer address for {}...", peerId);
             try
             {
@@ -233,6 +247,10 @@ internal class P2pNode : IDisposable
             if (parts.Length >= 2)
             {
                 string idSuffix = parts[^1];
+                if (idSuffix.Length < 7)
+                {
+                    return Array.Empty<IIdentity>();
+                }
                 string name = searchTerm[..^(idSuffix.Length + 1)];
                 logger.LogInformation(
                     "Finding peers with name {} and peer ID suffix {}...",

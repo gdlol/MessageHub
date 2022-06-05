@@ -98,10 +98,22 @@ internal unsafe static class NativeMethods
     public static extern StringHandle GetIDFromAddressInfo(StringHandle addrInfo, out StringHandle peerID);
 
     [DllImport(Native.DllName)]
+    public static extern StringHandle GetPeerInfo(
+        HostHandle hostHandle,
+        StringHandle peerID,
+        out StringHandle resultJSON);
+
+    [DllImport(Native.DllName)]
     public static extern StringHandle ConnectHost(
         ContextHandle ctxHandle,
         HostHandle hostHandle,
         StringHandle addrInfo);
+
+    [DllImport(Native.DllName)]
+    public static extern StringHandle ProtectPeer(HostHandle hostHandle, StringHandle peerID, StringHandle tag);
+
+    [DllImport(Native.DllName)]
+    public static extern StringHandle ConnectToSavedPeers(ContextHandle ctxHandle, HostHandle hostHandle);
 
     [DllImport(Native.DllName)]
     public static extern StringHandle SendRequest(
