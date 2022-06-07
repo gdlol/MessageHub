@@ -101,10 +101,10 @@ func createHost(config HostConfig) (*HostNode, error) {
 	}
 	if config.PrivateNetworkSecret == nil {
 		listenAddresses := []string{
-			fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", config.Port),
-			fmt.Sprintf("/ip4/0.0.0.0/udp/%d/quic", config.Port),
-			fmt.Sprintf("/ip6/::/tcp/%d", config.Port),
-			fmt.Sprintf("/ip6/::/udp/%d/quic", config.Port),
+			"/ip4/0.0.0.0/tcp/0",
+			"/ip4/0.0.0.0/udp/0/quic",
+			"/ip6/::/tcp/0",
+			"/ip6/::/udp/0/quic",
 		}
 		transportOptions := []libp2p.Option{
 			libp2p.ChainOptions(
@@ -125,8 +125,8 @@ func createHost(config HostConfig) (*HostNode, error) {
 		options = append(options, libp2p.ConnectionGater(&privateAddressGater{}))
 
 		listenAddresses := []string{
-			fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", config.Port),
-			fmt.Sprintf("/ip6/::/tcp/%d", config.Port),
+			"/ip4/0.0.0.0/tcp/0",
+			"/ip6/::/tcp/0",
 		}
 		transportOptions := []libp2p.Option{
 			libp2p.Transport(tcp.NewTCPTransport),

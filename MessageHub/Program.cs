@@ -44,7 +44,6 @@ public class Program
         builder.Services.AddLibp2p(
             new HostConfig
             {
-                Port = config.P2pPort,
                 StaticRelays = config.StaticRelays,
                 DataPath = config.DataPath,
                 PrivateNetworkSecret = config.PrivateNetworkSecret

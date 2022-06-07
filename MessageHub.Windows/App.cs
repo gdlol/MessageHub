@@ -57,6 +57,7 @@ public class App : Application
                 }
                 break;
             }
+            culture = culture.Parent;
         }
         return (new StringLocalizer(new Strings()), error);
     }

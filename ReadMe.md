@@ -6,6 +6,8 @@ It runs locally on your device, finds other nodes through MDNS/DHT, and sends/re
 
 :construction: Alpha software warning. :construction:
 
+![Screenshot](Documentation/Images/Screenshot.png)
+
 # Quick Start
 :point_right:[Windows Build](#windows-build)
 ```
@@ -13,7 +15,7 @@ docker compose run
 ```
 Browse http://127.84.48.1
 
-The default configuration fetches the official Element Matrix client with custom config and serve it along with the home server. You could use other clients with home server URL http://127.84.48.2.
+The default configuration fetches the official Element Matrix client with custom config and serves it along with the home server. You could use other clients with home server URL http://127.84.48.2.
 
 Currently the home server will create and save an identity (Ed25519 key) locally on first login. The user ID resembles the format of a Matrix user ID (@user_id:matrix.org). Example: 
 ```
@@ -31,9 +33,11 @@ After login, the server will advertise a few rendezvous points base on the encod
 
 where `<Display Name>` defaults to `p2p`.
 
-Users can update the display name, and search/invite each other using these rendezvous strings in a Matrix client.
+Users can update the display name, and search/invite each other using these rendezvous strings in a Matrix client:
 
-Alternatively, users can by reached by searching the P2P `multiaddress`. Example:
+![Search](Documentation/Images/Search.png)
+
+Alternatively, users can be reached by searching the P2P `multiaddress`. Example:
 ```
 /p2p/QmeJDzBdjVD6TfEWqDtztp7oy9VbEwAijU2bBWk2T8UxLg
 ```
@@ -56,31 +60,42 @@ According to the specification, Matrix home servers exchange `server_keys` conta
 Now that the P2P server identity is a asymmetric crypto public key, it can sign the `verify keys`. Any other node can fetch these keys from any source and verify the signature locally.
 
 ## 2. Include server keys in messages
-The room message structure, called **Persistent Data Unit** in the specification, contains a signature signed using the home server `verify key`. A `server_keys` field is added to the structure so that the data unit is **self authenticating**, meaning its origin can be verified without consulting other data source.
+The room message structure, called **Persistent Data Unit** in the specification, contains a signature signed using the home server `verify key`. A `server_keys` field is added to the structure so that the data unit is **self-authenticating**, meaning its origin and validity can be verified without consulting other data source.
 
 ## 3. Include server keys in signed requests
-Although the federation logic could be implemented in totally different ways, currently the home server follows the Server-Server API specification as much as possible. Similar to **Persistent Data Unit**, including a `server_keys` field makes a signed web request **self authenticating**. A signed web request can be relayed among nodes sharing the same room, without worrying the content being tampered.
+Although the federation logic could be implemented in totally different ways, currently the home server follows the Server-Server API specification as much as possible. Like **Persistent Data Unit**, including a `server_keys` field makes a signed web request **self-authenticating**. A signed web request can be relayed among nodes sharing the same room, without worrying the content being tampered.
 
 ## 4. Sign the libp2p PeerId
-The PeerId of a libp2p node is also a public key encoded in CID (Content IDentifier) format. By including and signing the libp2p PeerId in `server_keys`, it means the corresponding libp2p node is the authorized transport for the home server. Nodes can ensure they are talking to an authenticated libp2p node because libp2p nodes will validate each others' PeerId.
+The PeerId of a libp2p node is also a public key encoded in CID (Content IDentifier) format. By including and signing the libp2p PeerId in `server_keys`, it means the corresponding libp2p node is the authorized transport for the home server. Nodes can ensure they are talking to an authorized libp2p node because libp2p nodes will validate each other's PeerId.
 
 ## 5. Exchange messages using Gossipsub
-Nodes publish messages using the libp2p gossipsub API, so that messages can reach every nodes in the room without requiring a full-mesh network structure. Nodes verify room membership of its directly connected nodes by checking if they can return a `server_keys` response originated from their claimed identity, and with their PeerIds signed.
+Nodes publish messages using the libp2p gossipsub API, so that messages can reach every node in the room without requiring a full-mesh network structure. Nodes verify room membership of its directly connected nodes by checking if they can return a valid `server_keys` response originated from their claimed identity, and with their PeerIds signed.
 
 # Notes
 - This project is more of a proof of concept, try/use with caution.
-- Nodes without dialable public IP address is configured to perform hole punching, but it could fail for certain kind of NAT environments. Static relays can be specified in `config.json`.
-- Certain kinds of requests still requires direct connection, e.g. invites and media downloads.
+- Nodes without dialable public IP address is configured to perform hole punching with the help of other nodes found in the DHT, but it could fail for certain kind of NAT environments. Static relays can be specified in [`config.json`](#configuration).
+- Certain kinds of requests still requires direct connection, e.g., invites and media downloads.
 - Client side end to end encryption support is not implemented, but communication between libp2p nodes are encrypted (the server also lives in client side :tada:). E2EE support might be of more importance, if more fancy gossip-like communication patterns are to be implemented, say hosting media files in IPFS.
 - No ACL feature is implemented. Besides possible bugs/mistakes in the implementation of security features, nodes are potentially vulnerable to spamming attacks (like Matrix, but more vulnerable).
-- Public room discovery is not implemented, all rooms are effectively invite-only.
+- Public room discovery is not implemented, and all rooms are effectively invite-only.
+
+# Configuration
+The list of configurable options are specified in the `config.json` file:
+- **`listenAddress`**: The binding address:port pair of the home server, defaults to `127.84.48.2:80`.
+- **`libp2p.staticRelays`**: A list of static relay nodes in libp2p multiaddress format.
+- **`libp2p.privateNetworkSecret`**: A pre-shared secret string for libp2p nodes. With a non-empty secret, the libp2p node can only talk to other nodes with the same secret string specified. Enabling this option will also restrict the communication to only consider private address peers.
+- **`libp2p.dht.bootstrapPeers`**: A list of DHT bootstrap nodes in libp2p multiaddress format. Default the list of built-in bootstrap nodes will be used.
 
 # Windows Build
 Localhost in WSL2 does not work as one might have expected, it is necessary to copy the executables out from the container and run directly in Windows. Better yet, this produces a desktop app which serves the Element client and MessageHub at the same time.
 
 ## Build
-Docker is still required:
+Requires WSL2, Docker and .NET Core:
 ```
-dotnet run --project ./Automation/Build/Build.csproj
+dotnet run --project ./Automation/WindowsBuild/WindowsBuild.csproj
 ```
 Output is generated in Build/MessageHub.
+
+## Specific Configurations
+- **`client.listenAddress`**: The binding address:port pair of the Element client server, defaults to `127.84.48.1:80`.
+- **`client.launchOnStart`**: Whether or not to open the browser with `client.listenAddress` on start.
