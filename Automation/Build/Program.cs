@@ -34,6 +34,10 @@ if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
     {
         Directory.Delete(buildPath, recursive: true);
     }
+    Run("dotnet", "publish",
+        Path.Combine(projectPath, "MessageHub.Windows", "MessageHub.Windows.csproj"),
+        "--configuration", "Release",
+        "--output", Path.Combine(buildPath, "MessageHub"));
     Run("docker", "build",
         "--force-rm",
         "--tag", "messagehub",

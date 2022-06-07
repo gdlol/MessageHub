@@ -1,7 +1,5 @@
 {
     "listenAddress": "127.84.48.2:80",
-    "contentPath": null,
-    "dataPath": null,
     "libp2p.port": 30000,
     "libp2p.staticRelays": null,
     "libp2p.privateNetworkSecret": null,

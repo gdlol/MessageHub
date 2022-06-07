@@ -122,7 +122,7 @@ internal class P2pNode : IDisposable
                 identity.Id,
                 addressInfo,
                 DateTimeOffset.FromUnixTimeMilliseconds(serverKeys.ValidUntilTimestamp));
-            Host.Protect(Host.GetIdFromAddressInfo(addressInfo), nameof(MessageHub));
+            Host.Protect(peerId, nameof(MessageHub));
         }
         else
         {
@@ -180,11 +180,14 @@ internal class P2pNode : IDisposable
                             {
                                 logger.LogDebug("Peer found for topic {}: {}", topic, identity.Id);
                                 queue.TryAdd(identity);
-                                addressCache.Set(
-                                    identity.Id,
-                                    addressInfo,
-                                    DateTimeOffset.FromUnixTimeMilliseconds(serverKeys.ValidUntilTimestamp));
-                                Host.Protect(Host.GetIdFromAddressInfo(addressInfo), nameof(MessageHub));
+                                if (Host.TryGetAddressInfo(peerId) is string info)
+                                {
+                                    addressCache.Set(
+                                        identity.Id,
+                                        info,
+                                        DateTimeOffset.FromUnixTimeMilliseconds(serverKeys.ValidUntilTimestamp));
+                                    Host.Protect(peerId, nameof(MessageHub));
+                                }
                                 cts.CancelAfter(TimeSpan.FromSeconds(1));
                             }
                             else

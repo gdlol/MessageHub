@@ -347,7 +347,6 @@ func FindPeers(ctxHandle ContextHandle, discoveryHandle DiscoveryHandle, topic S
 	*result = nil
 	ctx := loadValue(ctxHandle).(*cancellableContext).ctx
 	discovery := loadValue(discoveryHandle).(*routing.RoutingDiscovery)
-	fmt.Printf("libp2p: Finding peers for topic: %v...\n", C.GoString(topic))
 	peers, err := discovery.FindPeers(ctx, C.GoString(topic))
 	if err != nil {
 		return C.CString(err.Error())

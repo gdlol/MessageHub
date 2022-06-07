@@ -35,8 +35,9 @@ internal class Advertiser
         {
             var identity = context.IdentityService.GetSelfIdentity();
             stoppingToken.ThrowIfCancellationRequested();
-            context.Logger.LogDebug("Advertising ID: {}", $"p2p:{identity.Id}");
-            await Advertise(identity.Id, stoppingToken);
+            string p2pId = $"p2p:{identity.Id}";
+            context.Logger.LogDebug("Advertising ID: {}", p2pId);
+            await Advertise(p2pId, stoppingToken);
             var userId = UserIdentifier.FromId(identity.Id);
             string displayName = await context.UserProfile.GetDisplayNameAsync(userId.ToString())
                 ?? userId.UserName;

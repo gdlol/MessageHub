@@ -75,7 +75,7 @@ internal class AddressCachingService : IP2pService
                         remoteIdentity.Id,
                         addressInfo,
                         DateTimeOffset.FromUnixTimeMilliseconds(value.ValidUntilTimestamp));
-                    p2pNode.Host.Protect(Host.GetIdFromAddressInfo(addressInfo), nameof(MessageHub));
+                    p2pNode.Host.Protect(peerId, nameof(MessageHub));
                 }
             }
             return Task.CompletedTask;

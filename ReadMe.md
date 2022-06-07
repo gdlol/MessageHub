@@ -7,13 +7,13 @@ It runs locally on your device, finds other nodes through MDNS/DHT, and sends/re
 :construction: Alpha software warning. :construction:
 
 # Quick Start
+:point_right:[Windows Build](#windows-build)
 ```
 docker compose run
 ```
 Browse http://127.84.48.1
 
-
-The default configuration fetches the official Element Matrix client with custom config and serve it along with the home server. You could use other clients with home server url http://127.84.48.2.
+The default configuration fetches the official Element Matrix client with custom config and serve it along with the home server. You could use other clients with home server URL http://127.84.48.2.
 
 Currently the home server will create and save an identity (Ed25519 key) locally on first login. The user ID resembles the format of a Matrix user ID (@user_id:matrix.org). Example: 
 ```
@@ -69,8 +69,18 @@ Nodes publish messages using the libp2p gossipsub API, so that messages can reac
 
 # Notes
 - This project is more of a proof of concept, try/use with caution.
-- Nodes without dialable public IP address is configured to perform hole punching but it could fail for certain kind of NAT environments. Static relays can be specified in `config.json`.
+- Nodes without dialable public IP address is configured to perform hole punching, but it could fail for certain kind of NAT environments. Static relays can be specified in `config.json`.
 - Certain kinds of requests still requires direct connection, e.g. invites and media downloads.
 - Client side end to end encryption support is not implemented, but communication between libp2p nodes are encrypted (the server also lives in client side :tada:). E2EE support might be of more importance, if more fancy gossip-like communication patterns are to be implemented, say hosting media files in IPFS.
 - No ACL feature is implemented. Besides possible bugs/mistakes in the implementation of security features, nodes are potentially vulnerable to spamming attacks (like Matrix, but more vulnerable).
 - Public room discovery is not implemented, all rooms are effectively invite-only.
+
+# Windows Build
+Localhost in WSL2 does not work as one might have expected, it is necessary to copy the executables out from the container and run directly in Windows. Better yet, this produces a desktop app which serves the Element client and MessageHub at the same time.
+
+## Build
+Docker is still required:
+```
+dotnet run --project ./Automation/Build/Build.csproj
+```
+Output is generated in Build/MessageHub.

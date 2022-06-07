@@ -83,9 +83,8 @@ func createHost(config HostConfig) (*HostNode, error) {
 	options := []libp2p.Option{
 		libp2p.Peerstore(ps),
 		libp2p.EnableNATService(),
-		libp2p.AutoNATServiceRateLimit(60, 3, time.Minute),
+		libp2p.AutoNATServiceRateLimit(20, 3, time.Minute),
 		libp2p.EnableHolePunching(),
-		libp2p.EnableRelayService(),
 		libp2p.EnableRelay(),
 		libp2p.EnableAutoRelay(autorelay.WithPeerSource(peerSource)),
 	}

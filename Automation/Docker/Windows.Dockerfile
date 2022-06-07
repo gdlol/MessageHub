@@ -11,19 +11,10 @@ RUN --mount=type=cache,target=/go/pkg/mod/ \
     --mount=type=cache,target=/root/.cache/go-build \
     go build -buildmode=c-shared -v -o /root/lib/messagehub-libp2p.dll
 
-FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
-WORKDIR /MessageHub
-COPY MessageHub/*.csproj ./
-RUN dotnet restore
-COPY MessageHub/ ./
-RUN dotnet publish \
-    --configuration Debug \
-    --runtime win-x64 \
-    --self-contained \
-    --output /root/app/
-
 FROM mcr.microsoft.com/dotnet/aspnet:6.0
 WORKDIR /root/app/
-COPY --from=build /root/app/ ./
 COPY --from=build-libp2p /root/lib/messagehub-libp2p.dll ./
-CMD [ "cp", "-r", "/root/app/.", "/root/build/MessageHub" ]
+COPY --from=vectorim/element-web /app ./Data/Element/
+COPY Automation/Docker/element.config.json ./Data/Element/config.json
+COPY config.json ./
+CMD [ "cp", "-r", ".", "/root/build/MessageHub" ]

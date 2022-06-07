@@ -132,11 +132,14 @@ public class PeerResolver : IPeerResolver
                             {
                                 cts.Cancel();
                                 logger.LogDebug("Found address info for {}: {}", id, addressInfo);
-                                addressCache.Set(
-                                    id,
-                                    addressInfo,
-                                    DateTimeOffset.FromUnixTimeMilliseconds(serverKeys.ValidUntilTimestamp));
-                                host.Protect(Host.GetIdFromAddressInfo(addressInfo), nameof(MessageHub));
+                                if (host.TryGetAddressInfo(peerId) is string info)
+                                {
+                                    addressCache.Set(
+                                        id,
+                                        info,
+                                        DateTimeOffset.FromUnixTimeMilliseconds(serverKeys.ValidUntilTimestamp));
+                                    host.Protect(peerId, nameof(MessageHub));
+                                }
                             }
                         }
                         else

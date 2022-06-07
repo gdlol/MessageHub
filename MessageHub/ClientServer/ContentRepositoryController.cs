@@ -80,7 +80,10 @@ public class ContentRepositoryController : ControllerBase
                 return File(stream, "application/octet-stream", mediaId);
             }
         }
-        return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));
+        return new JsonResult(MatrixError.Create(MatrixErrorCode.LimitExceeded))
+        {
+            StatusCode = StatusCodes.Status429TooManyRequests
+        };
     }
 
     [Route("download/{serverName}/{mediaId}/{fileName}")]
@@ -120,7 +123,10 @@ public class ContentRepositoryController : ControllerBase
                 return File(stream, "application/octet-stream", fileName);
             }
         }
-        return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));
+        return new JsonResult(MatrixError.Create(MatrixErrorCode.LimitExceeded))
+        {
+            StatusCode = StatusCodes.Status429TooManyRequests
+        };
     }
 
     [Route("thumbnail/{serverName}/{mediaId}")]
