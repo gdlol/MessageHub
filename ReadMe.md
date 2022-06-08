@@ -11,7 +11,7 @@ It runs locally on your device, finds other nodes through MDNS/DHT, and sends/re
 # Quick Start
 :point_right:[Windows Build](#windows-build)
 ```
-docker compose run
+docker compose up --no-build
 ```
 Browse http://127.84.48.1
 
@@ -52,7 +52,7 @@ docker compose build
 # How it works
 The home server implements (currently a very limited portion of) the Client-Server API according to the [Matrix specification](https://spec.matrix.org/). However, it makes some important tweaks in the federation side (Server-Server API) so that
 - It does not require domain name and HTTPS to establish trust.
-- Nodes do not need to have direct connections to all other nodes it shares a room with.
+- Nodes do not need to have direct connections to all other nodes they share a room with.
 
 ## 1. Sign the verify keys
 According to the specification, Matrix home servers exchange `server_keys` containing `verify keys` used to sign their messages, but the `server_keys` are signed using the `verify keys` themselves. One can only ensure the genuineness of `verify keys` by making a direct HTTPS request to the home server.
@@ -69,7 +69,7 @@ Although the federation logic could be implemented in totally different ways, cu
 The PeerId of a libp2p node is also a public key encoded in CID (Content IDentifier) format. By including and signing the libp2p PeerId in `server_keys`, it means the corresponding libp2p node is the authorized transport for the home server. Nodes can ensure they are talking to an authorized libp2p node because libp2p nodes will validate each other's PeerId.
 
 ## 5. Exchange messages using Gossipsub
-Nodes publish messages using the libp2p gossipsub API, so that messages can reach every node in the room without requiring a full-mesh network structure. Nodes verify room membership of its directly connected nodes by checking if they can return a valid `server_keys` response originated from their claimed identity, and with their PeerIds signed.
+Nodes publish messages using the libp2p gossipsub API, so that messages can reach every node in the room without requiring a full-mesh network structure. Nodes verify room membership of their directly connected nodes by checking if they can return a valid `server_keys` response originated from their claimed identity, and with their PeerIds signed.
 
 # Notes
 - This project is more of a proof of concept, try/use with caution.
@@ -90,9 +90,11 @@ The list of configurable options are specified in the `config.json` file:
 # Windows Build
 Localhost in WSL2 does not work as one might have expected, it is necessary to copy the executables out from the container and run directly in Windows. Better yet, this produces a desktop app which serves the Element client and MessageHub at the same time.
 
+Prebuild binaries can be found in [releases](../../releases).
+
 ## Build
 Requires WSL2, Docker and .NET Core:
 ```
 dotnet run --project ./Automation/WindowsBuild/WindowsBuild.csproj
 ```
-Output is generated in Build/MessageHub.
+Outputs are generated in Build/MessageHub.
