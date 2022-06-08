@@ -8,11 +8,11 @@ internal class TriggeredAdvertisingService : TriggeredService<UserProfileUpdate>
     private readonly ILogger logger;
     private readonly Advertiser advertiser;
 
-    public TriggeredAdvertisingService(ILogger logger, Advertiser advertiser, UserProfileUpdateNotifier notifier)
-        : base(notifier)
+    public TriggeredAdvertisingService(AdvertisingServiceContext context, P2pNode p2pNode)
+        : base(context.Notifier)
     {
-        this.logger = logger;
-        this.advertiser = advertiser;
+        logger = context.LoggerFactory.CreateLogger<TriggeredAdvertisingService>();
+        advertiser = new Advertiser(logger, context, p2pNode.Discovery);
     }
 
     protected override void OnError(Exception error)

@@ -63,6 +63,8 @@ public static class P2pHomeServerServiceCollectionExtensions
         services.AddSingleton<MdnsBackgroundService>();
         services.AddSingleton<AdvertisingServiceContext>();
         services.AddSingleton<AdvertisingService>();
+        services.AddSingleton<RelayDiscoveryService.Context>();
+        services.AddSingleton<RelayDiscoveryService>();
         services.AddSingleton<PubSubServiceContext>();
         services.AddSingleton<PubSubService>();
         services.AddSingleton<MembershipServiceContext>();

@@ -7,11 +7,11 @@ internal class SelfAddressLoggingService : ScheduledService
     private readonly ILogger logger;
     private readonly Host host;
 
-    public SelfAddressLoggingService(ILogger logger, Host host)
+    public SelfAddressLoggingService(LoggingServiceContext context, P2pNode p2pNode)
         : base(initialDelay: TimeSpan.FromSeconds(10), interval: TimeSpan.FromMinutes(1))
     {
-        this.logger = logger;
-        this.host = host;
+        logger = context.LoggerFactory.CreateLogger<SelfAddressLoggingService>();
+        host = p2pNode.Host;
     }
 
     protected override void OnError(Exception error)

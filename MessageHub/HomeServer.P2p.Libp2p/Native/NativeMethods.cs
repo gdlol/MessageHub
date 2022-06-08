@@ -165,6 +165,12 @@ internal unsafe static class NativeMethods
         out StringHandle resultJSON);
 
     [DllImport(Native.DllName)]
+    public static extern StringHandle FeedClosestPeersToAutoRelay(
+        ContextHandle ctxHandle,
+        HostHandle hostHandle,
+        DHTHandle dhtHandle);
+
+    [DllImport(Native.DllName)]
     public static extern DiscoveryHandle CreateDiscovery(DHTHandle dhtHandle);
 
     [DllImport(Native.DllName)]

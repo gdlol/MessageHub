@@ -2,11 +2,13 @@ namespace MessageHub.HomeServer.P2p.Libp2p.Services.Advertising;
 
 internal class Advertiser
 {
+    private ILogger logger;
     private readonly AdvertisingServiceContext context;
     private readonly Discovery discovery;
 
-    public Advertiser(AdvertisingServiceContext context, Discovery discovery)
+    public Advertiser(ILogger logger, AdvertisingServiceContext context, Discovery discovery)
     {
+        this.logger = logger;
         this.context = context;
         this.discovery = discovery;
     }
@@ -17,15 +19,15 @@ internal class Advertiser
         {
             try
             {
-                context.Logger.LogDebug("Advertising topic: {}", topic);
+                logger.LogDebug("Advertising topic: {}", topic);
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 cts.CancelAfter(TimeSpan.FromSeconds(20));
                 discovery.Advertise(topic, cts.Token);
                 break;
             }
-            catch (Exception ex)
+            catch (OperationCanceledException ex)
             {
-                context.Logger.LogInformation("Error advertising topic {}: {}", topic, ex.Message);
+                logger.LogInformation("Error advertising topic {}: {}", topic, ex.Message);
                 await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
             }
         }
@@ -33,7 +35,7 @@ internal class Advertiser
 
     public async Task AdvertiseAsync(CancellationToken stoppingToken)
     {
-        context.Logger.LogInformation("Advertising discovery points...");
+        logger.LogInformation("Advertising discovery points...");
         try
         {
             var identity = context.IdentityService.GetSelfIdentity();
@@ -52,7 +54,7 @@ internal class Advertiser
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            context.Logger.LogInformation(ex, "Error advertising discovery points.");
+            logger.LogInformation(ex, "Error advertising discovery points.");
             await Task.Delay(TimeSpan.FromSeconds(3), stoppingToken);
         }
     }

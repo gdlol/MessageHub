@@ -15,9 +15,12 @@ public sealed class DHT : IDisposable
 
     internal DHTHandle Handle => handle;
 
-    private DHT(DHTHandle handle)
+    public Host Host { get; }
+
+    private DHT(DHTHandle handle, Host host)
     {
         this.handle = handle;
+        Host = host;
     }
 
     public static DHT Create(Host host, DHTConfig config, CancellationToken cancellationToken = default)
@@ -37,7 +40,7 @@ public sealed class DHT : IDisposable
             cancellationToken.ThrowIfCancellationRequested();
             LibP2pException.Check(error);
         }
-        return new DHT(dhtHandle);
+        return new DHT(dhtHandle, host);
     }
 
     private bool isDisposed;
@@ -80,5 +83,16 @@ public sealed class DHT : IDisposable
         }
         using var _ = resultJSON;
         return resultJSON.ToString();
+    }
+
+    internal string? FeedClosestPeersToAutoRelay(CancellationToken cancellationToken)
+    {
+        using var context = new Context(cancellationToken);
+        using var error = NativeMethods.FeedClosestPeersToAutoRelay(context.Handle, Host.Handle, handle);
+        if (error.IsInvalid)
+        {
+            return null;
+        }
+        return error.ToString();
     }
 }

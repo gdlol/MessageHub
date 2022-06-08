@@ -30,6 +30,7 @@ internal sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
         AddressCachingService addressCachingService,
         HttpProxyService httpProxyService,
         MdnsBackgroundService mdnsBackgroundService,
+        RelayDiscoveryService relayDiscoveryService,
         AdvertisingService advertisingService,
         PubSubService pubsubService,
         MembershipService membershipService,
@@ -44,6 +45,7 @@ internal sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
         ArgumentNullException.ThrowIfNull(addressCachingService);
         ArgumentNullException.ThrowIfNull(httpProxyService);
         ArgumentNullException.ThrowIfNull(mdnsBackgroundService);
+        ArgumentNullException.ThrowIfNull(relayDiscoveryService);
         ArgumentNullException.ThrowIfNull(advertisingService);
         ArgumentNullException.ThrowIfNull(pubsubService);
         ArgumentNullException.ThrowIfNull(membershipService);
@@ -62,6 +64,7 @@ internal sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
             httpProxyService,
             mdnsBackgroundService,
             advertisingService,
+            relayDiscoveryService,
             pubsubService,
             membershipService,
             backfillingService

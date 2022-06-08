@@ -22,7 +22,6 @@ import (
 	leveldb "github.com/ipfs/go-ds-leveldb"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/libp2p/go-libp2p-core/pnet"
@@ -49,9 +48,10 @@ type SignedRequest struct {
 }
 
 type HostNode struct {
-	ds   datastore.Batching
-	ps   peerstore.Peerstore
-	host host.Host
+	ds         datastore.Batching
+	ps         peerstore.Peerstore
+	peerSource chan peer.AddrInfo
+	host       host.Host
 }
 
 func createHost(config HostConfig) (*HostNode, error) {
@@ -86,7 +86,6 @@ func createHost(config HostConfig) (*HostNode, error) {
 		libp2p.AutoNATServiceRateLimit(20, 3, time.Minute),
 		libp2p.EnableHolePunching(),
 		libp2p.EnableRelay(),
-		libp2p.EnableAutoRelay(autorelay.WithPeerSource(peerSource)),
 	}
 	if config.StaticRelays != nil {
 		relayAddrInfos := make([]peer.AddrInfo, 0)
@@ -97,7 +96,13 @@ func createHost(config HostConfig) (*HostNode, error) {
 			}
 			relayAddrInfos = append(relayAddrInfos, *relayAddrInfo)
 		}
-		options = append(options, libp2p.StaticRelays(relayAddrInfos))
+		autoRelayOptions := []autorelay.Option{
+			autorelay.WithPeerSource(peerSource),
+			autorelay.WithStaticRelays(relayAddrInfos),
+		}
+		options = append(options, libp2p.EnableAutoRelay(autoRelayOptions...))
+	} else {
+		options = append(options, libp2p.EnableAutoRelay(autorelay.WithPeerSource(peerSource)))
 	}
 	if config.PrivateNetworkSecret == nil {
 		listenAddresses := []string{
@@ -138,20 +143,12 @@ func createHost(config HostConfig) (*HostNode, error) {
 	if err != nil {
 		return nil, err
 	}
-	peerNotifiee := &network.NotifyBundle{
-		ConnectedF: func(n network.Network, c network.Conn) {
-			peerSource <- peer.AddrInfo{
-				ID:    c.RemotePeer(),
-				Addrs: []multiaddr.Multiaddr{c.RemoteMultiaddr()},
-			}
-		},
-	}
-	host.Network().Notify(peerNotifiee)
 	success = true
 	hostNode := &HostNode{
-		ds:   ds,
-		ps:   ps,
-		host: host,
+		ds:         ds,
+		ps:         ps,
+		host:       host,
+		peerSource: peerSource,
 	}
 	return hostNode, nil
 }

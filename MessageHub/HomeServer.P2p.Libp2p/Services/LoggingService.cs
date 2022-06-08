@@ -16,6 +16,6 @@ internal class LoggingService : IP2pService
 
     public BackgroundService Create(P2pNode p2pNode)
     {
-        return new SelfAddressLoggingService(context.Logger, p2pNode.Host);
+        return new SelfAddressLoggingService(context, p2pNode);
     }
 }

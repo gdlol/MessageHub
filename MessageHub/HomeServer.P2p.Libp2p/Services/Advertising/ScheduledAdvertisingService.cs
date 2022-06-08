@@ -7,11 +7,11 @@ internal class ScheduledAdvertisingService : ScheduledService
     private readonly ILogger logger;
     private readonly Advertiser advertiser;
 
-    public ScheduledAdvertisingService(ILogger logger, Advertiser advertiser, TimeSpan interval)
+    public ScheduledAdvertisingService(AdvertisingServiceContext context, P2pNode p2pNode, TimeSpan interval)
         : base(initialDelay: TimeSpan.FromSeconds(3), interval: interval)
     {
-        this.logger = logger;
-        this.advertiser = advertiser;
+        logger = context.LoggerFactory.CreateLogger<ScheduledAdvertisingService>();
+        advertiser = new Advertiser(logger, context, p2pNode.Discovery);
     }
 
     protected override void OnError(Exception error)

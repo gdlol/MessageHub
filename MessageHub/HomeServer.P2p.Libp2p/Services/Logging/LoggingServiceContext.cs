@@ -2,12 +2,12 @@ namespace MessageHub.HomeServer.P2p.Libp2p.Services.Logging;
 
 internal class LoggingServiceContext
 {
-    public ILogger Logger { get; }
+    public ILoggerFactory LoggerFactory { get; }
 
-    public LoggingServiceContext(ILogger<LoggingServiceContext> logger)
+    public LoggingServiceContext(ILoggerFactory loggerFactory)
     {
-        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(loggerFactory);
 
-        Logger = logger;
+        LoggerFactory = loggerFactory;
     }
 }

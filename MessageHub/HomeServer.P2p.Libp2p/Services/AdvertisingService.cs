@@ -16,9 +16,8 @@ internal class AdvertisingService : IP2pService
 
     public BackgroundService Create(P2pNode p2pNode)
     {
-        var advertiser = new Advertiser(context, p2pNode.Discovery);
         return BackgroundService.Aggregate(
-            new ScheduledAdvertisingService(context.Logger, advertiser, TimeSpan.FromMinutes(10)),
-            new TriggeredAdvertisingService(context.Logger, advertiser, context.Notifier));
+            new ScheduledAdvertisingService(context, p2pNode, TimeSpan.FromMinutes(10)),
+            new TriggeredAdvertisingService(context, p2pNode));
     }
 }

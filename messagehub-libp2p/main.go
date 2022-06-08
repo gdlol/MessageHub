@@ -318,6 +318,7 @@ func BootstrapDHT(ctxHandle ContextHandle, dhtHandle DHTHandle) StringHandle {
 
 //export FindPeer
 func FindPeer(ctxHandle ContextHandle, dhtHandle DHTHandle, peerID StringHandle, resultJSON *StringHandle) StringHandle {
+	*resultJSON = nil
 	ctx := loadValue(ctxHandle).(*cancellableContext).ctx
 	dualDHT := loadValue(dhtHandle).(*dual.DHT)
 	p2pPeerID, err := peer.Decode(C.GoString(peerID))
@@ -336,6 +337,31 @@ func FindPeer(ctxHandle ContextHandle, dhtHandle DHTHandle, peerID StringHandle,
 		return C.CString(err.Error())
 	}
 	*resultJSON = C.CString(string(result))
+	return nil
+}
+
+//export FeedClosestPeersToAutoRelay
+func FeedClosestPeersToAutoRelay(ctxHandle ContextHandle, hostHandle HostHandle, dhtHandle DHTHandle) StringHandle {
+	ctx := loadValue(ctxHandle).(*cancellableContext).ctx
+	dualDHT := loadValue(dhtHandle).(*dual.DHT)
+	hostNode := loadValue(hostHandle).(*HostNode)
+	peers, err := dualDHT.WAN.GetClosestPeers(ctx, hostNode.host.ID().String())
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	for _, peerID := range peers {
+		addrs := hostNode.host.Peerstore().Addrs(peerID)
+		if len(addrs) > 0 {
+			addrInfo := peer.AddrInfo{
+				ID:    peerID,
+				Addrs: addrs,
+			}
+			select {
+			case hostNode.peerSource <- addrInfo:
+			case <-ctx.Done():
+			}
+		}
+	}
 	return nil
 }
 
