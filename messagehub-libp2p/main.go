@@ -105,9 +105,10 @@ func GetHostID(handle HostHandle) StringHandle {
 func GetHostAddressInfo(hostHandle HostHandle, resultJSON *StringHandle) StringHandle {
 	*resultJSON = nil
 	host := loadValue(hostHandle).(*HostNode).host
+	addrs := host.Peerstore().Addrs(host.ID())
 	addrInfo := peer.AddrInfo{
 		ID:    host.ID(),
-		Addrs: host.Addrs(),
+		Addrs: addrs,
 	}
 	result, err := addrInfo.MarshalJSON()
 	if err != nil {
@@ -130,6 +131,20 @@ func GetIDFromAddressInfo(addrInfo StringHandle, peerID *StringHandle) StringHan
 		return C.CString(err.Error())
 	}
 	*peerID = C.CString(string(result))
+	return nil
+}
+
+//export IsValidAddressInfo
+func IsValidAddressInfo(addrInfo StringHandle, result *StringHandle) StringHandle {
+	*result = nil
+	var peerAddrInfo peer.AddrInfo
+	err := peerAddrInfo.UnmarshalJSON([]byte(C.GoString(addrInfo)))
+	if err != nil {
+		return C.CString(err.Error())
+	}
+	if peerAddrInfo.ID.Validate() == nil && len(peerAddrInfo.Addrs) > 0 {
+		*result = addrInfo
+	}
 	return nil
 }
 

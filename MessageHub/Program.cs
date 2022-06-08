@@ -11,10 +11,13 @@ namespace MessageHub;
 
 public class Program
 {
-    public static Task RunHomeServer(string applicationPath)
+    public static Task RunAsync(string applicationPath, CancellationToken cancellationToken = default)
     {
         string json = File.ReadAllText(Path.Combine(applicationPath, "config.json"));
-        var config = JsonSerializer.Deserialize<Config>(json)!;
+        var element = JsonSerializer.Deserialize<JsonElement>(json);
+        Console.WriteLine($"Config:");
+        Console.WriteLine(JsonSerializer.Serialize(element, new JsonSerializerOptions { WriteIndented = true }));
+        var config = element.Deserialize<Config>()!;
         if (string.IsNullOrEmpty(config.ContentPath))
         {
             config.ContentPath = Path.Combine(applicationPath, "Content");
@@ -25,10 +28,7 @@ public class Program
         }
         Directory.CreateDirectory(config.ContentPath);
         string url = $"http://{config.ListenAddress}";
-        var builder = WebApplication.CreateBuilder(new WebApplicationOptions
-        {
-            ContentRootPath = applicationPath
-        });
+        var builder = WebApplication.CreateBuilder();
         builder.Services.AddSingleton(config);
         builder.WebHost.UseUrls(url);
         builder.WebHost.ConfigureLogging(builder =>
@@ -84,11 +84,11 @@ public class Program
         app.UseAuthentication();
         app.UseAuthorization();
         app.MapControllers();
-        return app.RunAsync();
+        return app.RunAsync(cancellationToken);
     }
 
     public static async Task Main()
     {
-        await RunHomeServer(AppContext.BaseDirectory);
+        await RunAsync(AppContext.BaseDirectory);
     }
 }

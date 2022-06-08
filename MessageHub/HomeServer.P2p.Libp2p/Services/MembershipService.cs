@@ -9,6 +9,8 @@ internal class MembershipService : IP2pService
 
     public MembershipService(MembershipServiceContext context)
     {
+        ArgumentNullException.ThrowIfNull(context);
+
         this.context = context;
     }
 

@@ -86,6 +86,8 @@ internal class AddressCachingService : IP2pService
 
     public AddressCachingService(Context context)
     {
+        ArgumentNullException.ThrowIfNull(context);
+
         this.context = context;
     }
 

@@ -59,7 +59,10 @@ public sealed class Discovery : IDisposable
             if (peerChannel.TryGetNextPeer(context, out string? addressInfo))
             {
                 string peerId = Host.GetIdFromAddressInfo(addressInfo);
-                yield return (peerId, addressInfo);
+                if (Host.IsValidAddressInfo(addressInfo))
+                {
+                    yield return (peerId, addressInfo);
+                }
             }
             else
             {

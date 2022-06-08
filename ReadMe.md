@@ -15,7 +15,7 @@ docker compose run
 ```
 Browse http://127.84.48.1
 
-The default configuration fetches the official Element Matrix client with custom config and serves it along with the home server. You could use other clients with home server URL http://127.84.48.2.
+The default configuration fetches the official [Element](https://element.io/) Matrix client with custom config and serves it along with the home server. You could use other clients with home server URL http://127.84.48.2.
 
 Currently the home server will create and save an identity (Ed25519 key) locally on first login. The user ID resembles the format of a Matrix user ID (@user_id:matrix.org). Example: 
 ```
@@ -82,9 +82,10 @@ Nodes publish messages using the libp2p gossipsub API, so that messages can reac
 # Configuration
 The list of configurable options are specified in the `config.json` file:
 - **`listenAddress`**: The binding address:port pair of the home server, defaults to `127.84.48.2:80`.
+- **`element.listenAddress`**: The binding address:port pair of the Element server, defaults to `127.84.48.1:80`. If set to null, the Element server will not start.
 - **`libp2p.staticRelays`**: A list of static relay nodes in libp2p multiaddress format.
 - **`libp2p.privateNetworkSecret`**: A pre-shared secret string for libp2p nodes. With a non-empty secret, the libp2p node can only talk to other nodes with the same secret string specified. Enabling this option will also restrict the communication to only consider private address peers.
-- **`libp2p.dht.bootstrapPeers`**: A list of DHT bootstrap nodes in libp2p multiaddress format. Default the list of built-in bootstrap nodes will be used.
+- **`libp2p.dht.bootstrapPeers`**: A list of DHT bootstrap nodes in libp2p multiaddress format. If null (default), the list of built-in bootstrap nodes will be used.
 
 # Windows Build
 Localhost in WSL2 does not work as one might have expected, it is necessary to copy the executables out from the container and run directly in Windows. Better yet, this produces a desktop app which serves the Element client and MessageHub at the same time.
@@ -95,7 +96,3 @@ Requires WSL2, Docker and .NET Core:
 dotnet run --project ./Automation/WindowsBuild/WindowsBuild.csproj
 ```
 Output is generated in Build/MessageHub.
-
-## Specific Configurations
-- **`client.listenAddress`**: The binding address:port pair of the Element client server, defaults to `127.84.48.1:80`.
-- **`client.launchOnStart`**: Whether or not to open the browser with `client.listenAddress` on start.

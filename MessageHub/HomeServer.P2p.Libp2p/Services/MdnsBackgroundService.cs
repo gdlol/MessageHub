@@ -39,7 +39,7 @@ internal class MdnsBackgroundService : IP2pService
             using var service = MdnsService.Create(p2pNode.Host, nameof(MessageHub));
             service.Start();
             await tcs.Task;
-            
+
             context.Logger.LogInformation("Stopping MDNS service.");
             service.Stop();
         }
@@ -49,6 +49,8 @@ internal class MdnsBackgroundService : IP2pService
 
     public MdnsBackgroundService(Context context)
     {
+        ArgumentNullException.ThrowIfNull(context);
+
         this.context = context;
     }
 

@@ -17,7 +17,10 @@ internal class Advertiser
         {
             try
             {
-                discovery.Advertise(topic, cancellationToken);
+                context.Logger.LogDebug("Advertising topic: {}", topic);
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                cts.CancelAfter(TimeSpan.FromSeconds(20));
+                discovery.Advertise(topic, cts.Token);
                 break;
             }
             catch (Exception ex)
@@ -35,9 +38,7 @@ internal class Advertiser
         {
             var identity = context.IdentityService.GetSelfIdentity();
             stoppingToken.ThrowIfCancellationRequested();
-            string p2pId = $"p2p:{identity.Id}";
-            context.Logger.LogDebug("Advertising ID: {}", p2pId);
-            await Advertise(p2pId, stoppingToken);
+            await Advertise($"p2p:{identity.Id}", stoppingToken);
             var userId = UserIdentifier.FromId(identity.Id);
             string displayName = await context.UserProfile.GetDisplayNameAsync(userId.ToString())
                 ?? userId.UserName;
@@ -45,7 +46,6 @@ internal class Advertiser
             {
                 string peerIdSuffix = identity.Id[^i..];
                 string rendezvousPoint = $"{displayName}:{peerIdSuffix}";
-                context.Logger.LogDebug("Advertising rendezvousPoint: {}", rendezvousPoint);
                 await Advertise(rendezvousPoint, stoppingToken);
             }
         }

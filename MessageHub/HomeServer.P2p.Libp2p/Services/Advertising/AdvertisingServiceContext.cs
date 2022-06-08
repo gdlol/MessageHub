@@ -15,6 +15,11 @@ internal class AdvertisingServiceContext
         IUserProfile userProfile,
         UserProfileUpdateNotifier notifier)
     {
+        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(identityService);
+        ArgumentNullException.ThrowIfNull(userProfile);
+        ArgumentNullException.ThrowIfNull(notifier);
+
         Logger = logger;
         IdentityService = identityService;
         UserProfile = userProfile;

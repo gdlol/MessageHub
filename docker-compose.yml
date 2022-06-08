@@ -1,10 +1,9 @@
 services:
-  client:
+  element:
     image: v2net/messagehub-element
     build:
-      dockerfile: Automation/Docker/element.Dockerfile
-    ports:
-      - "127.84.48.1:80:80/tcp"
+      dockerfile: Automation/Docker/ElementServer.Dockerfile
+    network_mode: "host"
   server:
     image: v2net/messagehub
     build:

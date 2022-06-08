@@ -7,6 +7,7 @@ using MessageHub.HomeServer.P2p.Libp2p.Notifiers;
 using MessageHub.HomeServer.P2p.Libp2p.Services;
 using MessageHub.HomeServer.P2p.Libp2p.Services.Advertising;
 using MessageHub.HomeServer.P2p.Libp2p.Services.Backfilling;
+using MessageHub.HomeServer.P2p.Libp2p.Services.Logging;
 using MessageHub.HomeServer.P2p.Libp2p.Services.Membership;
 using MessageHub.HomeServer.P2p.Libp2p.Services.PubSub;
 using MessageHub.HomeServer.P2p.LocalIdentity;
@@ -52,6 +53,8 @@ public static class P2pHomeServerServiceCollectionExtensions
         services.AddMemoryCache();
         services.AddSingleton<PublishEventNotifier>();
         services.AddSingleton<TopicMemberUpdateNotifier>();
+        services.AddSingleton<LoggingServiceContext>();
+        services.AddSingleton<LoggingService>();
         services.AddSingleton<HttpProxyService.Context>();
         services.AddSingleton<HttpProxyService>();
         services.AddSingleton<AddressCachingService.Context>();

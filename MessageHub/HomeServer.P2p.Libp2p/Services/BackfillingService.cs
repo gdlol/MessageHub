@@ -9,6 +9,8 @@ internal class BackfillingService : IP2pService
 
     public BackfillingService(BackfillingServiceContext context)
     {
+        ArgumentNullException.ThrowIfNull(context);
+
         this.context = context;
     }
 

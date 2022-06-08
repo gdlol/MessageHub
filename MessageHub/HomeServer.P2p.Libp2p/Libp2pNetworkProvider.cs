@@ -26,6 +26,7 @@ internal sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
         DHTConfig dhtConfig,
         IMemoryCache memoryCache,
         PublishEventNotifier publishEventNotifier,
+        LoggingService loggingService,
         AddressCachingService addressCachingService,
         HttpProxyService httpProxyService,
         MdnsBackgroundService mdnsBackgroundService,
@@ -39,6 +40,7 @@ internal sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
         ArgumentNullException.ThrowIfNull(dhtConfig);
         ArgumentNullException.ThrowIfNull(memoryCache);
         ArgumentNullException.ThrowIfNull(publishEventNotifier);
+        ArgumentNullException.ThrowIfNull(loggingService);
         ArgumentNullException.ThrowIfNull(addressCachingService);
         ArgumentNullException.ThrowIfNull(httpProxyService);
         ArgumentNullException.ThrowIfNull(mdnsBackgroundService);
@@ -55,6 +57,7 @@ internal sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
         this.publishEventNotifier = publishEventNotifier;
         p2pServices = new IP2pService[]
         {
+            loggingService,
             addressCachingService,
             httpProxyService,
             mdnsBackgroundService,

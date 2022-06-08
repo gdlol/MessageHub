@@ -62,6 +62,8 @@ internal class HttpProxyService : IP2pService
 
     public HttpProxyService(Context context)
     {
+        ArgumentNullException.ThrowIfNull(context);
+
         this.context = context;
     }
 

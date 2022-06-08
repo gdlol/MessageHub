@@ -14,7 +14,6 @@ RUN --mount=type=cache,target=/go/pkg/mod/ \
 FROM mcr.microsoft.com/dotnet/aspnet:6.0
 WORKDIR /root/app/
 COPY --from=build-libp2p /root/lib/messagehub-libp2p.dll ./
-COPY --from=vectorim/element-web /app ./Data/Element/
-COPY Automation/Docker/element.config.json ./Data/Element/config.json
+COPY --from=vectorim/element-web /app ./Clients/Element/
 COPY config.json ./
 CMD [ "cp", "-r", ".", "/root/build/MessageHub" ]

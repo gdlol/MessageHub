@@ -9,6 +9,8 @@ internal class AdvertisingService : IP2pService
 
     public AdvertisingService(AdvertisingServiceContext context)
     {
+        ArgumentNullException.ThrowIfNull(context);
+
         this.context = context;
     }
 

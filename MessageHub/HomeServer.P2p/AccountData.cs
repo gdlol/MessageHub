@@ -8,6 +8,7 @@ public class AccountData : IAccountData
 {
     private const string filterStoreName = "Filter";
     private const string roomVisibilityStoreName = "RoomVisibility";
+    private const string accountDataStoreName = "AccountData";
 
     private readonly IStorageProvider storageProvider;
 
@@ -18,17 +19,15 @@ public class AccountData : IAccountData
         this.storageProvider = storageProvider;
     }
 
-    private static string GetRoomDataStoreName(string? roomId)
+    private static string GetAccountDataKey(string? roomId, string eventType)
     {
-        if (roomId is null)
-        {
-            return nameof(AccountData);
-        }
-        else
-        {
-            string hex = Convert.ToHexString(Encoding.UTF8.GetBytes(roomId));
-            return $"{nameof(AccountData)}-{hex}";
-        }
+        return JsonSerializer.Serialize(new[] { roomId, eventType });
+    }
+
+    private static (string? roomId, string eventType) DecodeAccountDataKey(string key)
+    {
+        var array = JsonSerializer.Deserialize<string?[]>(key)!;
+        return (array[0], array[1]!);
     }
 
     private async Task<string?> GetStringAsync(string storeName, string key)
@@ -53,21 +52,21 @@ public class AccountData : IAccountData
 
     public Task SaveAccountDataAsync(string? roomId, string eventType, JsonElement? value)
     {
-        string storeName = GetRoomDataStoreName(roomId);
+        string key = GetAccountDataKey(roomId, eventType);
         if (value is null)
         {
-            return DeleteStringAsync(storeName, eventType);
+            return DeleteStringAsync(accountDataStoreName, key);
         }
         else
         {
-            return PutStringAsync(storeName, eventType, JsonSerializer.Serialize(value));
+            return PutStringAsync(accountDataStoreName, key, JsonSerializer.Serialize(value));
         }
     }
 
     public async Task<JsonElement?> LoadAccountDataAsync(string? roomId, string eventType)
     {
-        string storeName = GetRoomDataStoreName(roomId);
-        string? json = await GetStringAsync(storeName, eventType);
+        string key = GetAccountDataKey(roomId, eventType);
+        string? json = await GetStringAsync(accountDataStoreName, key);
         if (string.IsNullOrEmpty(json))
         {
             return null;
@@ -81,8 +80,7 @@ public class AccountData : IAccountData
     public async Task<(string eventType, JsonElement content)[]> LoadAccountDataAsync(
         string? roomId, Func<string, JsonElement, bool>? filter, int? limit)
     {
-        string storeName = GetRoomDataStoreName(roomId);
-        using var store = storageProvider.GetKeyValueStore(storeName);
+        using var store = storageProvider.GetKeyValueStore(accountDataStoreName);
         if (store.IsEmpty)
         {
             return Array.Empty<(string eventType, JsonElement content)>();
@@ -94,8 +92,13 @@ public class AccountData : IAccountData
             {
                 if (value.Length > 0)
                 {
+                    var (elementRoomId, eventType) = DecodeAccountDataKey(key);
+                    if (elementRoomId != roomId)
+                    {
+                        continue;
+                    }
                     var element = JsonSerializer.Deserialize<JsonElement>(value)!;
-                    yield return (key, element);
+                    yield return (eventType, element);
                 }
             }
         }

@@ -9,6 +9,8 @@ internal class PubSubService : IP2pService
 
     public PubSubService(PubSubServiceContext context)
     {
+        ArgumentNullException.ThrowIfNull(context);
+
         this.context = context;
     }
 

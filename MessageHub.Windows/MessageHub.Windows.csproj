@@ -35,6 +35,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../MessageHub/MessageHub.csproj" />
+    <ProjectReference Include="../MessageHub.ElementServer/MessageHub.ElementServer.csproj" />
   </ItemGroup>
 
   <ItemGroup>

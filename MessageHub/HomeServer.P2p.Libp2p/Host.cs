@@ -69,7 +69,7 @@ public sealed class Host : IDisposable
 
     public string Id => NativeMethods.GetHostID(handle).ToString();
 
-    public string GetHostAddressInfo()
+    public string GetSelfAddressInfo()
     {
         using var error = NativeMethods.GetHostAddressInfo(handle, out var resultJSON);
         LibP2pException.Check(error);
@@ -84,6 +84,14 @@ public sealed class Host : IDisposable
         LibP2pException.Check(error);
         using var _ = id;
         return id.ToString();
+    }
+
+    public static bool IsValidAddressInfo(string addressInfo)
+    {
+        using var addressInfoString = StringHandle.FromString(addressInfo);
+        using var error = NativeMethods.IsValidAddressInfo(addressInfoString, out IntPtr result);
+        LibP2pException.Check(error);
+        return !result.Equals(IntPtr.Zero);
     }
 
     public string? TryGetAddressInfo(string peerId)

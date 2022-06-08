@@ -100,6 +100,9 @@ internal unsafe static class NativeMethods
     public static extern StringHandle GetIDFromAddressInfo(StringHandle addrInfo, out StringHandle peerID);
 
     [DllImport(Native.DllName)]
+    public static extern StringHandle IsValidAddressInfo(StringHandle addrInfo, out IntPtr result);
+
+    [DllImport(Native.DllName)]
     public static extern StringHandle GetPeerInfo(
         HostHandle hostHandle,
         StringHandle peerID,

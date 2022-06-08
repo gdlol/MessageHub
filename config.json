@@ -1,5 +1,6 @@
 {
     "listenAddress": "127.84.48.2:80",
+    "element.listenAddress": "127.84.48.1:80",
     "libp2p.staticRelays": null,
     "libp2p.privateNetworkSecret": null,
     "libp2p.dht.bootstrapPeers": null

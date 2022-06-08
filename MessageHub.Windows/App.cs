@@ -3,15 +3,12 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
-using System.Reflection;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using MessageHub.Windows.Localization;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Logging;
 
 namespace MessageHub.Windows;
 
@@ -24,8 +21,12 @@ public class App : Application
         return logFilePath;
     }
 
-    private static void LaunchUrl(string url)
+    private static void LaunchUrl(string? url)
     {
+        if (url is null)
+        {
+            return;
+        }
         using var _ = Process.Start(new ProcessStartInfo
         {
             FileName = url,
@@ -69,15 +70,15 @@ public class App : Application
         string? executablePath = Process.GetCurrentProcess().MainModule?.FileName;
         if (executablePath is null)
         {
-            throw new InvalidOperationException(nameof(executablePath));
+            throw new InvalidOperationException($"{nameof(executablePath)}: {executablePath}");
         }
         string applicationPath = new FileInfo(executablePath).Directory!.FullName;
         string json = File.ReadAllText(Path.Combine(applicationPath, "config.json"));
-        var config = JsonSerializer.Deserialize<Config>(json)!;
-        string clientUrl = "http://127.84.48.1:80";
-        if (config.ClientListenAddress is not null)
+        var elementConfig = JsonSerializer.Deserialize<ElementServer.Config>(json)!;
+        string? clientUrl = null;
+        if (elementConfig.ElementListenAddress is not null)
         {
-            clientUrl = $"http://{config.ClientListenAddress}";
+            clientUrl = $"http://{elementConfig.ElementListenAddress}";
         }
 
         string logsPath = Path.Combine(applicationPath, "Logs");
@@ -125,54 +126,18 @@ public class App : Application
             };
             Console.SetOut(logWriter);
 
-            var clientReady = new TaskCompletionSource();
-            var serverReady = new TaskCompletionSource();
+            var server = MessageHub.Program.RunAsync(applicationPath);
 
-            var client = Task.Run(async () =>
+            var client = Task.CompletedTask;
+            if (elementConfig.ElementListenAddress is not null)
             {
-                string elementPath = Path.Combine(applicationPath, "Data", "Element");
-                if (!Directory.Exists(elementPath))
-                {
-                    return;
-                }
-                var builder = WebApplication.CreateBuilder(new WebApplicationOptions
-                {
-                    ContentRootPath = applicationPath,
-                    WebRootPath = elementPath
-                });
-                builder.WebHost.UseUrls(clientUrl);
-                builder.WebHost.ConfigureLogging(builder => builder.ClearProviders());
-                var app = builder.Build();
-                app.Use(async (context, next) =>
-                {
-                    context.Response.Headers.Add("X-Frame-Options", "SAMEORIGIN");
-                    context.Response.Headers.Add("Content-Security-Policy", "frame-ancestors 'none'");
-                    context.Response.Headers.Add("X-Content-Type-Options", "nosniff");
-                    context.Response.Headers.Add("X-XSS-Protection", "1; mode=block;");
-                    context.Response.Headers.Add("Cache-Control", "no-cache");
-                    await next();
-                });
-                app.UseDefaultFiles();
-                app.UseStaticFiles();
-                var task = app.RunAsync();
-                clientReady.SetResult();
-                await task;
-            });
-
-            var server = Task.Run(async () =>
-            {
-                var task = MessageHub.Program.RunHomeServer(applicationPath);
-                serverReady.SetResult();
-                await task;
-            });
+                string elementPath = Path.Combine(applicationPath, "Clients", "Element");
+                client = ElementServer.Program.RunAsync(applicationPath, elementConfig);
+            }
 
             try
             {
-                await Task.WhenAll(clientReady.Task, serverReady.Task);
-                if (config.LaunchClientOnStart)
-                {
-                    LaunchUrl(clientUrl);
-                }
+                LaunchUrl(clientUrl);
                 await Dispatcher.InvokeAsync(() =>
                 {
                     notifyIcon.ShowBalloonTip(
@@ -193,15 +158,15 @@ public class App : Application
 
     public void RunSingleInstance()
     {
-        string? assemblyName = Assembly.GetExecutingAssembly().GetName().Name;
-        if (assemblyName is null)
+        string? executablePath = Process.GetCurrentProcess().MainModule?.FileName;
+        if (executablePath is null)
         {
-            throw new InvalidOperationException(nameof(assemblyName));
+            throw new InvalidOperationException($"{nameof(executablePath)}: {executablePath}");
         }
         using var handle = new EventWaitHandle(
             false,
             EventResetMode.AutoReset,
-            assemblyName,
+            Convert.ToHexString(Encoding.UTF8.GetBytes(executablePath)),
             out bool createdNew);
         if (createdNew)
         {
