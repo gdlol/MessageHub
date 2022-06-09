@@ -2,7 +2,7 @@
 
 A P2P [Matrix](https://matrix.org) home server created using [libp2p](https://libp2p.io/).
 
-It runs locally on your device, finds other nodes through MDNS/DHT, and sends/receives messages in a gossip manner. No domain name is required/involved.
+It runs locally on your device, finds other nodes through mDNS/DHT, and sends/receives messages in a gossip manner. No domain name is required/involved.
 
 :construction: Alpha software warning. :construction:
 

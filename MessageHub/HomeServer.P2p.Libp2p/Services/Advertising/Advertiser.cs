@@ -2,15 +2,15 @@ namespace MessageHub.HomeServer.P2p.Libp2p.Services.Advertising;
 
 internal class Advertiser
 {
-    private ILogger logger;
+    private readonly ILogger logger;
     private readonly AdvertisingServiceContext context;
-    private readonly Discovery discovery;
+    private readonly P2pNode p2pNode;
 
-    public Advertiser(ILogger logger, AdvertisingServiceContext context, Discovery discovery)
+    public Advertiser(ILogger logger, AdvertisingServiceContext context, P2pNode p2pNode)
     {
         this.logger = logger;
         this.context = context;
-        this.discovery = discovery;
+        this.p2pNode = p2pNode;
     }
 
     private async Task Advertise(string topic, CancellationToken cancellationToken)
@@ -22,12 +22,27 @@ internal class Advertiser
                 logger.LogDebug("Advertising topic: {}", topic);
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 cts.CancelAfter(TimeSpan.FromSeconds(20));
-                discovery.Advertise(topic, cts.Token);
-                break;
+                p2pNode.Discovery.Advertise(topic, cts.Token);
+                return;
             }
             catch (OperationCanceledException ex)
             {
-                logger.LogInformation("Error advertising topic {}: {}", topic, ex.Message);
+                logger.LogInformation("Timeout advertising topic {}: {}", topic, ex.Message);
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                cts.CancelAfter(TimeSpan.FromSeconds(20));
+                string selfId = p2pNode.Host.Id;
+                var peers = p2pNode.Discovery.FindPeers(topic, cts.Token);
+                int count = 0;
+                foreach (var (peerId, _) in peers)
+                {
+                    if (peerId == selfId)
+                    {
+                        logger.LogInformation("Already advertising topic {}", topic);
+                        return;
+                    }
+                    count++;
+                }
+                logger.LogInformation("Found {} nodes advertising topic {}", topic);
                 await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
             }
         }

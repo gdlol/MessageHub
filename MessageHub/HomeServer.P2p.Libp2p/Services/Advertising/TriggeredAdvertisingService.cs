@@ -12,7 +12,7 @@ internal class TriggeredAdvertisingService : TriggeredService<UserProfileUpdate>
         : base(context.Notifier)
     {
         logger = context.LoggerFactory.CreateLogger<TriggeredAdvertisingService>();
-        advertiser = new Advertiser(logger, context, p2pNode.Discovery);
+        advertiser = new Advertiser(logger, context, p2pNode);
     }
 
     protected override void OnError(Exception error)
