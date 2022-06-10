@@ -87,20 +87,34 @@ public class LeaveRoomController : ControllerBase
         [FromBody] PersistentDataUnit pdu)
     {
         SignedRequest request = (SignedRequest)Request.HttpContext.Items[nameof(request)]!;
-        var senderId = UserIdentifier.FromId(request.Origin);
+        var sender = UserIdentifier.FromId(request.Origin);
         if (!rooms.HasRoom(roomId))
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));
         }
+        if (pdu.RoomId != roomId
+            || EventHash.TryGetEventId(pdu) != eventId
+            || pdu.EventType != EventTypes.Member
+            || pdu.Sender != sender.ToString()
+            || pdu.StateKey != pdu.Sender)
+        {
+            return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter));
+        }
+        try
+        {
+            var memberEvent = pdu.Content.Deserialize<MemberEvent>();
+            if (memberEvent?.MemberShip != MembershipStates.Leave)
+            {
+                return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter));
+            }
+        }
+        catch (Exception)
+        {
+            return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter));
+        }
         var roomSnapshot = await rooms.GetRoomSnapshotAsync(roomId);
         var eventAuthorizer = new EventAuthorizer(roomSnapshot.StateContents);
-        if (!eventAuthorizer.Authorize(
-            eventType: EventTypes.Member,
-            stateKey: senderId.ToString(),
-            sender: senderId,
-            content: JsonSerializer.SerializeToElement(
-                new MemberEvent { MemberShip = MembershipStates.Leave },
-                new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull })))
+        if (!eventAuthorizer.Authorize(pdu.EventType, pdu.StateKey, sender, pdu.Content))
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));
         }

@@ -104,7 +104,8 @@ public class KnockRoomController : ControllerBase
         if (pdu.RoomId != roomId
             || EventHash.TryGetEventId(pdu) != eventId
             || pdu.EventType != EventTypes.Member
-            || pdu.Sender != sender.ToString())
+            || pdu.Sender != sender.ToString()
+            || pdu.StateKey != pdu.Sender)
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter));
         }
@@ -121,14 +122,8 @@ public class KnockRoomController : ControllerBase
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter));
         }
         var roomSnapshot = await rooms.GetRoomSnapshotAsync(roomId);
-        var eventAuthorizer = new EventAuthorizer(roomSnapshot.StateContents);
-        if (!eventAuthorizer.Authorize(
-            eventType: EventTypes.Member,
-            stateKey: sender.ToString(),
-            sender: sender,
-            content: JsonSerializer.SerializeToElement(
-                new MemberEvent { MemberShip = MembershipStates.Knock },
-                new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull })))
+        var eventAuthorizer = new EventAuthorizer(roomSnapshot.StateContents);        
+        if (!eventAuthorizer.Authorize(pdu.EventType, pdu.StateKey, sender, pdu.Content))
         {
             if (eventAuthorizer.TryGetJoinRulesEvent()?.JoinRule == JoinRules.Knock)
             {
@@ -147,7 +142,7 @@ public class KnockRoomController : ControllerBase
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(eventId)));
         }
         var errors = await eventReceiver.ReceivePersistentEventsAsync(new[] { pdu });
-        if (errors.TryGetValue(eventId, out string? error))
+        if (errors.TryGetValue(eventId, out string? error) && !string.IsNullOrEmpty(error))
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.BadState, error));
         }
