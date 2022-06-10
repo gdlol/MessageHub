@@ -200,7 +200,7 @@ public class LeaveRoomController : ControllerBase
             new JsonSerializerOptions
             {
                 DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-            }); 
+            });
             var eventAuthorizer = new EventAuthorizer(snapshot.StateContents);
             if (!eventAuthorizer.Authorize(
                 eventType: EventTypes.Member,
@@ -208,6 +208,7 @@ public class LeaveRoomController : ControllerBase
                 sender: sender,
                 content: leaveContent))
             {
+                logger.LogWarning("Leave ({}, {}) not authorized at state {}", userId, sender, snapshot.StateContents);
                 return Unauthorized(MatrixError.Create(MatrixErrorCode.Unauthorized));
             }
             var (newSnapshot, pdu) = EventCreation.CreateEvent(

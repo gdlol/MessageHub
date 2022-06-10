@@ -18,15 +18,11 @@ public class Program
         Console.WriteLine($"Config:");
         Console.WriteLine(JsonSerializer.Serialize(element, new JsonSerializerOptions { WriteIndented = true }));
         var config = element.Deserialize<Config>()!;
-        if (string.IsNullOrEmpty(config.ContentPath))
-        {
-            config.ContentPath = Path.Combine(applicationPath, "Content");
-        }
         if (string.IsNullOrEmpty(config.DataPath))
         {
             config.DataPath = Path.Combine(applicationPath, "Data");
         }
-        Directory.CreateDirectory(config.ContentPath);
+        Directory.CreateDirectory(config.DataPath);
         string url = $"http://{config.ListenAddress}";
         var builder = WebApplication.CreateBuilder();
         builder.Services.AddSingleton(config);

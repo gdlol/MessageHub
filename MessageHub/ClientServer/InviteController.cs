@@ -29,6 +29,7 @@ public class InviteController : ControllerBase
 
     private readonly IIdentityService identityService;
     private readonly IRooms rooms;
+    private readonly IUserDiscoveryService userDiscoveryService;
     private readonly IRemoteRooms remoteRooms;
     private readonly IEventSaver eventSaver;
     private readonly IEventPublisher eventPublisher;
@@ -36,18 +37,21 @@ public class InviteController : ControllerBase
     public InviteController(
         IIdentityService identityService,
         IRooms rooms,
+        IUserDiscoveryService userDiscoveryService,
         IRemoteRooms remoteRooms,
         IEventSaver eventSaver,
         IEventPublisher eventPublisher)
     {
         ArgumentNullException.ThrowIfNull(identityService);
         ArgumentNullException.ThrowIfNull(rooms);
+        ArgumentNullException.ThrowIfNull(userDiscoveryService);
         ArgumentNullException.ThrowIfNull(remoteRooms);
         ArgumentNullException.ThrowIfNull(eventSaver);
         ArgumentNullException.ThrowIfNull(eventPublisher);
 
         this.identityService = identityService;
         this.rooms = rooms;
+        this.userDiscoveryService = userDiscoveryService;
         this.remoteRooms = remoteRooms;
         this.eventSaver = eventSaver;
         this.eventPublisher = eventPublisher;
@@ -67,9 +71,26 @@ public class InviteController : ControllerBase
         using var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
 
         // Authorize event.
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+        string? avatarUrl;
+        string? displayName;
+        try
+        {
+            (avatarUrl, displayName) = await userDiscoveryService.GetUserProfileAsync(parameters.UserId, token);
+        }
+        catch (OperationCanceledException)
+        {
+            return new JsonResult(MatrixError.Create(MatrixErrorCode.NotFound))
+            {
+                StatusCode = StatusCodes.Status404NotFound
+            };
+        }
         var content = JsonSerializer.SerializeToElement(
             new MemberEvent
             {
+                AvatarUrl = avatarUrl,
+                DisplayName = displayName,
                 MemberShip = MembershipStates.Invite,
                 Reason = parameters.Reason
             },

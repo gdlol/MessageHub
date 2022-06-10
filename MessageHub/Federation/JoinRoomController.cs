@@ -139,7 +139,8 @@ public class JoinRoomController : ControllerBase
         if (pdu.RoomId != roomId
             || EventHash.TryGetEventId(pdu) != eventId
             || pdu.EventType != EventTypes.Member
-            || pdu.Sender != sender.ToString())
+            || pdu.Sender != sender.ToString()
+            || pdu.StateKey != pdu.Sender)
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter));
         }
@@ -158,11 +159,7 @@ public class JoinRoomController : ControllerBase
         var roomSnapshot = await rooms.GetRoomSnapshotAsync(roomId);
         using var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
         var eventAuthorizer = new EventAuthorizer(roomSnapshot.StateContents);
-        if (!eventAuthorizer.Authorize(
-            eventType: EventTypes.Member,
-            stateKey: sender.ToString(),
-            sender: sender,
-            content: pdu.Content))
+        if (!eventAuthorizer.Authorize(pdu.EventType, pdu.StateKey, sender, pdu.Content))
         {
             if (eventAuthorizer.TryGetJoinRulesEvent()?.JoinRule == JoinRules.Public)
             {
@@ -180,8 +177,27 @@ public class JoinRoomController : ControllerBase
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(eventId)));
         }
+        if (roomSnapshot.States.TryGetValue(new RoomStateKey(pdu.EventType, pdu.StateKey), out string? oldEventId))
+        {
+            using var store = await rooms.GetRoomEventStoreAsync(roomId);
+            var oldEvent = await store.LoadEventAsync(oldEventId);
+            var unsigned = new Dictionary<string, object>();
+            if (pdu.Unsigned is not null)
+            {
+                try
+                {
+                    unsigned = pdu.Unsigned.Value.Deserialize<Dictionary<string, object>>() ?? unsigned;
+                }
+                catch (Exception)
+                { }
+            }
+            unsigned["replaces_state"] = oldEventId;
+            unsigned["prev_content"] = oldEvent.Content;
+            unsigned["prev_sender"] = oldEvent.Sender;
+            pdu.Unsigned = JsonSerializer.SerializeToElement(unsigned);
+        }
         var errors = await eventReceiver.ReceivePersistentEventsAsync(new[] { pdu });
-        if (errors.TryGetValue(eventId, out string? error) && error is not null)
+        if (errors.TryGetValue(eventId, out string? error) && !string.IsNullOrEmpty(error))
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.BadState, error));
         }

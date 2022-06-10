@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using MessageHub.Authentication;
 using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer;
@@ -14,6 +15,11 @@ namespace MessageHub.Federation;
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Federation)]
 public class BackfillingController : ControllerBase
 {
+    private static readonly JsonSerializerOptions ignoreNullOptions = new()
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
+
     private readonly IIdentityService identityService;
     private readonly IRooms rooms;
 
@@ -82,7 +88,7 @@ public class BackfillingController : ControllerBase
             }
             latestEventIds = newLatestEventIds.Except(eventMap.Keys).ToList();
         }
-        var pdus = foundEventIds.Select(x => eventMap[x]).ToArray();
+        var pdus = foundEventIds.Select(x => eventMap[x].ToJsonElement()).ToArray();
         return new JsonResult(new
         {
             origin = identityService.GetSelfIdentity().Id,
@@ -149,7 +155,7 @@ public class BackfillingController : ControllerBase
         }
         return new JsonResult(new
         {
-            events = foundEventIds.Select(x => eventMap[x]).ToArray()
+            events = foundEventIds.Select(x => eventMap[x].ToJsonElement()).ToArray()
         });
     }
 }

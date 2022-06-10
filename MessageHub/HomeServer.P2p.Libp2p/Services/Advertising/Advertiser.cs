@@ -43,6 +43,10 @@ internal class Advertiser
                     count++;
                 }
                 logger.LogInformation("Found {} nodes advertising topic {}", topic);
+            }
+            catch (Exception ex)
+            {
+                logger.LogInformation("Error advertising topic {}: {}", topic, ex.Message);
                 await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
             }
         }

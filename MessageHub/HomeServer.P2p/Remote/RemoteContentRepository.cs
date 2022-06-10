@@ -5,7 +5,7 @@ namespace MessageHub.HomeServer.P2p.Remote;
 
 public class RemoteContentRepository : IRemoteContentRepository
 {
-    private readonly Config config;
+    private readonly string mediaPath;
     private readonly INetworkProvider networkProvider;
 
     public RemoteContentRepository(Config config, INetworkProvider networkProvider)
@@ -13,20 +13,21 @@ public class RemoteContentRepository : IRemoteContentRepository
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(networkProvider);
 
-        this.config = config;
+        mediaPath = Path.Combine(config.DataPath, "Media");
+        Directory.CreateDirectory(mediaPath);
         this.networkProvider = networkProvider;
     }
 
     public async Task<Stream?> DownloadFileAsync(string serverName, string mediaId, CancellationToken cancellationToken)
     {
-        string directoryPath = Path.Combine(config.ContentPath, serverName);
+        string directoryPath = Path.Combine(mediaPath, serverName);
         string filePath = Path.Combine(directoryPath, mediaId);
         if (File.Exists(filePath))
         {
             return File.OpenRead(filePath);
         }
 
-        string tempDirectory = Path.Combine(config.ContentPath, "temp");
+        string tempDirectory = Path.Combine(mediaPath, "temp");
         Directory.CreateDirectory(tempDirectory);
         string tempFilePath = Path.Combine(tempDirectory, Guid.NewGuid().ToString());
         string url = $"/_matrix/media/v3/download/{serverName}/{mediaId}";

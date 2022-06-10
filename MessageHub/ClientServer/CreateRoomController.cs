@@ -26,6 +26,7 @@ public class CreateRoomController : ControllerBase
     private readonly ILogger logger;
     private readonly IIdentityService identityService;
     private readonly IUserProfile userProfile;
+    private readonly IUserDiscoveryService userDiscoveryService;
     private readonly IAccountData accountData;
     private readonly IEventSaver eventSaver;
 
@@ -33,18 +34,21 @@ public class CreateRoomController : ControllerBase
         ILogger<CreateRoomController> logger,
         IIdentityService identityService,
         IUserProfile userProfile,
+        IUserDiscoveryService userDiscoveryService,
         IAccountData accountData,
         IEventSaver eventSaver)
     {
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(identityService);
         ArgumentNullException.ThrowIfNull(userProfile);
+        ArgumentNullException.ThrowIfNull(userDiscoveryService);
         ArgumentNullException.ThrowIfNull(eventSaver);
         ArgumentNullException.ThrowIfNull(accountData);
 
         this.logger = logger;
         this.identityService = identityService;
         this.userProfile = userProfile;
+        this.userDiscoveryService = userDiscoveryService;
         this.accountData = accountData;
         this.eventSaver = eventSaver;
     }
@@ -71,16 +75,27 @@ public class CreateRoomController : ControllerBase
         return result;
     }
 
-    private static JsonElement GetPowerLevelContent(string userId, JsonElement? powerLevelContentOverride)
+    private static JsonElement GetPowerLevelContent(string userId, CreateRoomParameters parameters)
     {
-        var powerLevelContent = new PowerLevelsEvent
+        PowerLevelsEvent powerLevelContent;
+        if (parameters.IsDirect == true && parameters.Invite is string[] inviteIds)
         {
-            Users = new Dictionary<string, int>
+            powerLevelContent = new PowerLevelsEvent
             {
-                [userId] = 100
-            }.ToImmutableDictionary()
-        };
-        if (powerLevelContentOverride is null)
+                Users = new[] { userId }.Concat(inviteIds).ToImmutableDictionary(id => id, _ => 100)
+            };
+        }
+        else
+        {
+            powerLevelContent = new PowerLevelsEvent
+            {
+                Users = new Dictionary<string, int>
+                {
+                    [userId] = 100
+                }.ToImmutableDictionary()
+            };
+        }
+        if (parameters.PowerLevelContentOverride is null)
         {
             return JsonSerializer.SerializeToElement(powerLevelContent, ignoreNullOptions);
         }
@@ -89,7 +104,7 @@ public class CreateRoomController : ControllerBase
             var propertyMapping = JsonSerializer
                 .SerializeToElement(powerLevelContent, ignoreNullOptions)
                 .Deserialize<Dictionary<string, JsonElement>>()!;
-            var overwriteMapping = powerLevelContentOverride.Value
+            var overwriteMapping = parameters.PowerLevelContentOverride.Value
                 .Deserialize<Dictionary<string, JsonElement>>()!;
             var overwriteKeys = new List<string>();
             foreach (var (key, value) in propertyMapping)
@@ -201,7 +216,7 @@ public class CreateRoomController : ControllerBase
         AddEvent(pdu, roomSnapshot.States);
 
         // Set power levels.
-        var powerLevelContent = GetPowerLevelContent(userId, parameters.PowerLevelContentOverride);
+        var powerLevelContent = GetPowerLevelContent(userId, parameters);
         (roomSnapshot, pdu) = EventCreation.CreateEvent(
             roomId: roomId,
             snapshot: roomSnapshot,
@@ -340,6 +355,17 @@ public class CreateRoomController : ControllerBase
         {
             foreach (var invitedId in userIds)
             {
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                var token = cts.Token;
+                try
+                {
+                    (avatarUrl, displayName) = await userDiscoveryService.GetUserProfileAsync(invitedId, token);
+                }
+                catch (OperationCanceledException)
+                {
+                    logger.LogInformation("Timeout getting user profile from {}", invitedId);
+                    continue;
+                }
                 (roomSnapshot, pdu) = EventCreation.CreateEvent(
                     roomId: roomId,
                     snapshot: roomSnapshot,
@@ -350,6 +376,8 @@ public class CreateRoomController : ControllerBase
                     content: JsonSerializer.SerializeToElement(
                         new MemberEvent
                         {
+                            AvatarUrl = avatarUrl,
+                            DisplayName = displayName,
                             IsDirect = parameters.IsDirect,
                             MemberShip = MembershipStates.Invite
                         },
