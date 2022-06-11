@@ -13,7 +13,7 @@ namespace MessageHub.Federation;
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Federation)]
 public class TransactionsController : ControllerBase
 {
-    private ILogger logger;
+    private readonly ILogger logger;
     private readonly IEventReceiver eventReceiver;
     private readonly IRooms rooms;
 
@@ -49,10 +49,6 @@ public class TransactionsController : ControllerBase
             pdus.Add(pdu);
         }
         var errors = await eventReceiver.ReceivePersistentEventsAsync(pdus.ToArray());
-        if (requestBody.Edus is not null)
-        {
-            await eventReceiver.ReceiveEphemeralEventsAsync(requestBody.Edus);
-        }
         var response = new
         {
             pdus = errors.ToDictionary(x => x.Key, x =>
@@ -61,6 +57,11 @@ public class TransactionsController : ControllerBase
                 return error is null ? new object() : new { error };
             })
         };
+        if (requestBody.Edus is not null)
+        {
+            var sender = UserIdentifier.FromId(request.Origin);
+            await eventReceiver.ReceiveEphemeralEventsAsync(sender, requestBody.Edus);
+        }
         return JsonSerializer.SerializeToElement(response);
     }
 }

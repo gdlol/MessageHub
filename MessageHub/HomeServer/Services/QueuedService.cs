@@ -22,34 +22,26 @@ public abstract class QueuedService<T> : BackgroundService
     protected override async Task Start(CancellationToken stoppingToken)
     {
         using var queue = new BlockingCollection<T>(boundedCapacity);
-        void handler(object? sender, T e) => queue.TryAdd(e);
-        notifier.OnNotify += handler;
-        try
+        using var _ = notifier.Register(value => queue.TryAdd(value));
+        using var __ = stoppingToken.Register(queue.CompleteAdding);
+        var parallelOptions = new ParallelOptions
         {
-            using var _ = stoppingToken.Register(queue.CompleteAdding);
-            var parallelOptions = new ParallelOptions
+            CancellationToken = stoppingToken,
+            MaxDegreeOfParallelism = maxDegreeOfParallelism
+        };
+        await Parallel.ForEachAsync(
+            queue.GetConsumingEnumerable(stoppingToken),
+            parallelOptions,
+            async (value, token) =>
             {
-                CancellationToken = stoppingToken,
-                MaxDegreeOfParallelism = maxDegreeOfParallelism
-            };
-            await Parallel.ForEachAsync(
-                queue.GetConsumingEnumerable(stoppingToken),
-                parallelOptions,
-                async (value, token) =>
+                try
                 {
-                    try
-                    {
-                        await RunAsync(value, stoppingToken);
-                    }
-                    catch (Exception ex)
-                    {
-                        OnError(ex);
-                    }
-                });
-        }
-        finally
-        {
-            notifier.OnNotify -= handler;
-        }
+                    await RunAsync(value, stoppingToken);
+                }
+                catch (Exception ex)
+                {
+                    OnError(ex);
+                }
+            });
     }
 }

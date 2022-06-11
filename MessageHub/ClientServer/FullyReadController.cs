@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using MessageHub.Authentication;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events.General;
+using MessageHub.HomeServer.Notifiers;
 using MessageHub.HomeServer.Rooms;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -24,14 +25,17 @@ public class FullyReadController : ControllerBase
         public string? Read { get; set; }
     }
 
+    private readonly TimelineUpdateNotifier notifier;
     private readonly IRooms rooms;
     private readonly IAccountData accountData;
 
-    public FullyReadController(IRooms rooms, IAccountData accountData)
+    public FullyReadController(TimelineUpdateNotifier notifier, IRooms rooms, IAccountData accountData)
     {
+        ArgumentNullException.ThrowIfNull(notifier);
         ArgumentNullException.ThrowIfNull(rooms);
         ArgumentNullException.ThrowIfNull(accountData);
 
+        this.notifier = notifier;
         this.rooms = rooms;
         this.accountData = accountData;
     }
@@ -59,6 +63,7 @@ public class FullyReadController : ControllerBase
             roomId,
             FullyReadEvent.EventType,
             JsonSerializer.SerializeToElement(fullyReadContent));
+        notifier.Notify();
         return new JsonResult(new object());
     }
 }

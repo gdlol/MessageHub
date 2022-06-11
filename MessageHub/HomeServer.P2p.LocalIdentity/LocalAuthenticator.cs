@@ -186,13 +186,13 @@ internal class LocalAuthenticator : IAuthenticator
         }
     }
 
-    public Task LogOutAsync(string deviceId)
+    public Task<int> LogOutAsync(string deviceId)
     {
         ArgumentNullException.ThrowIfNull(deviceId);
 
         string accessToken = accessTokenPrefix + deviceId;
         accessTokens.TryRemove(accessToken, out object? _);
-        return Task.CompletedTask;
+        return Task.FromResult(accessTokens.Count);
     }
 
     public Task LogOutAllAsync()

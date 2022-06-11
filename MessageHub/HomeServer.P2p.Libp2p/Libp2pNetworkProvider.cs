@@ -34,7 +34,8 @@ internal sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
         AdvertisingService advertisingService,
         PubSubService pubsubService,
         MembershipService membershipService,
-        BackfillingService backfillingService)
+        BackfillingService backfillingService,
+        PresenceService presenceService)
     {
         ArgumentNullException.ThrowIfNull(loggerFactory);
         ArgumentNullException.ThrowIfNull(hostConfig);
@@ -50,6 +51,7 @@ internal sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
         ArgumentNullException.ThrowIfNull(pubsubService);
         ArgumentNullException.ThrowIfNull(membershipService);
         ArgumentNullException.ThrowIfNull(backfillingService);
+        ArgumentNullException.ThrowIfNull(presenceService);
 
         this.loggerFactory = loggerFactory;
         logger = loggerFactory.CreateLogger<Libp2pNetworkProvider>();
@@ -67,7 +69,8 @@ internal sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
             relayDiscoveryService,
             pubsubService,
             membershipService,
-            backfillingService
+            backfillingService,
+            presenceService
         };
     }
 

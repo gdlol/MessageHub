@@ -8,6 +8,7 @@ using MessageHub.HomeServer.Rooms.Timeline;
 using MessageHub.HomeServer.Rooms;
 using Microsoft.AspNetCore.Authorization;
 using MessageHub.Authentication;
+using MessageHub.HomeServer.Notifiers;
 
 namespace MessageHub.ClientServer;
 
@@ -15,19 +16,30 @@ namespace MessageHub.ClientServer;
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
 public class SyncController : ControllerBase
 {
+    private readonly TimelineUpdateNotifier notifier;
     private readonly FilterLoader filterLoader;
     private readonly AccountDataLoader accountDataLoader;
     private readonly RoomsLoader roomLoader;
+    private readonly PresenceLoader presenceLoader;
 
-    public SyncController(IAccountData accountData, ITimelineLoader timelineLoader, IRooms rooms)
+    public SyncController(
+        TimelineUpdateNotifier notifier,
+        IAccountData accountData,
+        ITimelineLoader timelineLoader,
+        IRooms rooms,
+        IUserPresence userPresence)
     {
+        ArgumentNullException.ThrowIfNull(notifier);
         ArgumentNullException.ThrowIfNull(accountData);
         ArgumentNullException.ThrowIfNull(timelineLoader);
         ArgumentNullException.ThrowIfNull(rooms);
+        ArgumentNullException.ThrowIfNull(userPresence);
 
+        this.notifier = notifier;
         filterLoader = new FilterLoader(accountData);
         accountDataLoader = new AccountDataLoader(accountData);
         roomLoader = new RoomsLoader(timelineLoader, rooms, accountDataLoader);
+        presenceLoader = new PresenceLoader(userPresence);
     }
 
     [Route("sync")]
@@ -61,26 +73,18 @@ public class SyncController : ControllerBase
         }
         if (parameters.Timeout > 0)
         {
-            using var cts = new CancellationTokenSource();
+            var tcs = new TaskCompletionSource();
             using var timer = new Timer(
-                _ => cts.Cancel(),
+                _ => tcs.TrySetResult(),
                 null,
                 dueTime: Math.Min(
                     parameters.Timeout,
-                    (long)TimeSpan.FromMinutes(10).TotalMilliseconds),
+                    (long)TimeSpan.FromSeconds(30).TotalMilliseconds),
                 period: Timeout.Infinite);
-            while (!cts.IsCancellationRequested)
+            using var _ = notifier.Register(() => tcs.TrySetResult());
+            if (roomLoader.CurrentBatchId == parameters.Since)
             {
-                if (roomLoader.CurrentBatchId != parameters.Since)
-                {
-                    break;
-                }
-                try
-                {
-                    await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
-                }
-                catch (OperationCanceledException)
-                { }
+                await tcs.Task;
             }
         }
         var accountData = await accountDataLoader.LoadAccountDataAsync(userId, filter?.AccountData);
@@ -89,11 +93,14 @@ public class SyncController : ControllerBase
             parameters.FullState,
             parameters.Since,
             filter?.Room);
+        var presenceUpdate = presenceLoader.LoadPresenceUpdates(filter?.Presence);
+        var presence = presenceUpdate is null ? null : new Presence { Events = presenceUpdate };
         return new JsonResult(new SyncResponse
         {
             AccountData = accountData,
             NextBatch = nextBatch,
-            Rooms = rooms
+            Rooms = rooms,
+            Presence = presence
         },
         new JsonSerializerOptions
         {
