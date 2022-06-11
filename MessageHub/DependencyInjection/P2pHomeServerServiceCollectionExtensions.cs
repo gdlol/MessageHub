@@ -9,6 +9,7 @@ using MessageHub.HomeServer.P2p.Libp2p.Services.Advertising;
 using MessageHub.HomeServer.P2p.Libp2p.Services.Backfilling;
 using MessageHub.HomeServer.P2p.Libp2p.Services.Logging;
 using MessageHub.HomeServer.P2p.Libp2p.Services.Membership;
+using MessageHub.HomeServer.P2p.Libp2p.Services.Presence;
 using MessageHub.HomeServer.P2p.Libp2p.Services.PubSub;
 using MessageHub.HomeServer.P2p.LocalIdentity;
 using MessageHub.HomeServer.P2p.Notifiers;
@@ -71,6 +72,8 @@ public static class P2pHomeServerServiceCollectionExtensions
         services.AddSingleton<MembershipService>();
         services.AddSingleton<BackfillingServiceContext>();
         services.AddSingleton<BackfillingService>();
+        services.AddSingleton<PresenceServiceContext>();
+        services.AddSingleton<PresenceService>();
         services.AddSingleton<INetworkProvider, Libp2pNetworkProvider>();
         return services;
     }
@@ -90,8 +93,10 @@ public static class P2pHomeServerServiceCollectionExtensions
 
     public static IServiceCollection AddP2pHomeServer(this IServiceCollection services)
     {
+        services.AddSingleton<TimelineUpdateNotifier>();
         services.AddSingleton<AuthenticatedRequestNotifier>();
         services.AddSingleton<UserProfileUpdateNotifier>();
+        services.AddSingleton<PresenceUpdateNotifier>();
         services.AddSingleton<UnresolvedEventNotifier>();
         services.AddSingleton<MembershipUpdateNotifier>();
         services.AddSingleton<RemoteRequestNotifier>();
@@ -101,6 +106,7 @@ public static class P2pHomeServerServiceCollectionExtensions
         services.AddSingleton<IRoomDiscoveryService, RoomDiscoveryService>();
         services.AddSingleton<IUserDiscoveryService, UserDiscoveryService>();
         services.AddSingleton<IUserProfile, UserProfile>();
+        services.AddSingleton<IUserPresence, UserPresence>();
         services.AddSingleton<IEventPublisher, EventPublisher>();
         services.AddSingleton<IRemoteContentRepository, RemoteContentRepository>();
         services.AddSingleton<IRemoteRooms, RemoteRooms>();

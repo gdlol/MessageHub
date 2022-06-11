@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Text.Json;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Events.Room;
+using MessageHub.HomeServer.Notifiers;
 using MessageHub.HomeServer.P2p.Notifiers;
 using MessageHub.HomeServer.P2p.Providers;
 using MessageHub.HomeServer.Rooms;
@@ -16,26 +17,30 @@ internal sealed class EventSaver : IEventSaver
     private readonly EventStore eventStore;
     private readonly IStorageProvider storageProvider;
     private readonly IIdentityService identityService;
-    private readonly MembershipUpdateNotifier notifier;
+    private readonly TimelineUpdateNotifier timelineUpdateNotifier;
+    private readonly MembershipUpdateNotifier membershipUpdateNotifier;
 
     public EventSaver(
         ILogger<EventSaver> logger,
         EventStore eventStore,
         IStorageProvider storageProvider,
         IIdentityService identityService,
-        MembershipUpdateNotifier notifier)
+        TimelineUpdateNotifier timelineUpdateNotifier,
+        MembershipUpdateNotifier membershipUpdateNotifier)
     {
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(eventStore);
         ArgumentNullException.ThrowIfNull(storageProvider);
         ArgumentNullException.ThrowIfNull(identityService);
-        ArgumentNullException.ThrowIfNull(notifier);
+        ArgumentNullException.ThrowIfNull(timelineUpdateNotifier);
+        ArgumentNullException.ThrowIfNull(membershipUpdateNotifier);
 
         this.logger = logger;
         this.eventStore = eventStore;
         this.storageProvider = storageProvider;
         this.identityService = identityService;
-        this.notifier = notifier;
+        this.timelineUpdateNotifier = timelineUpdateNotifier;
+        this.membershipUpdateNotifier = membershipUpdateNotifier;
     }
 
     private static async ValueTask<RoomSnapshot> GetNewSnapshotAsync(
@@ -186,6 +191,7 @@ internal sealed class EventSaver : IEventSaver
 
             await store.CommitAsync();
             EventStore.Instance = newEventStore;
+            timelineUpdateNotifier.Notify();
         }
         finally
         {
@@ -207,7 +213,7 @@ internal sealed class EventSaver : IEventSaver
                     members.Add(userIdentifier.Id);
                 }
             }
-            notifier.Notify(new(pdu.RoomId, members.ToArray()));
+            membershipUpdateNotifier.Notify(new(pdu.RoomId, members.ToArray()));
         }
     }
 
@@ -344,6 +350,7 @@ internal sealed class EventSaver : IEventSaver
 
             await store.CommitAsync();
             EventStore.Instance = newEventStore;
+            timelineUpdateNotifier.Notify();
         }
         finally
         {
@@ -366,7 +373,7 @@ internal sealed class EventSaver : IEventSaver
                     members.Add(userIdentifier.Id);
                 }
             }
-            notifier.Notify(new(roomId, members.ToArray()));
+            membershipUpdateNotifier.Notify(new(roomId, members.ToArray()));
         }
     }
 
@@ -402,6 +409,7 @@ internal sealed class EventSaver : IEventSaver
             newEventStore = await SaveNewBatchAsync(store, newEventStore);
             await store.CommitAsync();
             EventStore.Instance = newEventStore;
+            timelineUpdateNotifier.Notify();
         }
         finally
         {
@@ -461,6 +469,7 @@ internal sealed class EventSaver : IEventSaver
             newEventStore = await SaveNewBatchAsync(store, newEventStore);
             await store.CommitAsync();
             EventStore.Instance = newEventStore;
+            timelineUpdateNotifier.Notify();
         }
         finally
         {
@@ -487,6 +496,7 @@ internal sealed class EventSaver : IEventSaver
             newEventStore = await SaveNewBatchAsync(store, newEventStore);
             await store.CommitAsync();
             EventStore.Instance = newEventStore;
+            timelineUpdateNotifier.Notify();
         }
         finally
         {
@@ -546,6 +556,7 @@ internal sealed class EventSaver : IEventSaver
             newEventStore = await SaveNewBatchAsync(store, newEventStore);
             await store.CommitAsync();
             EventStore.Instance = newEventStore;
+            timelineUpdateNotifier.Notify();
         }
         finally
         {
@@ -572,6 +583,7 @@ internal sealed class EventSaver : IEventSaver
             newEventStore = await SaveNewBatchAsync(store, newEventStore);
             await store.CommitAsync();
             EventStore.Instance = newEventStore;
+            timelineUpdateNotifier.Notify();
         }
         finally
         {

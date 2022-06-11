@@ -1,5 +1,41 @@
 namespace MessageHub.HomeServer.Services;
 
+public abstract class TriggeredService : BackgroundService
+{
+    private readonly Notifier notifier;
+
+    protected TriggeredService(Notifier notifier)
+    {
+        ArgumentNullException.ThrowIfNull(notifier);
+
+        this.notifier = notifier;
+    }
+
+    protected abstract Task RunAsync(CancellationToken stoppingToken);
+
+    protected override async Task Start(CancellationToken stoppingToken)
+    {
+        void handler()
+        {
+            Task.Run(async () =>
+            {
+                try
+                {
+                    await RunAsync(stoppingToken);
+                }
+                catch (Exception ex)
+                {
+                    OnError(ex);
+                }
+            }, stoppingToken);
+        }
+        using var _ = notifier.Register(handler);
+        var tcs = new TaskCompletionSource();
+        using var __ = stoppingToken.Register(tcs.SetResult);
+        await tcs.Task;
+    }
+}
+
 public abstract class TriggeredService<T> : BackgroundService
 {
     private readonly Notifier<T> notifier;
@@ -15,13 +51,13 @@ public abstract class TriggeredService<T> : BackgroundService
 
     protected override async Task Start(CancellationToken stoppingToken)
     {
-        void handler(object? sender, T e)
+        void handler(T value)
         {
             Task.Run(async () =>
             {
                 try
                 {
-                    await RunAsync(e, stoppingToken);
+                    await RunAsync(value, stoppingToken);
                 }
                 catch (Exception ex)
                 {
@@ -29,16 +65,9 @@ public abstract class TriggeredService<T> : BackgroundService
                 }
             }, stoppingToken);
         }
-        notifier.OnNotify += handler;
-        try
-        {
-            var tcs = new TaskCompletionSource();
-            using var _ = stoppingToken.Register(tcs.SetResult);
-            await tcs.Task;
-        }
-        finally
-        {
-            notifier.OnNotify -= handler;
-        }
+        using var _ = notifier.Register(handler);
+        var tcs = new TaskCompletionSource();
+        using var __ = stoppingToken.Register(tcs.SetResult);
+        await tcs.Task;
     }
 }

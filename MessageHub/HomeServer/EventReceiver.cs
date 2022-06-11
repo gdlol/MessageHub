@@ -1,4 +1,6 @@
+using System.Text.Json;
 using MessageHub.HomeServer.Events;
+using MessageHub.HomeServer.Events.General;
 using MessageHub.HomeServer.Notifiers;
 using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Rooms.Timeline;
@@ -14,30 +16,87 @@ public static class EventReceiveErrors
 
 public class EventReceiver : IEventReceiver
 {
+    private readonly ILogger logger;
     private readonly IIdentityService identityService;
+    private readonly IUserPresence userPresence;
     private readonly IRooms rooms;
     private readonly IEventSaver eventSaver;
     private readonly UnresolvedEventNotifier unresolvedEventNotifier;
+    private readonly TimelineUpdateNotifier timelineUpdateNotifier;
 
     public EventReceiver(
+        ILogger<EventReceiver> logger,
         IIdentityService identityService,
         IRooms rooms,
+        IUserPresence userPresence,
         IEventSaver eventSaver,
-        UnresolvedEventNotifier unresolvedEventNotifier)
+        UnresolvedEventNotifier unresolvedEventNotifier,
+        TimelineUpdateNotifier timelineUpdateNotifier)
     {
+        ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(identityService);
+        ArgumentNullException.ThrowIfNull(userPresence);
         ArgumentNullException.ThrowIfNull(rooms);
         ArgumentNullException.ThrowIfNull(eventSaver);
         ArgumentNullException.ThrowIfNull(unresolvedEventNotifier);
+        ArgumentNullException.ThrowIfNull(timelineUpdateNotifier);
 
+        this.logger = logger;
         this.identityService = identityService;
+        this.userPresence = userPresence;
         this.rooms = rooms;
         this.eventSaver = eventSaver;
         this.unresolvedEventNotifier = unresolvedEventNotifier;
+        this.timelineUpdateNotifier = timelineUpdateNotifier;
     }
 
-    public Task ReceiveEphemeralEventsAsync(EphemeralDataUnit[] edus)
+    public Task ReceiveEphemeralEventsAsync(UserIdentifier sender, EphemeralDataUnit[] edus)
     {
+        var identity = identityService.GetSelfIdentity();
+        if (identity.Id == sender.Id)
+        {
+            return Task.CompletedTask;
+        }
+        bool notifyTimelineUpdate = false;
+        foreach (var edu in edus)
+        {
+            try
+            {
+                if (edu.EventType == PresenceEvent.EventType)
+                {
+                    var presenceUpdate = edu.Content.Deserialize<PresenceUpdate>();
+                    UserPresenceUpdate? userPresenceUpdate = null;
+                    if (presenceUpdate is not null)
+                    {
+                        foreach (var update in presenceUpdate.Push)
+                        {
+                            if (update.UserId != sender.ToString())
+                            {
+                                logger.LogDebug("Presence update not matching sender {}: {}", sender, update);
+                                continue;
+                            }
+                            userPresenceUpdate = update;
+                        }
+                    }
+                    if (userPresenceUpdate is not null)
+                    {
+                        userPresence.SetPresence(
+                            sender.ToString(),
+                            userPresenceUpdate.Presence,
+                            userPresenceUpdate.StatusMessage);
+                        notifyTimelineUpdate = true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogDebug("Error receiving edu {}: {}", edu, ex.Message);
+            }
+        }
+        if (notifyTimelineUpdate)
+        {
+            timelineUpdateNotifier.Notify();
+        }
         return Task.CompletedTask;
     }
 

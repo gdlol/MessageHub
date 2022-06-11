@@ -1,5 +1,7 @@
 using MessageHub.Authentication;
 using MessageHub.HomeServer;
+using MessageHub.HomeServer.Events.General;
+using MessageHub.HomeServer.Notifiers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,11 +11,34 @@ namespace MessageHub.ClientServer;
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
 public class LogOutController : ControllerBase
 {
+    private readonly IIdentityService identityService;
     private readonly IAuthenticator authenticator;
+    private readonly IUserPresence userPresence;
+    private readonly PresenceUpdateNotifier presenceUpdateNotifier;
 
-    public LogOutController(IAuthenticator authenticator)
+    public LogOutController(
+        IIdentityService identityService,
+        IAuthenticator authenticator,
+        IUserPresence userPresence,
+        PresenceUpdateNotifier presenceUpdateNotifier)
     {
+        ArgumentNullException.ThrowIfNull(identityService);
+        ArgumentNullException.ThrowIfNull(authenticator);
+        ArgumentNullException.ThrowIfNull(userPresence);
+        ArgumentNullException.ThrowIfNull(presenceUpdateNotifier);
+
+        this.identityService = identityService;
         this.authenticator = authenticator;
+        this.userPresence = userPresence;
+        this.presenceUpdateNotifier = presenceUpdateNotifier;
+    }
+
+    private void NotifyUnavailableStatus()
+    {
+        var identity = identityService.GetSelfIdentity();
+        var userId = UserIdentifier.FromId(identity.Id).ToString();
+        userPresence.SetPresence(userId, PresenceValues.Unavailable, null);
+        presenceUpdateNotifier.Notify();
     }
 
     [Route("logout")]
@@ -25,7 +50,11 @@ public class LogOutController : ControllerBase
             string? deviceId = await authenticator.GetDeviceIdAsync(token);
             if (deviceId is not null)
             {
-                await authenticator.LogOutAsync(deviceId);
+                int remainingTokenCount = await authenticator.LogOutAsync(deviceId);
+                if (remainingTokenCount == 0)
+                {
+                    NotifyUnavailableStatus();
+                }
             }
         }
         else
@@ -40,6 +69,7 @@ public class LogOutController : ControllerBase
     public async Task<object> LogOutAll()
     {
         await authenticator.LogOutAllAsync();
+        NotifyUnavailableStatus();
         return new object();
     }
 }

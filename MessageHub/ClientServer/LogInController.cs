@@ -1,5 +1,6 @@
 using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
+using MessageHub.HomeServer.Events.General;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MessageHub.ClientServer;
@@ -8,10 +9,12 @@ namespace MessageHub.ClientServer;
 public class LogInController : ControllerBase
 {
     private readonly IAuthenticator authenticator;
+    private readonly IUserPresence userPresence;
 
-    public LogInController(IAuthenticator authenticator)
+    public LogInController(IAuthenticator authenticator, IUserPresence userPresence)
     {
         this.authenticator = authenticator;
+        this.userPresence = userPresence;
     }
 
     [Route("login")]
@@ -71,6 +74,11 @@ public class LogInController : ControllerBase
         var result = await authenticator.LogInAsync(deviceId, parameters.Token);
         if (result is (string userId, string accessToken))
         {
+            var presenceStatus = userPresence.GetPresence(userId);
+            if (presenceStatus is null)
+            {
+                userPresence.SetPresence(userId, PresenceValues.Online, null);
+            }
             return new
             {
                 access_token = accessToken,

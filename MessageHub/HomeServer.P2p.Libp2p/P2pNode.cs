@@ -267,6 +267,10 @@ internal class P2pNode : IDisposable
         }
         else
         {
+            if (searchTerm.StartsWith('@'))
+            {
+                searchTerm = searchTerm[1..];
+            }
             // check for search term of the form "Display Name:abcdefg"
             var parts = searchTerm.Split(':');
             if (parts.Length >= 2)
@@ -281,13 +285,13 @@ internal class P2pNode : IDisposable
                     "Finding peers with name {} and ID suffix {}...",
                     name,
                     idSuffix);
-                bool verifyIdentity(IIdentity identity)
+                bool filterIdSuffix(IIdentity identity)
                 {
                     return identity.Id.EndsWith(idSuffix);
                 }
                 try
                 {
-                    var peers = GetPeersForTopicAsync(searchTerm, verifyIdentity, cancellationToken);
+                    var peers = GetPeersForTopicAsync(searchTerm, filterIdSuffix, cancellationToken);
                     return peers;
                 }
                 catch (Exception ex)

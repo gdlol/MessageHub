@@ -10,7 +10,7 @@ public interface IAuthenticator
 
     Task<string?> AuthenticateAsync(string accessToken);
 
-    Task LogOutAsync(string deviceId);
+    Task<int> LogOutAsync(string deviceId);
 
     Task LogOutAllAsync();
 }
