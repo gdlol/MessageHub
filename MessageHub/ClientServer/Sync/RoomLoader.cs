@@ -183,6 +183,17 @@ public class RoomsLoader
         var sinceEventIds = await timelineLoader.GetRoomEventIds(since);
 
         bool includeLeave = filter?.IncludeLeave == true;
+        var membershipUpdateRoomIds = new HashSet<string>();
+        foreach (string roomId in batchStates.JoinedRoomIds)
+        {
+            if (batchStates.RoomEventIds.TryGetValue(roomId, out string? currentId)
+                && sinceEventIds.TryGetValue(roomId, out string? sinceId)
+                && currentId != sinceId)
+            {
+                // Recently joined room.
+                membershipUpdateRoomIds.Add(roomId);
+            }
+        }
         foreach (string roomId in batchStates.LeftRoomIds)
         {
             if (batchStates.RoomEventIds.TryGetValue(roomId, out string? currentId)
@@ -191,6 +202,7 @@ public class RoomsLoader
             {
                 // Recently left room.
                 includeLeave = true;
+                membershipUpdateRoomIds.Add(roomId);
             }
         }
         var rooms = new Rooms
@@ -313,7 +325,7 @@ public class RoomsLoader
             State? stateUpdate = null;
             if (ShouldGetStateUpdate(roomId, filter?.State))
             {
-                if (fullState || sinceEventId is null)
+                if (fullState || membershipUpdateRoomIds.Contains(roomId) || sinceEventId is null)
                 {
                     stateUpdate = new State
                     {
@@ -339,9 +351,9 @@ public class RoomsLoader
         foreach (string roomId in batchStates.JoinedRoomIds)
         {
             var room = rooms.Join[roomId];
-            var (timeline, previousState) = await LoadRecentEvents(roomId);
+            var (timeline, stateUpdate) = await LoadRecentEvents(roomId);
             room.Timeline = timeline;
-            room.State = previousState;
+            room.State = stateUpdate;
         }
         if (rooms.Leave is not null)
         {

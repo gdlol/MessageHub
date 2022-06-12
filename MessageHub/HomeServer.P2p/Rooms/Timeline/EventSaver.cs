@@ -80,201 +80,58 @@ internal sealed class EventSaver : IEventSaver
         PersistentDataUnit pdu,
         IReadOnlyDictionary<RoomStateKey, string> states)
     {
-        using var store = storageProvider.GetEventStore();
-        var newEventStore = eventStore.Update();
-
-        // Event data update.
-        logger.LogDebug("Saving event {eventId}: {pdu}", eventId, pdu);
-        bool isAuthorized = true;
-        var snapshot = await EventStore.GetRoomSnapshotAsync(store, roomId);
-        var authorizer = new EventAuthorizer(snapshot.StateContents);
-        if (!authorizer.Authorize(pdu.EventType, pdu.StateKey, UserIdentifier.Parse(pdu.Sender), pdu.Content))
-        {
-            isAuthorized = false;
-            logger.LogWarning(
-                "Event {eventId} not authorized at state {state}",
-                eventId,
-                JsonSerializer.Serialize(snapshot.StateContents));
-        }
-        if (!newEventStore.RoomCreators.ContainsKey(pdu.RoomId))
-        {
-            if (pdu.EventType != EventTypes.Create)
-            {
-                throw new InvalidOperationException($"{nameof(pdu.EventType)}: {pdu.EventType}");
-            }
-            string creator = pdu.Sender;
-            newEventStore = await newEventStore.SetCreatorAsync(store, roomId, creator);
-        }
-        await EventStore.PutEventAsync(store, roomId, eventId, pdu);
-        await EventStore.PutStatesAsync(store, roomId, eventId, states.ToImmutableDictionary());
-        using var newRoomEventStore = new RoomEventStore(newEventStore, store, pdu.RoomId, ownsStore: false);
-        var newSnapshot = await GetNewSnapshotAsync(newRoomEventStore, snapshot, eventId, pdu);
-        await EventStore.PutRoomSnapshotAsync(store, roomId, newSnapshot);
-
-        if (!isAuthorized)
-        {
-            return;
-        }
-
-        // Room state update.
-        var userId = UserIdentifier.FromId(identityService.GetSelfIdentity().Id).ToString();
-        if (pdu.EventType == EventTypes.Member && userId == pdu.StateKey)
-        {
-            var memberEvent = JsonSerializer.Deserialize<MemberEvent>(pdu.Content)!;
-            if (memberEvent.MemberShip == MembershipStates.Join)
-            {
-                if (!newEventStore.JoinedRoomIds.Contains(roomId))
-                {
-                    var joinedRoomIds = newEventStore.JoinedRoomIds.Add(roomId);
-                    newEventStore = await newEventStore.SetJoinedRoomIdsAsync(store, joinedRoomIds);
-                }
-                if (newEventStore.LeftRoomIds.Contains(roomId))
-                {
-                    var leftRoomIds = newEventStore.LeftRoomIds.Remove(roomId);
-                    newEventStore = await newEventStore.SetLeftRoomIdsAsync(store, leftRoomIds);
-                }
-                if (newEventStore.Invites.ContainsKey(roomId))
-                {
-                    var invites = newEventStore.Invites.Remove(roomId);
-                    newEventStore = await newEventStore.SetInvitesAsync(store, invites);
-                }
-            }
-            else if (memberEvent.MemberShip == MembershipStates.Leave)
-            {
-                if (newEventStore.JoinedRoomIds.Contains(roomId))
-                {
-                    var joinedRoomIds = newEventStore.JoinedRoomIds.Remove(roomId);
-                    newEventStore = await newEventStore.SetJoinedRoomIdsAsync(store, joinedRoomIds);
-                }
-                if (!newEventStore.LeftRoomIds.Contains(roomId))
-                {
-                    var leftRoomIds = newEventStore.LeftRoomIds.Add(roomId);
-                    newEventStore = await newEventStore.SetLeftRoomIdsAsync(store, leftRoomIds);
-                }
-                if (newEventStore.Invites.ContainsKey(roomId))
-                {
-                    var invites = newEventStore.Invites.Remove(roomId);
-                    newEventStore = await newEventStore.SetInvitesAsync(store, invites);
-                }
-                if (newEventStore.Knocks.ContainsKey(roomId))
-                {
-                    var knocks = newEventStore.Knocks.Remove(roomId);
-                    newEventStore = await newEventStore.SetKnocksAsync(store, knocks);
-                }
-            }
-        }
-
         locker.WaitOne();
         try
         {
-            // Timeline update.
-            string newBatchId = Guid.NewGuid().ToString();
-            var roomEventIds = await EventStore.GetRoomEventIdsAsync(store, newEventStore.CurrentBatchId);
-            if (roomEventIds is null)
-            {
-                roomEventIds = ImmutableDictionary<string, string>.Empty;
-            }
-            if (roomEventIds.TryGetValue(roomId, out string? latestEventId))
-            {
-                var timelineRecord = await EventStore.GetTimelineRecordAsync(store, roomId, latestEventId);
-                if (timelineRecord is null)
-                {
-                    throw new InvalidOperationException();
-                }
-                timelineRecord = timelineRecord with { NextEventId = eventId };
-                await EventStore.PutTimelineRecordAsync(store, roomId, latestEventId, timelineRecord);
-            }
-            await EventStore.PutTimelineRecordAsync(store, roomId, eventId, new TimelineRecord(latestEventId, null));
-            roomEventIds = roomEventIds.SetItem(roomId, eventId);
-            await EventStore.PutRoomEventIdsAsync(store, newBatchId, roomEventIds);
-            newEventStore = await newEventStore.SetCurrentBatchIdAsync(store, newBatchId);
+            using var store = storageProvider.GetEventStore();
+            var newEventStore = eventStore.Update();
 
-            await store.CommitAsync();
-            EventStore.Instance = newEventStore;
-            timelineUpdateNotifier.Notify();
-        }
-        finally
-        {
-            locker.Set();
-        }
-        if (pdu.EventType == EventTypes.Member)
-        {
-            var members = new List<string>();
-            foreach (var (roomStateKey, content) in newSnapshot.StateContents)
-            {
-                if (roomStateKey.EventType != EventTypes.Member)
-                {
-                    continue;
-                }
-                var memberEvent = JsonSerializer.Deserialize<MemberEvent>(content)!;
-                if (memberEvent.MemberShip == MembershipStates.Join)
-                {
-                    var userIdentifier = UserIdentifier.Parse(roomStateKey.StateKey);
-                    members.Add(userIdentifier.Id);
-                }
-            }
-            membershipUpdateNotifier.Notify(new(pdu.RoomId, members.ToArray()));
-        }
-    }
-
-    public async Task SaveBatchAsync(
-        string roomId,
-        IReadOnlyList<string> eventIds,
-        IReadOnlyDictionary<string, PersistentDataUnit> events,
-        IReadOnlyDictionary<string, ImmutableDictionary<RoomStateKey, string>> states)
-    {
-        using var store = storageProvider.GetEventStore();
-        var newEventStore = eventStore.Update();
-
-        // Event data update.
-        var newEventIds = new List<string>();
-        foreach (string eventId in eventIds)
-        {
-            var pdu = events[eventId];
+            // Event data update.
             logger.LogDebug("Saving event {eventId}: {pdu}", eventId, pdu);
+            if (await EventStore.GetEventAsync(store, roomId, eventId) is not null)
+            {
+                logger.LogDebug("Event {} already exists.", eventId);
+                return;
+            }
 
-            var senderId = UserIdentifier.Parse(pdu.Sender);
+            bool isAuthorized = true;
             var snapshot = await EventStore.GetRoomSnapshotAsync(store, roomId);
             var authorizer = new EventAuthorizer(snapshot.StateContents);
-            if (authorizer.Authorize(pdu.EventType, pdu.StateKey, senderId, pdu.Content))
+            if (!authorizer.Authorize(pdu.EventType, pdu.StateKey, UserIdentifier.Parse(pdu.Sender), pdu.Content))
             {
-                newEventIds.Add(eventId);
-                if (!newEventStore.RoomCreators.ContainsKey(pdu.RoomId))
-                {
-                    if (pdu.EventType != EventTypes.Create)
-                    {
-                        throw new InvalidOperationException($"{nameof(pdu.EventType)}: {pdu.EventType}");
-                    }
-                    string creator = pdu.Sender;
-                    newEventStore = await newEventStore.SetCreatorAsync(store, roomId, creator);
-                }
-                await EventStore.PutEventAsync(store, roomId, eventId, pdu);
-                await EventStore.PutStatesAsync(store, roomId, eventId, states[eventId]);
-                using var newRoomEventStore =
-                    new RoomEventStore(newEventStore, store, pdu.RoomId, ownsStore: false);
-                var newSnapshot = await GetNewSnapshotAsync(newRoomEventStore, snapshot, eventId, pdu);
-                await EventStore.PutRoomSnapshotAsync(store, roomId, newSnapshot);
-            }
-            else
-            {
+                isAuthorized = false;
                 logger.LogWarning(
                     "Event {eventId} not authorized at state {state}",
                     eventId,
                     JsonSerializer.Serialize(snapshot.StateContents));
             }
-        }
-        if (newEventIds.Count == 0)
-        {
-            return;
-        }
-
-        // Room state update.
-        {
-            var userId = UserIdentifier.FromId(identityService.GetSelfIdentity().Id).ToString();
-            var snapshot = await EventStore.GetRoomSnapshotAsync(store, roomId);
-            if (snapshot.StateContents.TryGetValue(new RoomStateKey(EventTypes.Member, userId), out var content))
+            if (!newEventStore.RoomCreators.ContainsKey(pdu.RoomId))
             {
-                var memberEvent = JsonSerializer.Deserialize<MemberEvent>(content)!;
+                if (pdu.EventType != EventTypes.Create)
+                {
+                    throw new InvalidOperationException($"{nameof(pdu.EventType)}: {pdu.EventType}");
+                }
+                string creator = pdu.Sender;
+                newEventStore = await newEventStore.SetCreatorAsync(store, roomId, creator);
+            }
+            await EventStore.PutEventAsync(store, roomId, eventId, pdu);
+            await EventStore.PutStatesAsync(store, roomId, eventId, states.ToImmutableDictionary());
+
+            if (!isAuthorized)
+            {
+                await store.CommitAsync();
+                return;
+            }
+
+            using var newRoomEventStore = new RoomEventStore(newEventStore, store, pdu.RoomId, ownsStore: false);
+            snapshot = await GetNewSnapshotAsync(newRoomEventStore, snapshot, eventId, pdu);
+            await EventStore.PutRoomSnapshotAsync(store, roomId, snapshot);
+
+            // Room state update.
+            var userId = UserIdentifier.FromId(identityService.GetSelfIdentity().Id).ToString();
+            if (pdu.EventType == EventTypes.Member && userId == pdu.StateKey)
+            {
+                var memberEvent = JsonSerializer.Deserialize<MemberEvent>(pdu.Content)!;
                 if (memberEvent.MemberShip == MembershipStates.Join)
                 {
                     if (!newEventStore.JoinedRoomIds.Contains(roomId))
@@ -317,11 +174,169 @@ internal sealed class EventSaver : IEventSaver
                     }
                 }
             }
-        }
 
+            // Timeline update.
+            string newBatchId = Guid.NewGuid().ToString();
+            var roomEventIds = await EventStore.GetRoomEventIdsAsync(store, newEventStore.CurrentBatchId);
+            if (roomEventIds is null)
+            {
+                roomEventIds = ImmutableDictionary<string, string>.Empty;
+            }
+            if (roomEventIds.TryGetValue(roomId, out string? latestEventId))
+            {
+                var timelineRecord = await EventStore.GetTimelineRecordAsync(store, roomId, latestEventId);
+                if (timelineRecord is null)
+                {
+                    throw new InvalidOperationException();
+                }
+                timelineRecord = timelineRecord with { NextEventId = eventId };
+                await EventStore.PutTimelineRecordAsync(store, roomId, latestEventId, timelineRecord);
+            }
+            await EventStore.PutTimelineRecordAsync(store, roomId, eventId, new TimelineRecord(latestEventId, null));
+            roomEventIds = roomEventIds.SetItem(roomId, eventId);
+            await EventStore.PutRoomEventIdsAsync(store, newBatchId, roomEventIds);
+            newEventStore = await newEventStore.SetCurrentBatchIdAsync(store, newBatchId);
+
+            await store.CommitAsync();
+            EventStore.Instance = newEventStore;
+            timelineUpdateNotifier.Notify();
+
+            // Notify membership update.
+            if (pdu.EventType == EventTypes.Member)
+            {
+                var members = new List<string>();
+                foreach (var (roomStateKey, content) in snapshot.StateContents)
+                {
+                    if (roomStateKey.EventType != EventTypes.Member)
+                    {
+                        continue;
+                    }
+                    var memberEvent = JsonSerializer.Deserialize<MemberEvent>(content)!;
+                    if (memberEvent.MemberShip == MembershipStates.Join)
+                    {
+                        var userIdentifier = UserIdentifier.Parse(roomStateKey.StateKey);
+                        members.Add(userIdentifier.Id);
+                    }
+                }
+                membershipUpdateNotifier.Notify(new(pdu.RoomId, members.ToArray()));
+            }
+        }
+        finally
+        {
+            locker.Set();
+        }
+    }
+
+    public async Task SaveBatchAsync(
+        string roomId,
+        IReadOnlyList<string> eventIds,
+        IReadOnlyDictionary<string, PersistentDataUnit> events,
+        IReadOnlyDictionary<string, ImmutableDictionary<RoomStateKey, string>> states)
+    {
         locker.WaitOne();
         try
         {
+            using var store = storageProvider.GetEventStore();
+            var newEventStore = eventStore.Update();
+
+            // Event data update.
+            var newEventIds = new List<string>();
+            var snapshot = await EventStore.GetRoomSnapshotAsync(store, roomId);
+            foreach (string eventId in eventIds)
+            {
+                var pdu = events[eventId];
+                logger.LogDebug("Saving event {eventId}: {pdu}", eventId, pdu);
+                if (await EventStore.GetEventAsync(store, roomId, eventId) is not null)
+                {
+                    logger.LogDebug("Event {} already exists.", eventId);
+                    continue;
+                }
+
+                if (!newEventStore.RoomCreators.ContainsKey(pdu.RoomId))
+                {
+                    if (pdu.EventType != EventTypes.Create)
+                    {
+                        throw new InvalidOperationException($"{nameof(pdu.EventType)}: {pdu.EventType}");
+                    }
+                    string creator = pdu.Sender;
+                    newEventStore = await newEventStore.SetCreatorAsync(store, roomId, creator);
+                }
+                await EventStore.PutEventAsync(store, roomId, eventId, pdu);
+                await EventStore.PutStatesAsync(store, roomId, eventId, states[eventId]);
+                var senderId = UserIdentifier.Parse(pdu.Sender);
+                var authorizer = new EventAuthorizer(snapshot.StateContents);
+                if (authorizer.Authorize(pdu.EventType, pdu.StateKey, senderId, pdu.Content))
+                {
+                    newEventIds.Add(eventId);
+                    using var newRoomEventStore =
+                        new RoomEventStore(newEventStore, store, pdu.RoomId, ownsStore: false);
+                    snapshot = await GetNewSnapshotAsync(newRoomEventStore, snapshot, eventId, pdu);
+                    await EventStore.PutRoomSnapshotAsync(store, roomId, snapshot);
+                }
+                else
+                {
+                    logger.LogWarning(
+                        "Event {eventId} not authorized at state {state}",
+                        eventId,
+                        JsonSerializer.Serialize(snapshot.StateContents));
+                }
+            }
+            if (newEventIds.Count == 0)
+            {
+                await store.CommitAsync();
+                return;
+            }
+
+            // Room state update.
+            {
+                var userId = UserIdentifier.FromId(identityService.GetSelfIdentity().Id).ToString();
+                if (snapshot.StateContents.TryGetValue(new RoomStateKey(EventTypes.Member, userId), out var content))
+                {
+                    var memberEvent = JsonSerializer.Deserialize<MemberEvent>(content)!;
+                    if (memberEvent.MemberShip == MembershipStates.Join)
+                    {
+                        if (!newEventStore.JoinedRoomIds.Contains(roomId))
+                        {
+                            var joinedRoomIds = newEventStore.JoinedRoomIds.Add(roomId);
+                            newEventStore = await newEventStore.SetJoinedRoomIdsAsync(store, joinedRoomIds);
+                        }
+                        if (newEventStore.LeftRoomIds.Contains(roomId))
+                        {
+                            var leftRoomIds = newEventStore.LeftRoomIds.Remove(roomId);
+                            newEventStore = await newEventStore.SetLeftRoomIdsAsync(store, leftRoomIds);
+                        }
+                        if (newEventStore.Invites.ContainsKey(roomId))
+                        {
+                            var invites = newEventStore.Invites.Remove(roomId);
+                            newEventStore = await newEventStore.SetInvitesAsync(store, invites);
+                        }
+                    }
+                    else if (memberEvent.MemberShip == MembershipStates.Leave)
+                    {
+                        if (newEventStore.JoinedRoomIds.Contains(roomId))
+                        {
+                            var joinedRoomIds = newEventStore.JoinedRoomIds.Remove(roomId);
+                            newEventStore = await newEventStore.SetJoinedRoomIdsAsync(store, joinedRoomIds);
+                        }
+                        if (!newEventStore.LeftRoomIds.Contains(roomId))
+                        {
+                            var leftRoomIds = newEventStore.LeftRoomIds.Add(roomId);
+                            newEventStore = await newEventStore.SetLeftRoomIdsAsync(store, leftRoomIds);
+                        }
+                        if (newEventStore.Invites.ContainsKey(roomId))
+                        {
+                            var invites = newEventStore.Invites.Remove(roomId);
+                            newEventStore = await newEventStore.SetInvitesAsync(store, invites);
+                        }
+                        if (newEventStore.Knocks.ContainsKey(roomId))
+                        {
+                            var knocks = newEventStore.Knocks.Remove(roomId);
+                            newEventStore = await newEventStore.SetKnocksAsync(store, knocks);
+                        }
+                    }
+                }
+            }
+
             // Timeline update.
             string newBatchId = Guid.NewGuid().ToString();
             var roomEventIds = await EventStore.GetRoomEventIdsAsync(store, newEventStore.CurrentBatchId);
@@ -351,29 +366,30 @@ internal sealed class EventSaver : IEventSaver
             await store.CommitAsync();
             EventStore.Instance = newEventStore;
             timelineUpdateNotifier.Notify();
+
+            // Notify membership updates.
+            if (events.Values.Any(pdu => pdu.EventType == EventTypes.Member))
+            {
+                var members = new List<string>();
+                foreach (var (roomStateKey, content) in snapshot.StateContents)
+                {
+                    if (roomStateKey.EventType != EventTypes.Member)
+                    {
+                        continue;
+                    }
+                    var memberEvent = JsonSerializer.Deserialize<MemberEvent>(content)!;
+                    if (memberEvent.MemberShip == MembershipStates.Join)
+                    {
+                        var userIdentifier = UserIdentifier.Parse(roomStateKey.StateKey);
+                        members.Add(userIdentifier.Id);
+                    }
+                }
+                membershipUpdateNotifier.Notify(new(roomId, members.ToArray()));
+            }
         }
         finally
         {
             locker.Set();
-        }
-        if (events.Values.Any(pdu => pdu.EventType == EventTypes.Member))
-        {
-            var snapshot = await EventStore.GetRoomSnapshotAsync(store, roomId);
-            var members = new List<string>();
-            foreach (var (roomStateKey, content) in snapshot.StateContents)
-            {
-                if (roomStateKey.EventType != EventTypes.Member)
-                {
-                    continue;
-                }
-                var memberEvent = JsonSerializer.Deserialize<MemberEvent>(content)!;
-                if (memberEvent.MemberShip == MembershipStates.Join)
-                {
-                    var userIdentifier = UserIdentifier.Parse(roomStateKey.StateKey);
-                    members.Add(userIdentifier.Id);
-                }
-            }
-            membershipUpdateNotifier.Notify(new(roomId, members.ToArray()));
         }
     }
 
