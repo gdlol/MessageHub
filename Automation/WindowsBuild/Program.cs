@@ -36,6 +36,7 @@ public class Program
         Console.WriteLine($"Project path: {projectPath}");
 
         string buildPath = Path.Combine(projectPath, "Build", "Windows");
+        string outputPath = Path.Combine(buildPath, "MessageHub");
         Directory.CreateDirectory(buildPath);
         if (Directory.Exists(buildPath))
         {
@@ -49,16 +50,19 @@ public class Program
         Run("dotnet", "publish",
             Path.Combine(projectPath, "MessageHub.Windows", "MessageHub.Windows.csproj"),
             "--configuration", "Release",
-            "--output", Path.Combine(buildPath, "MessageHub"));
+            "--output", outputPath);
         Run("docker", "build",
             "--force-rm",
-            "--tag", "messagehub",
+            "--tag", "messagehub-windows",
             "--file", "Automation/Docker/Windows.Dockerfile",
             projectPath);
         Run("docker", "run",
             "--rm",
             "--volume", $"{buildPath}:/root/build/",
-            "messagehub");
+            "messagehub-windows");
+        File.Copy(
+            Path.Combine(AppContext.BaseDirectory, "vcruntime140_cor3.dll"),
+            Path.Combine(outputPath, "vcruntime140.dll"));
 
         Console.WriteLine("Done.");
     }

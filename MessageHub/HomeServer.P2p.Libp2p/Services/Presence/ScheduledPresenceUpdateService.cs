@@ -10,7 +10,7 @@ internal class ScheduledPresenceUpdateService : ScheduledService
     private readonly SelfPresencePublisher publisher;
 
     public ScheduledPresenceUpdateService(PresenceServiceContext context)
-        : base(initialDelay: TimeSpan.FromSeconds(10), interval: TimeSpan.FromMinutes(1))
+        : base(initialDelay: TimeSpan.FromSeconds(10), interval: TimeSpan.FromMinutes(1), jitterRange: 0.1)
     {
         logger = context.LoggerFactory.CreateLogger<TriggeredPresenceUpdateService>();
         this.context = context;
