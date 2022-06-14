@@ -50,6 +50,7 @@ public class Program
         Run("dotnet", "publish",
             Path.Combine(projectPath, "MessageHub.Windows", "MessageHub.Windows.csproj"),
             "--configuration", "Release",
+            "-property:OutputLibrary=true",
             "--output", outputPath);
         Run("docker", "build",
             "--force-rm",
@@ -61,7 +62,7 @@ public class Program
             "--volume", $"{buildPath}:/root/build/",
             "messagehub-windows");
         File.Copy(
-            Path.Combine(AppContext.BaseDirectory, "vcruntime140_cor3.dll"),
+            Path.Combine(outputPath, "vcruntime140_cor3.dll"),
             Path.Combine(outputPath, "vcruntime140.dll"));
 
         Console.WriteLine("Done.");

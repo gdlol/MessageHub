@@ -12,4 +12,8 @@
     <PathMap>$(MSBuildProjectDirectory)=$(MSBuildProjectName)</PathMap>
   </PropertyGroup>
 
+  <PropertyGroup Condition="$(OutputLibrary)==true">
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+
 </Project>
