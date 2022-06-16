@@ -20,10 +20,6 @@ public class Program
             {
                 dllName += ".dll";
             }
-            if (dllName == "vcruntime140.dll")
-            {
-                dllName = "vcruntime140_cor3.dll";
-            }
             string path = Path.Combine(dllPath, dllName);
             if (File.Exists(path) && NativeLibrary.TryLoad(path, out var handle))
             {
@@ -42,6 +38,11 @@ public class Program
         ResolveUnmanagedDlls();
         try
         {
+            if (!WebView2Setup.EnsureWebView2Installed())
+            {
+                return;
+            }
+
             string executablePath = Process.GetCurrentProcess().MainModule?.FileName!;
             using var handle = new EventWaitHandle(
                 false,

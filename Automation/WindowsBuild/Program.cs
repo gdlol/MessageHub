@@ -1,6 +1,7 @@
 ﻿using System;
 using System.ComponentModel;
 using System.IO;
+using System.Net.Http;
 using System.Runtime.CompilerServices;
 using Microsoft.DotNet.Cli.Utils;
 
@@ -26,6 +27,15 @@ public class Program
         {
             throw new Win32Exception(result.ExitCode);
         }
+    }
+
+    private static void BuildImage(string projectPath, string dockerfile, string imageName)
+    {
+        Run("docker", "build",
+            "--force-rm",
+            "--tag", imageName,
+            "--file", dockerfile,
+            projectPath);
     }
 
     [STAThread]
@@ -62,11 +72,8 @@ public class Program
             "--configuration", "Release",
             "-property:OutputLibrary=true",
             "--output", wpfOutputPath);
-        Run("docker", "build",
-            "--force-rm",
-            "--tag", "messagehub-windows",
-            "--file", "Automation/Docker/Windows.Dockerfile",
-            projectPath);
+        BuildImage(projectPath, "Automation/Docker/Windows.Dockerfile", "messagehub-windows");
+        BuildImage(projectPath, "Automation/Docker/Windows.WebView2.Dockerfile", "webview2");
         Run("docker", "run",
             "--rm",
             "--volume", $"{outputPath}:/root/build/",
@@ -75,8 +82,18 @@ public class Program
             "--rm",
             "--volume", $"{wpfOutputPath}:/root/build/",
             "messagehub-windows");
+        Run("docker", "run",
+            "--rm",
+            "--volume", $"{wpfOutputPath}:/root/build/",
+            "webview2");
+        File.Copy(
+            Path.Combine(outputPath, "vcruntime140_cor3.dll"),
+            Path.Combine(outputPath, "vcruntime140.dll"));
+        File.Copy(
+            Path.Combine(wpfOutputPath, "vcruntime140_cor3.dll"),
+            Path.Combine(wpfOutputPath, "vcruntime140.dll"));
 
-        void MoveDllFiles(string baseDirectory)
+        static void MoveDllFiles(string baseDirectory)
         {
             string dllPath = Path.Combine(baseDirectory, "runtimes", "win-x64", "native");
             Directory.CreateDirectory(dllPath);

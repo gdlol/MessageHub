@@ -21,10 +21,6 @@ public class Program
             {
                 dllName += ".dll";
             }
-            if (dllName == "vcruntime140.dll")
-            {
-                dllName = "vcruntime140_cor3.dll";
-            }
             string path = Path.Combine(dllPath, dllName);
             if (File.Exists(path) && NativeLibrary.TryLoad(path, out var handle))
             {
