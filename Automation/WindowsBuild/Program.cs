@@ -1,6 +1,7 @@
 ﻿using System;
 using System.ComponentModel;
 using System.IO;
+using System.Net.Http;
 using System.Runtime.CompilerServices;
 using Microsoft.DotNet.Cli.Utils;
 
@@ -28,6 +29,15 @@ public class Program
         }
     }
 
+    private static void BuildImage(string projectPath, string dockerfile, string imageName)
+    {
+        Run("docker", "build",
+            "--force-rm",
+            "--tag", imageName,
+            "--file", dockerfile,
+            projectPath);
+    }
+
     [STAThread]
     static void Main()
     {
@@ -37,32 +47,69 @@ public class Program
 
         string buildPath = Path.Combine(projectPath, "Build", "Windows");
         string outputPath = Path.Combine(buildPath, "MessageHub");
+        string wpfOutputPath = Path.Combine(buildPath, "MessageHub (WebView2)");
         Directory.CreateDirectory(buildPath);
         if (Directory.Exists(buildPath))
         {
             Directory.Delete(buildPath, recursive: true);
         }
-        string winProjectPath = Path.Combine(projectPath, "MessageHub.Windows");
-        using (var iconFile = File.OpenWrite(Path.Combine(winProjectPath, "icon.ico")))
+        string desktopProjectsPath = Path.Combine(projectPath, "MessageHub.Desktop");
+        string winProjectPath = Path.Combine(desktopProjectsPath, "MessageHub.Windows");
+        string wpfProjectPath = Path.Combine(desktopProjectsPath, "MessageHub.Windows.WPF");
+        using (var iconFile = File.OpenWrite(Path.Combine(winProjectPath, "Resources", "icon.ico")))
+        using (var wpfIconFile = File.OpenWrite(Path.Combine(wpfProjectPath, "Resources", "icon.ico")))
         {
             ApplicationIcon.SaveIcon(iconFile);
+            ApplicationIcon.SaveIcon(wpfIconFile);
         }
         Run("dotnet", "publish",
-            Path.Combine(projectPath, "MessageHub.Windows", "MessageHub.Windows.csproj"),
+            Path.Combine(winProjectPath, "MessageHub.Windows.csproj"),
             "--configuration", "Release",
+            "-property:OutputLibrary=true",
             "--output", outputPath);
-        Run("docker", "build",
-            "--force-rm",
-            "--tag", "messagehub-windows",
-            "--file", "Automation/Docker/Windows.Dockerfile",
-            projectPath);
+        Run("dotnet", "publish",
+            Path.Combine(wpfProjectPath, "MessageHub.Windows.WPF.csproj"),
+            "--configuration", "Release",
+            "-property:OutputLibrary=true",
+            "--output", wpfOutputPath);
+        BuildImage(projectPath, "Automation/Docker/Windows.Dockerfile", "messagehub-windows");
+        BuildImage(projectPath, "Automation/Docker/Windows.WebView2.Dockerfile", "webview2");
         Run("docker", "run",
             "--rm",
-            "--volume", $"{buildPath}:/root/build/",
+            "--volume", $"{outputPath}:/root/build/",
             "messagehub-windows");
+        Run("docker", "run",
+            "--rm",
+            "--volume", $"{wpfOutputPath}:/root/build/",
+            "messagehub-windows");
+        Run("docker", "run",
+            "--rm",
+            "--volume", $"{wpfOutputPath}:/root/build/",
+            "webview2");
         File.Copy(
-            Path.Combine(AppContext.BaseDirectory, "vcruntime140_cor3.dll"),
+            Path.Combine(outputPath, "vcruntime140_cor3.dll"),
             Path.Combine(outputPath, "vcruntime140.dll"));
+        File.Copy(
+            Path.Combine(wpfOutputPath, "vcruntime140_cor3.dll"),
+            Path.Combine(wpfOutputPath, "vcruntime140.dll"));
+
+        static void MoveDllFiles(string baseDirectory)
+        {
+            string dllPath = Path.Combine(baseDirectory, "runtimes", "win-x64", "native");
+            Directory.CreateDirectory(dllPath);
+            foreach (var file in new DirectoryInfo(baseDirectory).EnumerateFiles())
+            {
+                if (file.Extension == ".dll")
+                {
+                    string sourcePath = file.FullName;
+                    string targetPath = Path.Combine(dllPath, file.Name);
+                    Console.WriteLine($"Move {sourcePath} -> {targetPath}");
+                    file.MoveTo(targetPath, overwrite: true);
+                }
+            }
+        }
+        MoveDllFiles(outputPath);
+        MoveDllFiles(wpfOutputPath);
 
         Console.WriteLine("Done.");
     }

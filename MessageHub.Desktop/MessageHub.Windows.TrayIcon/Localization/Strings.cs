@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace MessageHub.Windows.Localization;
+namespace MessageHub.Windows.TrayIcon.Localization;
 
 public class Strings : Dictionary<string, string>
 {

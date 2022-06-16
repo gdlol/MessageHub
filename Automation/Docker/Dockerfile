@@ -17,4 +17,4 @@ WORKDIR /root/app
 COPY --from=build /root/app ./
 COPY --from=build-libp2p /root/lib/messagehub-libp2p.dll ./
 COPY config.json ./
-ENTRYPOINT ["dotnet", "MessageHub.dll"]
+ENTRYPOINT dotnet MessageHub.dll

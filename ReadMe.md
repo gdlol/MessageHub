@@ -97,4 +97,4 @@ Requires WSL2, Docker and .NET Core:
 ```
 dotnet run --project ./Automation/WindowsBuild/WindowsBuild.csproj
 ```
-Outputs are generated in Build/Windows/MessageHub.
+Outputs are generated in Build/Windows.

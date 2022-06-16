@@ -16,4 +16,4 @@ WORKDIR /root/app/
 COPY --from=build-libp2p /root/lib/messagehub-libp2p.dll ./
 COPY --from=vectorim/element-web /app ./Clients/Element/
 COPY config.json ./
-CMD [ "cp", "-r", ".", "/root/build/MessageHub" ]
+CMD cp -r . /root/build

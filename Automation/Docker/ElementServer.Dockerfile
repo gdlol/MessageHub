@@ -10,4 +10,4 @@ WORKDIR /root/app
 COPY --from=build /root/app ./
 COPY --from=vectorim/element-web /app ./Clients/Element/
 COPY config.json ./
-ENTRYPOINT ["dotnet", "MessageHub.ElementServer.dll"]
+ENTRYPOINT dotnet MessageHub.ElementServer.dll
