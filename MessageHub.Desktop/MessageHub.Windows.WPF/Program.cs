@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Windows;
 
-namespace MessageHub.Windows;
+namespace MessageHub.Windows.WPF;
 
 public class Program
 {

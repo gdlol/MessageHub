@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using Microsoft.Extensions.Localization;
 
-namespace MessageHub.Windows.Localization;
+namespace MessageHub.Windows.TrayIcon.Localization;
 
 public class StringLocalizer : IStringLocalizer
 {

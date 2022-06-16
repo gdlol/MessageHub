@@ -4,7 +4,7 @@ using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.UI.Shell;
 
-namespace MessageHub.Windows;
+namespace MessageHub.Windows.TrayIcon;
 
 [SupportedOSPlatform("windows7.0")]
 public static class OpenWithDialog
