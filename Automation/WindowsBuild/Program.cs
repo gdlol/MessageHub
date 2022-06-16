@@ -75,12 +75,24 @@ public class Program
             "--rm",
             "--volume", $"{wpfOutputPath}:/root/build/",
             "messagehub-windows");
-        File.Copy(
-            Path.Combine(outputPath, "vcruntime140_cor3.dll"),
-            Path.Combine(outputPath, "vcruntime140.dll"));
-        File.Copy(
-            Path.Combine(wpfOutputPath, "vcruntime140_cor3.dll"),
-            Path.Combine(wpfOutputPath, "vcruntime140.dll"));
+
+        void MoveDllFiles(string baseDirectory)
+        {
+            string dllPath = Path.Combine(baseDirectory, "runtimes", "win-x64", "native");
+            Directory.CreateDirectory(dllPath);
+            foreach (var file in new DirectoryInfo(baseDirectory).EnumerateFiles())
+            {
+                if (file.Extension == ".dll")
+                {
+                    string sourcePath = file.FullName;
+                    string targetPath = Path.Combine(dllPath, file.Name);
+                    Console.WriteLine($"Move {sourcePath} -> {targetPath}");
+                    file.MoveTo(targetPath, overwrite: true);
+                }
+            }
+        }
+        MoveDllFiles(outputPath);
+        MoveDllFiles(wpfOutputPath);
 
         Console.WriteLine("Done.");
     }

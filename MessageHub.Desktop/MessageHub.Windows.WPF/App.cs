@@ -1,10 +1,9 @@
 using System;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
-using System.Text;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using MessageHub.Windows.TrayIcon;
 
@@ -12,6 +11,15 @@ namespace MessageHub.Windows.WPF;
 
 public class App : Application
 {
+    private readonly EventWaitHandle handle;
+
+    public App(EventWaitHandle handle)
+    {
+        ArgumentNullException.ThrowIfNull(handle);
+
+        this.handle = handle;
+    }
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -21,11 +29,29 @@ public class App : Application
 
         MainWindow = new MainWindow(elementConfig);
 
+        bool isInitialized = false;
         void showWidow()
         {
+            if (!isInitialized)
+            {
+                isInitialized = true;
+                Task.Run(() =>
+                {
+                    while (true)
+                    {
+                        handle.WaitOne();
+                        Dispatcher.Invoke(showWidow);
+                    }
+                });
+            }
             if (elementConfig.ElementListenAddress is not null)
             {
                 MainWindow.Show();
+                if (MainWindow.WindowState == WindowState.Minimized)
+                {
+                    SystemCommands.RestoreWindow(MainWindow);
+                }
+                MainWindow.Activate();
             }
         }
 
@@ -40,33 +66,11 @@ public class App : Application
             Dispatcher.Invoke,
             elementConfig,
             onLaunch: showWidow,
-            onExit: () =>
-            {
-                MainWindow.Closing -= hideWindow;
-                Shutdown();
-            },
+            onExit: Shutdown,
             onError: ex =>
             {
                 MessageBox.Show(ex.ToString());
                 Environment.Exit(1);
             });
-    }
-
-    public void RunSingleInstance()
-    {
-        string? executablePath = Process.GetCurrentProcess().MainModule?.FileName;
-        if (executablePath is null)
-        {
-            throw new InvalidOperationException($"{nameof(executablePath)}: {executablePath}");
-        }
-        using var handle = new EventWaitHandle(
-            false,
-            EventResetMode.AutoReset,
-            Convert.ToHexString(Encoding.UTF8.GetBytes(executablePath)),
-            out bool createdNew);
-        if (createdNew)
-        {
-            Run();
-        }
     }
 }
