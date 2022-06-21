@@ -16,7 +16,7 @@ public class PowerLevelsEvent
     public int EventsDefault { get; init; }
 
     [JsonPropertyName("invite")]
-    public int Invite { get; init; } = 50;
+    public int Invite { get; init; } = 0;
 
     [JsonPropertyName("kick")]
     public int Kick { get; init; } = 50;

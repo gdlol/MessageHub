@@ -5,14 +5,49 @@ import "C"
 import (
 	"context"
 	"sync"
-
-	"github.com/google/uuid"
 )
 
-var objectStore sync.Map
+type ObjectStore struct {
+	mutex    sync.RWMutex
+	objectId int64
+	values   map[int64]any
+}
+
+func NewObjectStore() ObjectStore {
+	return ObjectStore{
+		objectId: 0,
+		values:   make(map[int64]any),
+	}
+}
+
+var objectStore ObjectStore = NewObjectStore()
+
+func (store *ObjectStore) Store(value any) int64 {
+	store.mutex.Lock()
+	defer store.mutex.Unlock()
+	store.objectId += 1
+	if store.objectId == 0 {
+		panic("Object Id limit exceeded.")
+	}
+	store.values[store.objectId] = value
+	return store.objectId
+}
+
+func (store *ObjectStore) Load(id int64) (value any, ok bool) {
+	store.mutex.RLock()
+	defer store.mutex.RUnlock()
+	v, ok := store.values[id]
+	return v, ok
+}
+
+func (store *ObjectStore) Delete(id int64) {
+	store.mutex.Lock()
+	defer store.mutex.Unlock()
+	delete(store.values, id)
+}
 
 type IntPtr *C.void
-type ObjectHandle *C.char
+type ObjectHandle int64
 type StringHandle *C.char
 type ContextHandle = ObjectHandle
 type HostHandle = ObjectHandle
@@ -32,14 +67,12 @@ type cancellableContext struct {
 }
 
 func saveValue(v any) ObjectHandle {
-	id := uuid.NewString()
-	objectStore.Store(id, v)
-	return C.CString(id)
+	id := objectStore.Store(v)
+	return ObjectHandle(id)
 }
 
 func loadValue(id ObjectHandle) any {
-	s := C.GoString(id)
-	value, ok := objectStore.Load(s)
+	value, ok := objectStore.Load(int64(id))
 	if ok {
 		return value
 	}
@@ -47,6 +80,5 @@ func loadValue(id ObjectHandle) any {
 }
 
 func deleteValue(id ObjectHandle) {
-	s := C.GoString(id)
-	objectStore.Delete(s)
+	objectStore.Delete(int64(id))
 }

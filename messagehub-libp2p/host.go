@@ -234,13 +234,12 @@ func sendRequest(ctx context.Context, host host.Host, peerID peer.ID, signedRequ
 	}
 	encodedServerKeys := hex.EncodeToString(serverKeysJson)
 
-	request.Header.Add("Matrix-Host", signedRequest.Destination)
 	request.Header.Add("Matrix-Timestamp", fmt.Sprint(signedRequest.OriginServerTimestamp))
 	request.Header.Add("Matrix-ServerKeys", encodedServerKeys)
 	request.Header.Set("Content-Type", "application/json")
 	for key, signature := range senderSignatures {
-		args := []any{signedRequest.Origin, key, signature}
-		header := fmt.Sprintf("X-Matrix origin=%s,key=\"%s\",sig=\"%s\"", args...)
+		args := []any{signedRequest.Origin, signedRequest.Destination, key, signature}
+		header := fmt.Sprintf("X-Matrix origin=\"%s\",destination=\"%s\",key=\"%s\",sig=\"%s\"", args...)
 		request.Header.Add("Authorization", header)
 	}
 	request = request.WithContext(ctx)

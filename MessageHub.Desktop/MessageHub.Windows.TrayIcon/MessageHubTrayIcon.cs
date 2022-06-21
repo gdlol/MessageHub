@@ -94,10 +94,7 @@ public static class MessageHubTrayIcon
                     ContextMenuStrip = contextMenu
                 };
                 logItem.Click += (sender, e) => OpenWithDialog.Show(logFilePath);
-                exitItem.Click += (sender, e) =>
-                {
-                    cts.Cancel();
-                };
+                exitItem.Click += (sender, e) => cts.Cancel();
                 contextMenu.Items.Add(logItem);
                 contextMenu.Items.Add(exitItem);
 

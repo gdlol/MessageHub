@@ -62,7 +62,6 @@ internal class RequestForwardService : QueuedService<RemoteRequest>
             {
                 request.Content = JsonContent.Create(signedRequest.Content);
             }
-            request.Headers.Add("Matrix-Host", signedRequest.Destination);
             request.Headers.Add("Matrix-Timestamp", signedRequest.OriginServerTimestamp.ToString());
             request.Headers.Add(
                 "Matrix-ServerKeys",
@@ -72,8 +71,18 @@ internal class RequestForwardService : QueuedService<RemoteRequest>
             var authorizationHeaders = new List<string>();
             foreach (var (key, signature) in senderSignatures)
             {
-                authorizationHeaders.Add(
-                    $"X-Matrix origin={signedRequest.Origin},key=\"{key}\",sig=\"{signature}\"");
+                static string HeaderItem(string name, string value) => $"{name}=\"{value}\"";
+                authorizationHeaders.Add(string.Join(' ', new[]
+                {
+                    "X-Matrix",
+                    string.Join(',', new[]
+                    {
+                        HeaderItem("origin", signedRequest.Origin),
+                        HeaderItem("destination", signedRequest.Destination),
+                        HeaderItem("key", key.ToString()),
+                        HeaderItem("sig", signature),
+                    })
+                }));
             }
             request.Headers.Add(HeaderNames.Authorization, authorizationHeaders);
             using var client = context.HttpClientFactory.CreateClient();
