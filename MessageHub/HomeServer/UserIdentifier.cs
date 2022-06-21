@@ -2,8 +2,16 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace MessageHub.HomeServer;
 
-public record class UserIdentifier(string UserName, string Id)
+public record class UserIdentifier
 {
+    public string UserName { get; } = "p2p";
+    public string Id { get; }
+
+    private UserIdentifier(string id)
+    {
+        Id = id;
+    }
+
     public override string ToString()
     {
         return $"@{UserName}:{Id}";
@@ -22,7 +30,11 @@ public record class UserIdentifier(string UserName, string Id)
         {
             return false;
         }
-        identifier = new UserIdentifier(parts[0], parts[1]);
+        if (parts[0] != "p2p")
+        {
+            return false;
+        }
+        identifier = new UserIdentifier(parts[1]);
         return true;
     }
 
@@ -41,6 +53,6 @@ public record class UserIdentifier(string UserName, string Id)
     {
         ArgumentNullException.ThrowIfNull(id);
 
-        return new UserIdentifier("p2p", id);
+        return new UserIdentifier(id);
     }
 }

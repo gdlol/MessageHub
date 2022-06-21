@@ -27,13 +27,12 @@ internal class ObjectHandle : SafeHandle
     protected override bool ReleaseHandle()
     {
         Release(handle);
-        Native.Free(handle);
         return true;
     }
 
     public override string? ToString()
     {
-        return Marshal.PtrToStringUTF8(handle);
+        return handle.ToString();
     }
 }
 

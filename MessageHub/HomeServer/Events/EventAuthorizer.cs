@@ -126,7 +126,8 @@ public class EventAuthorizer
                 }
                 if (TryGetJoinRulesEvent() is JoinRulesEvent joinRulesEvent)
                 {
-                    if (joinRulesEvent.JoinRule == JoinRules.Invite)
+                    if (joinRulesEvent.JoinRule == JoinRules.Invite
+                        || joinRulesEvent.JoinRule == JoinRules.Knock)
                     {
                         if (TryGetMemberEvent(userId) is MemberEvent userMemberEvent
                             && (userMemberEvent.MemberShip == MembershipStates.Invite

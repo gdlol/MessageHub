@@ -56,7 +56,7 @@ func CancelContext(handle ContextHandle) {
 
 //export CreateHost
 func CreateHost(configJSON StringHandle, handle *HostHandle) StringHandle {
-	*handle = nil
+	*handle = 0
 	jsonString := C.GoString(configJSON)
 	var config HostConfig
 	err := json.Unmarshal([]byte(jsonString), &config)
@@ -229,7 +229,7 @@ func SendRequest(ctxHandle ContextHandle, hostHandle HostHandle, peerID StringHa
 
 //export StartProxyRequests
 func StartProxyRequests(hostHandle HostHandle, proxy StringHandle, result *ProxyHandle) StringHandle {
-	*result = nil
+	*result = 0
 	host := loadValue(hostHandle).(*HostNode).host
 	closeProxy, err := proxyRequests(host, C.GoString(proxy))
 	if err != nil {
@@ -279,7 +279,7 @@ func StopMdnsService(mdnsServiceHandle MdnsServiceHandle) StringHandle {
 
 //export CreateDHT
 func CreateDHT(ctxHandle ContextHandle, hostHandle HostHandle, configJSON StringHandle, dhtHandle *DHTHandle) StringHandle {
-	*dhtHandle = nil
+	*dhtHandle = 0
 	ctx := loadValue(ctxHandle).(*cancellableContext).ctx
 	host := loadValue(hostHandle).(*HostNode).host
 	var config DHTConfig
@@ -385,7 +385,7 @@ func Advertise(ctxHandle ContextHandle, discoveryHandle DiscoveryHandle, topic S
 
 //export FindPeers
 func FindPeers(ctxHandle ContextHandle, discoveryHandle DiscoveryHandle, topic StringHandle, result *PeerChanHandle) StringHandle {
-	*result = nil
+	*result = 0
 	ctx := loadValue(ctxHandle).(*cancellableContext).ctx
 	discovery := loadValue(discoveryHandle).(*routing.RoutingDiscovery)
 	peers, err := discovery.FindPeers(ctx, C.GoString(topic))
@@ -455,7 +455,7 @@ func RemoveMember(memberStoreHandle MemberStoreHandle, topic StringHandle, peerI
 
 //export CreatePubSub
 func CreatePubSub(ctxHandle ContextHandle, dhtHandle DHTHandle, memberStoreHandle MemberStoreHandle, pubsubHandle *PubSubHandle) StringHandle {
-	*pubsubHandle = nil
+	*pubsubHandle = 0
 	ctx := loadValue(ctxHandle).(*cancellableContext).ctx
 	dualDHT := loadValue(dhtHandle).(*dual.DHT)
 	memberStore := loadValue(memberStoreHandle).(*MemberStore)
@@ -469,7 +469,7 @@ func CreatePubSub(ctxHandle ContextHandle, dhtHandle DHTHandle, memberStoreHandl
 
 //export JoinTopic
 func JoinTopic(pubsubHandle PubSubHandle, topic StringHandle, topicHandle *TopicHandle) StringHandle {
-	*topicHandle = nil
+	*topicHandle = 0
 	gossipSub := loadValue(pubsubHandle).(*pubsub.PubSub)
 	gossipTopic, err := gossipSub.Join(C.GoString(topic))
 	if err != nil {
@@ -502,7 +502,7 @@ func PublishMessage(ctxHandle ContextHandle, topicHandle TopicHandle, message St
 
 //export Subscribe
 func Subscribe(topicHandle TopicHandle, subscriptionHandle *SubscriptionHandle) StringHandle {
-	*subscriptionHandle = nil
+	*subscriptionHandle = 0
 	topic := loadValue(topicHandle).(*pubsub.Topic)
 	subscription, err := topic.Subscribe()
 	if err != nil {

@@ -61,10 +61,6 @@ public class InviteController : ControllerBase
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(pdu.StateKey)));
         }
-        if (pdu.Origin != request.Origin)
-        {
-            return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(pdu.Origin)));
-        }
         var userIdentifier = UserIdentifier.FromId(request.Origin);
         if (userIdentifier.ToString() != pdu.Sender)
         {

@@ -8,6 +8,7 @@ using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Events;
 using Microsoft.AspNetCore.Authorization;
 using MessageHub.Authentication;
+using MessageHub.HomeServer.Events.Room;
 
 namespace MessageHub.ClientServer;
 
@@ -15,14 +16,17 @@ namespace MessageHub.ClientServer;
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
 public class GetMessagesController : ControllerBase
 {
+    private readonly ILogger logger;
     private readonly ITimelineLoader timelineLoader;
     private readonly IRooms rooms;
 
-    public GetMessagesController(ITimelineLoader timelineLoader, IRooms rooms)
+    public GetMessagesController(ILogger<GetMessagesController> logger, ITimelineLoader timelineLoader, IRooms rooms)
     {
+        ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(timelineLoader);
         ArgumentNullException.ThrowIfNull(rooms);
 
+        this.logger = logger;
         this.timelineLoader = timelineLoader;
         this.rooms = rooms;
     }
@@ -46,21 +50,37 @@ public class GetMessagesController : ControllerBase
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(roomId)}: {roomId}"));
         }
+        if (!new[] { "b", "f" }.Contains(direction))
+        {
+            return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, $"{nameof(direction)}: {direction}"));
+        }
         if (from is null)
         {
-            var eventIds = await timelineLoader.GetRoomEventIds(null);
-            if (!eventIds.TryGetValue(roomId, out string? eventId))
+            if (!batchStates.RoomEventIds.TryGetValue(roomId, out string? eventId))
             {
                 return new JsonResult(new
                 {
                     chunk = Array.Empty<object>()
                 });
             }
-            from = eventId;
-        }
-        if (!new[] { "b", "f" }.Contains(direction))
-        {
-            return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, $"{nameof(direction)}: {direction}"));
+            if (direction == "b")
+            {
+                from = eventId;
+            }
+            else
+            {
+                using var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
+                var states = await roomEventStore.LoadStatesAsync(eventId);
+                if (!states.TryGetValue(new RoomStateKey(EventTypes.Create, string.Empty), out eventId))
+                {
+                    logger.LogWarning("Create event for room {} not found.", roomId);
+                    return new JsonResult(new
+                    {
+                        chunk = Array.Empty<object>()
+                    });
+                }
+                from = eventId;
+            }
         }
         int chunkLimit = limit ?? 10;
         RoomEventFilter? roomEventFilter = null;

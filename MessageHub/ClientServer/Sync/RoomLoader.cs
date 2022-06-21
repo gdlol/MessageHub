@@ -282,13 +282,6 @@ public class RoomsLoader
             {
                 while (true)
                 {
-                    if (iterator.CurrentEventId == sinceEventId)
-                    {
-                        previousEventId = sinceEventId;
-                        var stateEvents = await roomEventStore.LoadStateEventsAsync(iterator.CurrentEventId);
-                        previousStateEvents = stateEvents.Values.ToArray();
-                        break;
-                    }
                     if (filter?.Timeline?.Limit is int limit && timelineEvents.Count >= limit)
                     {
                         limited = true;
@@ -301,6 +294,13 @@ public class RoomsLoader
                     if (timelineEventFilter(currentEvent))
                     {
                         timelineEvents.Add(currentEvent);
+                    }
+                    if (iterator.CurrentEventId == sinceEventId)
+                    {
+                        previousEventId = sinceEventId;
+                        var stateEvents = await roomEventStore.LoadStateEventsAsync(iterator.CurrentEventId);
+                        previousStateEvents = stateEvents.Values.ToArray();
+                        break;
                     }
                     if (!await iterator.TryMoveBackwardAsync())
                     {

@@ -35,28 +35,13 @@ public class RoomEventsReceiver
         this.unresolvedEventNotifier = unresolvedEventNotifier;
     }
 
-    public static bool ValidateSender(PersistentDataUnit pdu)
-    {
-        ArgumentNullException.ThrowIfNull(pdu);
-
-        if (!UserIdentifier.TryParse(pdu.Sender, out var senderIdentifier))
-        {
-            return false;
-        }
-        if (senderIdentifier.Id != pdu.Origin)
-        {
-            return false;
-        }
-        return true;
-    }
-
-    private bool VerifySignature(PersistentDataUnit pdu)
+    private bool VerifySignature(PersistentDataUnit pdu, UserIdentifier sender)
     {
         if (pdu.ServerKeys.ValidUntilTimestamp < pdu.OriginServerTimestamp)
         {
             return false;
         }
-        return identityService.VerifyJson(pdu.Origin, pdu.ToJsonElement());
+        return identityService.VerifyJson(sender.Id, pdu.ToJsonElement());
     }
 
     public (bool, string) ValidateEvent(PersistentDataUnit pdu)
@@ -70,12 +55,11 @@ public class RoomEventsReceiver
         {
             return (false, EventReceiveErrors.InvalidEventId);
         }
-        bool isValidEvent = ValidateSender(pdu);
-        if (!isValidEvent)
+        if (!UserIdentifier.TryParse(pdu.Sender, out var sender))
         {
-            return (false, $"{nameof(isValidEvent)}: {isValidEvent}");
+            return (false, $"{nameof(sender)}: {pdu.Sender}");
         }
-        bool isSignatureValid = VerifySignature(pdu);
+        bool isSignatureValid = VerifySignature(pdu, sender);
         if (!isSignatureValid)
         {
             return (false, $"{nameof(isSignatureValid)}: {isSignatureValid}");

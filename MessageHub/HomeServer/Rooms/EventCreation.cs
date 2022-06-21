@@ -88,7 +88,6 @@ public static class EventCreation
             AuthorizationEvents = authorizationEvents,
             Content = content,
             Depth = snapshot.GraphDepth + 1,
-            Origin = sender.Id,
             OriginServerTimestamp = timestamp,
             PreviousEvents = snapshot.LatestEventIds.ToArray(),
             Redacts = redacts,

@@ -27,10 +27,6 @@ public class PersistentDataUnit
     public Dictionary<string, string> Hashes { get; set; } = default!;
 
     [Required]
-    [JsonPropertyName("origin")]
-    public string Origin { get; set; } = default!;
-
-    [Required]
     [JsonPropertyName("origin_server_ts")]
     public long OriginServerTimestamp { get; set; }
 

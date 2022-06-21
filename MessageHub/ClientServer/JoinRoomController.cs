@@ -99,7 +99,6 @@ public class JoinRoomController : ControllerBase
         {
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         });
-        pdu.Origin = identity.Id;
         pdu.OriginServerTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         pdu.RoomId = roomId;
         pdu.Sender = userId.ToString();
