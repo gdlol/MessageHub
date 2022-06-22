@@ -8,9 +8,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 	"unsafe"
 
 	"github.com/ipfs/go-cid"
+	"github.com/libp2p/go-libp2p-core/discovery"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-kad-dht/dual"
@@ -373,10 +375,10 @@ func CreateDiscovery(dhtHandle DHTHandle) DiscoveryHandle {
 }
 
 //export Advertise
-func Advertise(ctxHandle ContextHandle, discoveryHandle DiscoveryHandle, topic StringHandle) StringHandle {
+func Advertise(ctxHandle ContextHandle, discoveryHandle DiscoveryHandle, topic StringHandle, ttl int32) StringHandle {
 	ctx := loadValue(ctxHandle).(*cancellableContext).ctx
-	discovery := loadValue(discoveryHandle).(*routing.RoutingDiscovery)
-	_, err := discovery.Advertise(ctx, C.GoString(topic))
+	d := loadValue(discoveryHandle).(*routing.RoutingDiscovery)
+	_, err := d.Advertise(ctx, C.GoString(topic), discovery.TTL(time.Duration(ttl)*time.Second))
 	if err != nil {
 		return C.CString(err.Error())
 	}
