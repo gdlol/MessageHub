@@ -18,6 +18,6 @@ internal class AdvertisingService : IP2pService
     {
         return BackgroundService.Aggregate(
             new ScheduledAdvertisingService(context, p2pNode, TimeSpan.FromMinutes(10)),
-            new TriggeredAdvertisingService(context, p2pNode));
+            new TriggeredAdvertisingService(context, p2pNode, TimeSpan.FromMinutes(20)));
     }
 }

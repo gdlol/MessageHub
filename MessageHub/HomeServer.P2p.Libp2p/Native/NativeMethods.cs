@@ -176,7 +176,8 @@ internal unsafe static class NativeMethods
     public static extern StringHandle Advertise(
         ContextHandle ctxHandle,
         DiscoveryHandle discoveryHandle,
-        StringHandle topic);
+        StringHandle topic,
+        int ttl);
 
     [DllImport(Native.DllName)]
     public static extern StringHandle FindPeers(

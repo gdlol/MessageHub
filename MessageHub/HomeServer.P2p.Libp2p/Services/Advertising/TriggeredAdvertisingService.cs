@@ -7,12 +7,14 @@ internal class TriggeredAdvertisingService : TriggeredService<UserProfileUpdate>
 {
     private readonly ILogger logger;
     private readonly Advertiser advertiser;
+    private readonly TimeSpan ttl;
 
-    public TriggeredAdvertisingService(AdvertisingServiceContext context, P2pNode p2pNode)
+    public TriggeredAdvertisingService(AdvertisingServiceContext context, P2pNode p2pNode, TimeSpan ttl)
         : base(context.Notifier)
     {
         logger = context.LoggerFactory.CreateLogger<TriggeredAdvertisingService>();
         advertiser = new Advertiser(logger, context, p2pNode);
+        this.ttl = ttl;
     }
 
     protected override void OnError(Exception error)
@@ -24,7 +26,7 @@ internal class TriggeredAdvertisingService : TriggeredService<UserProfileUpdate>
     {
         if (value.UpdateType == ProfileUpdateType.DisplayName)
         {
-            return advertiser.AdvertiseAsync(stoppingToken);
+            return advertiser.AdvertiseAsync(ttl, stoppingToken);
         }
         else
         {

@@ -13,7 +13,7 @@ internal class Advertiser
         this.p2pNode = p2pNode;
     }
 
-    private async Task Advertise(string topic, CancellationToken cancellationToken)
+    private async Task Advertise(string topic, TimeSpan ttl, CancellationToken cancellationToken)
     {
         while (true)
         {
@@ -22,7 +22,7 @@ internal class Advertiser
                 logger.LogDebug("Advertising topic: {}", topic);
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 cts.CancelAfter(TimeSpan.FromSeconds(20));
-                p2pNode.Discovery.Advertise(topic, cts.Token);
+                p2pNode.Discovery.Advertise(topic, ttl, cts.Token);
                 return;
             }
             catch (OperationCanceledException ex)
@@ -52,14 +52,14 @@ internal class Advertiser
         }
     }
 
-    public async Task AdvertiseAsync(CancellationToken stoppingToken)
+    public async Task AdvertiseAsync(TimeSpan ttl, CancellationToken stoppingToken)
     {
         logger.LogInformation("Advertising discovery points...");
         try
         {
             var identity = context.IdentityService.GetSelfIdentity();
             stoppingToken.ThrowIfCancellationRequested();
-            await Advertise($"p2p:{identity.Id}", stoppingToken);
+            await Advertise($"p2p:{identity.Id}", ttl, stoppingToken);
             var userId = UserIdentifier.FromId(identity.Id);
             string displayName = await context.UserProfile.GetDisplayNameAsync(userId.ToString())
                 ?? userId.UserName;
@@ -67,7 +67,7 @@ internal class Advertiser
             {
                 string peerIdSuffix = identity.Id[^i..];
                 string rendezvousPoint = $"{displayName}:{peerIdSuffix}";
-                await Advertise(rendezvousPoint, stoppingToken);
+                await Advertise(rendezvousPoint, ttl, stoppingToken);
             }
         }
         catch (OperationCanceledException) { }
