@@ -60,7 +60,7 @@ func (store *MemberStore) removeMember(topic string, peerID string) {
 	}
 }
 
-// Filter while list of peers for each topic.
+// Filter white list of peers for each topic.
 func (store *MemberStore) filterPeer(pid peer.ID, topic string) bool {
 	store.mutex.RLock()
 	defer store.mutex.RUnlock()
