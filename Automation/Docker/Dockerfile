@@ -1,4 +1,4 @@
-FROM golang:1.18 AS build-libp2p
+FROM docker.io/library/golang:1.18 AS build-libp2p
 WORKDIR /messagehub-libp2p
 COPY messagehub-libp2p ./
 RUN --mount=type=cache,target=/go/pkg/mod/ \

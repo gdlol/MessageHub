@@ -1,4 +1,4 @@
-FROM golang:1.18 AS build-libp2p
+FROM docker.io/library/golang:1.18 AS build-libp2p
 RUN apt-get update
 RUN apt-get install -y gcc-mingw-w64
 ENV GOOS=windows
@@ -14,6 +14,6 @@ RUN --mount=type=cache,target=/go/pkg/mod/ \
 FROM mcr.microsoft.com/dotnet/aspnet:6.0
 WORKDIR /root/app/
 COPY --from=build-libp2p /root/lib/messagehub-libp2p.dll ./
-COPY --from=vectorim/element-web /app ./Clients/Element/
+COPY --from=docker.io/vectorim/element-web /app ./Clients/Element/
 COPY config.json ./
 CMD cp -r . /root/build

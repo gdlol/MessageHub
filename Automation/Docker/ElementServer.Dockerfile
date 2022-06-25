@@ -8,6 +8,6 @@ RUN dotnet publish --configuration Release --output /root/app/
 FROM mcr.microsoft.com/dotnet/aspnet:6.0
 WORKDIR /root/app
 COPY --from=build /root/app ./
-COPY --from=vectorim/element-web /app ./Clients/Element/
+COPY --from=docker.io/vectorim/element-web /app ./Clients/Element/
 COPY config.json ./
 ENTRYPOINT dotnet MessageHub.ElementServer.dll
