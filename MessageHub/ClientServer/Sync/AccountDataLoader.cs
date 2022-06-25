@@ -1,4 +1,3 @@
-using System.Text.Json;
 using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
 
@@ -15,53 +14,15 @@ public class AccountDataLoader
         this.accountData = accountData;
     }
 
-    private async Task<AccountData> InternalLoadAccountDataAsync(
-        string userId,
-        string? roomId,
-        EventFilter? filter,
-        bool? containsUrl = null)
+    public async Task<AccountData> LoadAccountDataAsync(string userId, EventFilter? filter)
     {
-        int? limit = filter?.Limit;
-        Func<string, JsonElement, bool>? filterFunc = null;
-        var result = new AccountData
-        {
-            Events = Array.Empty<Event>()
-        };
-        if (filter is not null)
-        {
-            var filters = new List<Func<string, JsonElement, bool>>();
-            if (filter.Senders is not null && !filter.Senders.Contains(userId))
-            {
-                return result;
-            }
-            if (filter.NotSenders is not null && filter.NotSenders.Contains(userId))
-            {
-                return result;
-            }
-            if (filter.Types is not null)
-            {
-                if (filter.Types.Length == 0)
-                {
-                    return result;
-                }
-                else
-                {
-                    filters.Add((eventType, _) => filter.Types.Any(pattern => Filter.StringMatch(eventType, pattern)));
-                }
-            }
-            if (filter.NotTypes is not null)
-            {
-                filters.Add((eventType, _) => !filter.NotTypes.Any(pattern => Filter.StringMatch(eventType, pattern)));
-            }
-            if (containsUrl is not null)
-            {
-                filters.Add((_, content) => content.TryGetProperty("url", out var _) == containsUrl.Value);
-            }
-            filterFunc = (eventType, _) => filters.All(x => x(eventType, _));
-        }
-        var accountData = await this.accountData.LoadAccountDataAsync(roomId, filterFunc, limit);
+        ArgumentNullException.ThrowIfNull(userId);
+
+        var data = accountData.LoadAccountDataAsync(null)
+            .Where(value => filter.ShouldIncludeEvent(userId, value.eventType))
+            .ApplyLimit(filter);
         var events = new List<Event>();
-        foreach (var (eventType, content) in accountData)
+        await foreach (var (eventType, content) in data)
         {
             events.Add(new Event
             {
@@ -69,29 +30,39 @@ public class AccountDataLoader
                 EventType = eventType
             });
         }
-        result.Events = events.ToArray();
-        return result;
-    }
-
-    public Task<AccountData> LoadAccountDataAsync(string userId, EventFilter? filter)
-    {
-        ArgumentNullException.ThrowIfNull(userId);
-
-        return InternalLoadAccountDataAsync(userId, null, filter);
-    }
-
-    public Task<AccountData> LoadAccountDataAsync(string userId, string roomId, RoomEventFilter? filter)
-    {
-        ArgumentNullException.ThrowIfNull(userId);
-
-        var eventFilter = filter is null ? null : new EventFilter
+        return new AccountData
         {
-            Limit = filter.Limit,
-            NotSenders = filter.NotSenders,
-            NotTypes = filter.NotTypes,
-            Senders = filter.Senders,
-            Types = filter.Types,
+            Events = events.ToArray()
         };
-        return InternalLoadAccountDataAsync(userId, roomId, eventFilter, filter?.ContainsUrl);
+    }
+
+    public async Task<AccountData> LoadAccountDataAsync(string userId, string roomId, RoomEventFilter? filter)
+    {
+        ArgumentNullException.ThrowIfNull(userId);
+
+        if (!filter.ShouldIncludeRoomId(roomId))
+        {
+            return new AccountData
+            {
+                Events = Array.Empty<Event>()
+            };
+        }
+
+        var data = accountData.LoadAccountDataAsync(null)
+            .Where(value => filter.ShouldIncludeEvent(userId, value.eventType, value.content))
+            .ApplyLimit(filter);
+        var events = new List<Event>();
+        await foreach (var (eventType, content) in data)
+        {
+            events.Add(new Event
+            {
+                Content = content,
+                EventType = eventType
+            });
+        }
+        return new AccountData
+        {
+            Events = events.ToArray()
+        };
     }
 }

@@ -63,4 +63,23 @@ public class EventPublisher : IEventPublisher
             content: parameters);
         await requestHandler.SendRequest(request);
     }
+
+    public async Task PublishAsync(string roomId, EphemeralDataUnit edu)
+    {
+        var identity = identityService.GetSelfIdentity();
+        string txnId = Guid.NewGuid().ToString();
+        var parameters = new PushMessagesRequest
+        {
+            Origin = identity.Id,
+            OriginServerTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            Pdus = Array.Empty<PersistentDataUnit>(),
+            Edus = new[] { edu }
+        };
+        var request = identity.SignRequest(
+            destination: roomId,
+            requestMethod: HttpMethods.Put,
+            requestTarget: $"/_matrix/federation/v1/send/{txnId}",
+            content: parameters);
+        await requestHandler.SendRequest(request);
+    }
 }

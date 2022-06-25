@@ -25,10 +25,10 @@ public class UserPresence : IUserPresence
             Presence = presence,
             StatusMessage = statusMessage,
         };
-        presenceStatus.AddOrUpdate(userId, userId => status, (userId, _) => status);
-        pendingUpdates.AddOrUpdate(userId, userId => status, (userId, _) => status);
+        presenceStatus[userId] = status;
+        pendingUpdates[userId] = status;
         long timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        latestUpdateTime.AddOrUpdate(userId, userId => timestamp, (userId, _) => timestamp);
+        latestUpdateTime[userId] = timestamp;
     }
 
     public (string userId, PresenceStatus status)[] GetPendingUpdates(Func<string, bool> userIdFilter)

@@ -77,38 +77,26 @@ public class AccountData : IAccountData
         }
     }
 
-    public async Task<(string eventType, JsonElement content)[]> LoadAccountDataAsync(
-        string? roomId, Func<string, JsonElement, bool>? filter, int? limit)
+    public async IAsyncEnumerable<(string eventType, JsonElement content)> LoadAccountDataAsync(string? roomId)
     {
         using var store = storageProvider.GetKeyValueStore(accountDataStoreName);
         if (store.IsEmpty)
         {
-            return Array.Empty<(string eventType, JsonElement content)>();
+            yield break;
         }
-        filter ??= (_, _) => true;
-        async IAsyncEnumerable<(string key, JsonElement value)> GetElements()
+        await foreach (var (key, value) in store.GetAsyncEnumerable())
         {
-            await foreach (var (key, value) in store.GetAsyncEnumerable())
+            if (value.Length > 0)
             {
-                if (value.Length > 0)
+                var (elementRoomId, eventType) = DecodeAccountDataKey(key);
+                if (elementRoomId != roomId)
                 {
-                    var (elementRoomId, eventType) = DecodeAccountDataKey(key);
-                    if (elementRoomId != roomId)
-                    {
-                        continue;
-                    }
-                    var element = JsonSerializer.Deserialize<JsonElement>(value)!;
-                    yield return (eventType, element);
+                    continue;
                 }
+                var element = JsonSerializer.Deserialize<JsonElement>(value)!;
+                yield return (eventType, element);
             }
         }
-        var events = GetElements().Where(x => filter(x.key, x.value));
-        if (limit is not null)
-        {
-            events = events.Take(limit.Value);
-        }
-        var result = await events.ToArrayAsync();
-        return result;
     }
 
     public async Task<string> SaveFilterAsync(string filter)

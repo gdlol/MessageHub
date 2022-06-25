@@ -27,18 +27,21 @@ public class SyncController : ControllerBase
         IAccountData accountData,
         ITimelineLoader timelineLoader,
         IRooms rooms,
-        IUserPresence userPresence)
+        IUserPresence userPresence,
+        IUserReadReceipts userReadReceipts)
     {
         ArgumentNullException.ThrowIfNull(notifier);
         ArgumentNullException.ThrowIfNull(accountData);
         ArgumentNullException.ThrowIfNull(timelineLoader);
         ArgumentNullException.ThrowIfNull(rooms);
         ArgumentNullException.ThrowIfNull(userPresence);
+        ArgumentNullException.ThrowIfNull(userReadReceipts);
 
         this.notifier = notifier;
         filterLoader = new FilterLoader(accountData);
         accountDataLoader = new AccountDataLoader(accountData);
-        roomLoader = new RoomsLoader(timelineLoader, rooms, accountDataLoader);
+        var ephemeralLoader = new EphemeralLoader(userReadReceipts);
+        roomLoader = new RoomsLoader(timelineLoader, rooms, accountDataLoader, ephemeralLoader);
         presenceLoader = new PresenceLoader(userPresence);
     }
 
@@ -93,8 +96,7 @@ public class SyncController : ControllerBase
             parameters.FullState,
             parameters.Since,
             filter?.Room);
-        var presenceUpdate = presenceLoader.LoadPresenceUpdates(filter?.Presence);
-        var presence = presenceUpdate is null ? null : new Presence { Events = presenceUpdate };
+        var presence = presenceLoader.LoadPresenceUpdates(filter?.Presence);
         return new JsonResult(new SyncResponse
         {
             AccountData = accountData,

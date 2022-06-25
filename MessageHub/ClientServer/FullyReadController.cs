@@ -5,6 +5,7 @@ using MessageHub.Authentication;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events.General;
 using MessageHub.HomeServer.Notifiers;
+using MessageHub.HomeServer.Remote;
 using MessageHub.HomeServer.Rooms;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -28,16 +29,23 @@ public class FullyReadController : ControllerBase
     private readonly TimelineUpdateNotifier notifier;
     private readonly IRooms rooms;
     private readonly IAccountData accountData;
+    private readonly IEventPublisher eventPublisher;
 
-    public FullyReadController(TimelineUpdateNotifier notifier, IRooms rooms, IAccountData accountData)
+    public FullyReadController(
+        TimelineUpdateNotifier notifier,
+        IRooms rooms,
+        IAccountData accountData,
+        IEventPublisher eventPublisher)
     {
         ArgumentNullException.ThrowIfNull(notifier);
         ArgumentNullException.ThrowIfNull(rooms);
         ArgumentNullException.ThrowIfNull(accountData);
+        ArgumentNullException.ThrowIfNull(eventPublisher);
 
         this.notifier = notifier;
         this.rooms = rooms;
         this.accountData = accountData;
+        this.eventPublisher = eventPublisher;
     }
 
     [Route("rooms/{roomId}/read_markers")]
@@ -64,6 +72,16 @@ public class FullyReadController : ControllerBase
             FullyReadEvent.EventType,
             JsonSerializer.SerializeToElement(fullyReadContent));
         notifier.Notify();
+
+        // Send read receipt.
+        var receipt = ReceiptEvent.Create(
+            userId,
+            roomId,
+            requestBody.FullyRead,
+            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+        var edu = receipt.ToEdu();
+        await eventPublisher.PublishAsync(roomId, edu);
+
         return new JsonResult(new object());
     }
 }
