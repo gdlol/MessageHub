@@ -9,23 +9,23 @@ using EventReceipts = Dictionary<string, Dictionary<string, ReadReceiptMetadata>
 
 public class EphemeralLoader
 {
-    private readonly IUserReadReceipts userReadReceipts;
+    private readonly IUserReceipts userReceipts;
 
-    public EphemeralLoader(IUserReadReceipts userReadReceipts)
+    public EphemeralLoader(IUserReceipts userReceipts)
     {
-        ArgumentNullException.ThrowIfNull(userReadReceipts);
+        ArgumentNullException.ThrowIfNull(userReceipts);
 
-        this.userReadReceipts = userReadReceipts;
+        this.userReceipts = userReceipts;
     }
 
-    public Ephemeral? LoadEphemeralEvents(string roomId, RoomEventFilter? filter)
+    public async ValueTask<Ephemeral?> LoadEphemeralEventsAsync(string roomId, RoomEventFilter? filter)
     {
         if (!filter.ShouldIncludeRoomId(roomId))
         {
             return null;
         }
 
-        var receipts = userReadReceipts.TakeReceipts(roomId);
+        var receipts = await userReceipts.TakeReceiptsAsync(roomId);
         if (receipts.IsEmpty)
         {
             return null;

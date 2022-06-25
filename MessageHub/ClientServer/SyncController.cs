@@ -28,19 +28,19 @@ public class SyncController : ControllerBase
         ITimelineLoader timelineLoader,
         IRooms rooms,
         IUserPresence userPresence,
-        IUserReadReceipts userReadReceipts)
+        IUserReceipts userReceipts)
     {
         ArgumentNullException.ThrowIfNull(notifier);
         ArgumentNullException.ThrowIfNull(accountData);
         ArgumentNullException.ThrowIfNull(timelineLoader);
         ArgumentNullException.ThrowIfNull(rooms);
         ArgumentNullException.ThrowIfNull(userPresence);
-        ArgumentNullException.ThrowIfNull(userReadReceipts);
+        ArgumentNullException.ThrowIfNull(userReceipts);
 
         this.notifier = notifier;
         filterLoader = new FilterLoader(accountData);
         accountDataLoader = new AccountDataLoader(accountData);
-        var ephemeralLoader = new EphemeralLoader(userReadReceipts);
+        var ephemeralLoader = new EphemeralLoader(userReceipts);
         roomLoader = new RoomsLoader(timelineLoader, rooms, accountDataLoader, ephemeralLoader);
         presenceLoader = new PresenceLoader(userPresence);
     }

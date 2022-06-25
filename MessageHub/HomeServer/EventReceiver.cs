@@ -19,7 +19,7 @@ public class EventReceiver : IEventReceiver
     private readonly ILogger logger;
     private readonly IIdentityService identityService;
     private readonly IUserPresence userPresence;
-    private readonly IUserReadReceipts userReadReceipts;
+    private readonly IUserReceipts userReceipts;
     private readonly IRooms rooms;
     private readonly IEventSaver eventSaver;
     private readonly UnresolvedEventNotifier unresolvedEventNotifier;
@@ -30,7 +30,7 @@ public class EventReceiver : IEventReceiver
         IIdentityService identityService,
         IRooms rooms,
         IUserPresence userPresence,
-        IUserReadReceipts userReadReceipts,
+        IUserReceipts userReceipts,
         IEventSaver eventSaver,
         UnresolvedEventNotifier unresolvedEventNotifier,
         TimelineUpdateNotifier timelineUpdateNotifier)
@@ -38,7 +38,7 @@ public class EventReceiver : IEventReceiver
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(identityService);
         ArgumentNullException.ThrowIfNull(userPresence);
-        ArgumentNullException.ThrowIfNull(userReadReceipts);
+        ArgumentNullException.ThrowIfNull(userReceipts);
         ArgumentNullException.ThrowIfNull(rooms);
         ArgumentNullException.ThrowIfNull(eventSaver);
         ArgumentNullException.ThrowIfNull(unresolvedEventNotifier);
@@ -47,19 +47,19 @@ public class EventReceiver : IEventReceiver
         this.logger = logger;
         this.identityService = identityService;
         this.userPresence = userPresence;
-        this.userReadReceipts = userReadReceipts;
+        this.userReceipts = userReceipts;
         this.rooms = rooms;
         this.eventSaver = eventSaver;
         this.unresolvedEventNotifier = unresolvedEventNotifier;
         this.timelineUpdateNotifier = timelineUpdateNotifier;
     }
 
-    public Task ReceiveEphemeralEventsAsync(UserIdentifier sender, EphemeralDataUnit[] edus)
+    public async Task ReceiveEphemeralEventsAsync(UserIdentifier sender, EphemeralDataUnit[] edus)
     {
         var identity = identityService.GetSelfIdentity();
         if (identity.Id == sender.Id)
         {
-            return Task.CompletedTask;
+            return;
         }
         bool notifyTimelineUpdate = false;
         foreach (var edu in edus)
@@ -103,7 +103,7 @@ public class EventReceiver : IEventReceiver
                                 logger.LogInformation("Receipt userId not matching sender {}: {}", sender, userId);
                                 continue;
                             }
-                            userReadReceipts.PutReceipt(roomId, userId, ReceiptTypes.Read, userReadReceipt);
+                            await userReceipts.PutReceiptAsync(roomId, userId, ReceiptTypes.Read, userReadReceipt);
                             notifyTimelineUpdate = true;
                         }
                     }
@@ -118,7 +118,6 @@ public class EventReceiver : IEventReceiver
         {
             timelineUpdateNotifier.Notify();
         }
-        return Task.CompletedTask;
     }
 
     public async Task<Dictionary<string, string?>> ReceivePersistentEventsAsync(PersistentDataUnit[] pdus)

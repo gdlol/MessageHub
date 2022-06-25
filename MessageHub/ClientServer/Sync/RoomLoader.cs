@@ -51,8 +51,7 @@ public class RoomsLoader
     {
         return stateEvents
             .Where(pdu => filter.ShouldIncludeEvent(pdu.Sender, pdu.EventType, pdu.Content))
-            .ApplyLimit(filter)
-            .ToArray();
+            .ApplyLimit(filter);
     }
 
     private static PersistentDataUnit[] ComputeStateDelta(
@@ -135,7 +134,7 @@ public class RoomsLoader
             rooms.Join[roomId] = new JoinedRoom
             {
                 AccountData = await accountDataLoader.LoadAccountDataAsync(userId, roomId, filter?.AccountData),
-                Ephemeral = ephemeralLoader.LoadEphemeralEvents(roomId, filter?.Ephemeral)
+                Ephemeral = await ephemeralLoader.LoadEphemeralEventsAsync(roomId, filter?.Ephemeral)
             };
         }
         foreach (var (roomId, stateEvents) in batchStates.Knocks)
