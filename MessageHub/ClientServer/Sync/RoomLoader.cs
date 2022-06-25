@@ -11,144 +11,47 @@ public class RoomsLoader
     private readonly ITimelineLoader timelineLoader;
     private readonly IRooms rooms;
     private readonly AccountDataLoader accountDataLoader;
+    private readonly EphemeralLoader ephemeralLoader;
 
-    public RoomsLoader(ITimelineLoader timelineLoader, IRooms rooms, AccountDataLoader accountDataLoader)
+    public RoomsLoader(
+        ITimelineLoader timelineLoader,
+        IRooms rooms,
+        AccountDataLoader accountDataLoader,
+        EphemeralLoader ephemeralLoader)
     {
         ArgumentNullException.ThrowIfNull(timelineLoader);
         ArgumentNullException.ThrowIfNull(rooms);
         ArgumentNullException.ThrowIfNull(accountDataLoader);
+        ArgumentNullException.ThrowIfNull(ephemeralLoader);
 
         this.timelineLoader = timelineLoader;
         this.rooms = rooms;
         this.accountDataLoader = accountDataLoader;
-    }
-
-    private static Func<string, bool> GetRoomIdFilter(string[]? rooms, string[]? notRooms)
-    {
-        return roomId =>
-        {
-            if (rooms is not null && !rooms.Contains(roomId))
-            {
-                return false;
-            }
-            if (notRooms is not null && notRooms.Contains(roomId))
-            {
-                return false;
-            }
-            return true;
-        };
+        this.ephemeralLoader = ephemeralLoader;
     }
 
     private static bool ShouldGetTimeline(string roomId, RoomEventFilter? filter)
     {
-        if (filter is null)
-        {
-            return true;
-        }
-        if (filter.Rooms is not null && !filter.Rooms.Contains(roomId))
-        {
-            return false;
-        }
-        if (filter.NotRooms is not null && filter.NotRooms.Contains(roomId))
-        {
-            return false;
-        }
-        return true;
+        return filter.ShouldIncludeRoomId(roomId);
     }
 
     private static bool ShouldGetStateUpdate(string roomId, StateFilter? filter)
     {
-        if (filter is null)
-        {
-            return true;
-        }
-        if (filter.Rooms is not null && !filter.Rooms.Contains(roomId))
-        {
-            return false;
-        }
-        if (filter.NotRooms is not null && filter.NotRooms.Contains(roomId))
-        {
-            return false;
-        }
-        return true;
+        return filter.ShouldIncludeRoomId(roomId);
     }
 
     internal static Func<PersistentDataUnit, bool> GetTimelineEventFilter(RoomEventFilter? filter)
     {
-        if (filter is null)
-        {
-            return _ => true;
-        }
-        return pdu =>
-        {
-            if (filter.ContainsUrl is not null
-                && pdu.Content.TryGetProperty("url", out var _) != filter.ContainsUrl.Value)
-            {
-                return false;
-            }
-            if (filter.Senders is not null && !filter.Senders.Contains(pdu.Sender))
-            {
-                return false;
-            }
-            if (filter.NotSenders is not null && filter.NotSenders.Contains(pdu.Sender))
-            {
-                return false;
-            }
-            if (filter.Types is not null
-                && !filter.Types.Any(pattern => Filter.StringMatch(pdu.EventType, pattern)))
-            {
-                return false;
-            }
-            if (filter.NotTypes is not null
-                && filter.NotTypes.Any(pattern => Filter.StringMatch(pdu.EventType, pattern)))
-            {
-                return false;
-            }
-            return true;
-        };
+        return pdu => filter.ShouldIncludeEvent(pdu.Sender, pdu.EventType, pdu.Content);
     }
 
-    private static PersistentDataUnit[] FilterStateEvents(
+    private static IEnumerable<PersistentDataUnit> FilterStateEvents(
         IEnumerable<PersistentDataUnit> stateEvents,
         StateFilter? filter)
     {
-        if (filter is null)
-        {
-            return stateEvents.ToArray();
-        }
-        var result = new List<PersistentDataUnit>();
-        foreach (var pdu in stateEvents)
-        {
-            if (filter.Limit is not null && filter.Limit >= result.Count)
-            {
-                break;
-            }
-            if (filter.ContainsUrl is not null
-                && pdu.Content.TryGetProperty("url", out var _) != filter.ContainsUrl.Value)
-            {
-                continue;
-            }
-            if (filter.Senders is not null && !filter.Senders.Contains(pdu.Sender))
-            {
-                continue;
-            }
-            if (filter.NotSenders is not null && filter.NotSenders.Contains(pdu.Sender))
-            {
-                continue;
-            }
-            if (filter.Types is not null
-                && !filter.Types.Any(pattern => Filter.StringMatch(pdu.EventType, pattern)))
-            {
-                continue;
-            }
-            if (filter.NotTypes is not null
-                && filter.NotTypes.Any(pattern => Filter.StringMatch(pdu.EventType, pattern)))
-            {
-                continue;
-            }
-            result.Add(pdu);
-        }
-        return result.ToArray();
+        return stateEvents
+            .Where(pdu => filter.ShouldIncludeEvent(pdu.Sender, pdu.EventType, pdu.Content))
+            .ApplyLimit(filter);
     }
 
     private static PersistentDataUnit[] ComputeStateDelta(
@@ -178,8 +81,7 @@ public class RoomsLoader
         string since,
         RoomFilter? filter)
     {
-        var roomIdFilter = GetRoomIdFilter(filter?.Rooms, filter?.NotRooms);
-        var batchStates = await timelineLoader.LoadBatchStatesAsync(roomIdFilter, true);
+        var batchStates = await timelineLoader.LoadBatchStatesAsync(filter.ShouldIncludeRoomId, true);
         var sinceEventIds = await timelineLoader.GetRoomEventIds(since);
 
         bool includeLeave = filter?.IncludeLeave == true;
@@ -231,7 +133,8 @@ public class RoomsLoader
         {
             rooms.Join[roomId] = new JoinedRoom
             {
-                AccountData = await accountDataLoader.LoadAccountDataAsync(userId, roomId, filter?.AccountData)
+                AccountData = await accountDataLoader.LoadAccountDataAsync(userId, roomId, filter?.AccountData),
+                Ephemeral = await ephemeralLoader.LoadEphemeralEventsAsync(roomId, filter?.Ephemeral)
             };
         }
         foreach (var (roomId, stateEvents) in batchStates.Knocks)

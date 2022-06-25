@@ -19,6 +19,7 @@ public class EventReceiver : IEventReceiver
     private readonly ILogger logger;
     private readonly IIdentityService identityService;
     private readonly IUserPresence userPresence;
+    private readonly IUserReceipts userReceipts;
     private readonly IRooms rooms;
     private readonly IEventSaver eventSaver;
     private readonly UnresolvedEventNotifier unresolvedEventNotifier;
@@ -29,6 +30,7 @@ public class EventReceiver : IEventReceiver
         IIdentityService identityService,
         IRooms rooms,
         IUserPresence userPresence,
+        IUserReceipts userReceipts,
         IEventSaver eventSaver,
         UnresolvedEventNotifier unresolvedEventNotifier,
         TimelineUpdateNotifier timelineUpdateNotifier)
@@ -36,6 +38,7 @@ public class EventReceiver : IEventReceiver
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(identityService);
         ArgumentNullException.ThrowIfNull(userPresence);
+        ArgumentNullException.ThrowIfNull(userReceipts);
         ArgumentNullException.ThrowIfNull(rooms);
         ArgumentNullException.ThrowIfNull(eventSaver);
         ArgumentNullException.ThrowIfNull(unresolvedEventNotifier);
@@ -44,18 +47,19 @@ public class EventReceiver : IEventReceiver
         this.logger = logger;
         this.identityService = identityService;
         this.userPresence = userPresence;
+        this.userReceipts = userReceipts;
         this.rooms = rooms;
         this.eventSaver = eventSaver;
         this.unresolvedEventNotifier = unresolvedEventNotifier;
         this.timelineUpdateNotifier = timelineUpdateNotifier;
     }
 
-    public Task ReceiveEphemeralEventsAsync(UserIdentifier sender, EphemeralDataUnit[] edus)
+    public async Task ReceiveEphemeralEventsAsync(UserIdentifier sender, EphemeralDataUnit[] edus)
     {
         var identity = identityService.GetSelfIdentity();
         if (identity.Id == sender.Id)
         {
-            return Task.CompletedTask;
+            return;
         }
         bool notifyTimelineUpdate = false;
         foreach (var edu in edus)
@@ -72,7 +76,7 @@ public class EventReceiver : IEventReceiver
                         {
                             if (update.UserId != sender.ToString())
                             {
-                                logger.LogDebug("Presence update not matching sender {}: {}", sender, update);
+                                logger.LogInformation("Presence update not matching sender {}: {}", sender, update);
                                 continue;
                             }
                             userPresenceUpdate = update;
@@ -87,17 +91,33 @@ public class EventReceiver : IEventReceiver
                         notifyTimelineUpdate = true;
                     }
                 }
+                else if (edu.EventType == ReceiptEvent.EventType)
+                {
+                    var receipt = ReceiptEvent.FromEdu(edu);
+                    foreach (var (roomId, roomReceipts) in receipt.Content)
+                    {
+                        foreach (var (userId, userReadReceipt) in roomReceipts.ReadReceipts)
+                        {
+                            if (userId != sender.ToString())
+                            {
+                                logger.LogInformation("Receipt userId not matching sender {}: {}", sender, userId);
+                                continue;
+                            }
+                            await userReceipts.PutReceiptAsync(roomId, userId, ReceiptTypes.Read, userReadReceipt);
+                            notifyTimelineUpdate = true;
+                        }
+                    }
+                }
             }
             catch (Exception ex)
             {
-                logger.LogDebug("Error receiving edu {}: {}", edu, ex.Message);
+                logger.LogInformation("Error receiving edu {}: {}", edu, ex.Message);
             }
         }
         if (notifyTimelineUpdate)
         {
             timelineUpdateNotifier.Notify();
         }
-        return Task.CompletedTask;
     }
 
     public async Task<Dictionary<string, string?>> ReceivePersistentEventsAsync(PersistentDataUnit[] pdus)

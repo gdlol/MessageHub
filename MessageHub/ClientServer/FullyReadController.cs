@@ -5,6 +5,7 @@ using MessageHub.Authentication;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events.General;
 using MessageHub.HomeServer.Notifiers;
+using MessageHub.HomeServer.Remote;
 using MessageHub.HomeServer.Rooms;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -28,16 +29,27 @@ public class FullyReadController : ControllerBase
     private readonly TimelineUpdateNotifier notifier;
     private readonly IRooms rooms;
     private readonly IAccountData accountData;
+    private readonly IUserReceipts userReceipts;
+    private readonly IEventPublisher eventPublisher;
 
-    public FullyReadController(TimelineUpdateNotifier notifier, IRooms rooms, IAccountData accountData)
+    public FullyReadController(
+        TimelineUpdateNotifier notifier,
+        IRooms rooms,
+        IAccountData accountData,
+        IUserReceipts userReceipts,
+        IEventPublisher eventPublisher)
     {
         ArgumentNullException.ThrowIfNull(notifier);
         ArgumentNullException.ThrowIfNull(rooms);
         ArgumentNullException.ThrowIfNull(accountData);
+        ArgumentNullException.ThrowIfNull(userReceipts);
+        ArgumentNullException.ThrowIfNull(eventPublisher);
 
         this.notifier = notifier;
         this.rooms = rooms;
         this.accountData = accountData;
+        this.userReceipts = userReceipts;
+        this.eventPublisher = eventPublisher;
     }
 
     [Route("rooms/{roomId}/read_markers")]
@@ -63,7 +75,26 @@ public class FullyReadController : ControllerBase
             roomId,
             FullyReadEvent.EventType,
             JsonSerializer.SerializeToElement(fullyReadContent));
+
+        // Send read receipt.
+        if (requestBody.Read is not null)
+        {
+            var receipt = ReceiptEvent.Create(
+                userId,
+                roomId,
+                requestBody.Read,
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+            await userReceipts.PutReceiptAsync(
+                roomId,
+                userId,
+                ReceiptTypes.Read,
+                receipt.Content[roomId].ReadReceipts[userId]);
+            var edu = receipt.ToEdu();
+            await eventPublisher.PublishAsync(roomId, edu);
+        }
+
         notifier.Notify();
+
         return new JsonResult(new object());
     }
 }

@@ -107,6 +107,7 @@ public static class P2pHomeServerServiceCollectionExtensions
         services.AddSingleton<IUserDiscoveryService, UserDiscoveryService>();
         services.AddSingleton<IUserProfile, UserProfile>();
         services.AddSingleton<IUserPresence, UserPresence>();
+        services.AddSingleton<IUserReceipts, UserReceipts>();
         services.AddSingleton<IEventPublisher, EventPublisher>();
         services.AddSingleton<IRemoteContentRepository, RemoteContentRepository>();
         services.AddSingleton<IRemoteRooms, RemoteRooms>();

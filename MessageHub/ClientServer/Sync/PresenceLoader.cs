@@ -37,7 +37,7 @@ public class PresenceLoader
         return _ => true;
     }
 
-    public Event[] LoadPresenceUpdates(EventFilter? filter)
+    public Presence? LoadPresenceUpdates(EventFilter? filter)
     {
         var result = new List<Event>();
         var userIdFilter = GetUserIdFilter(filter);
@@ -55,8 +55,8 @@ public class PresenceLoader
                     Presence = presenceStatus.Presence,
                     StatusMessage = presenceStatus.StatusMessage,
                 }, new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull })
-        });
-    }
-        return result.ToArray();
+            });
+        }
+        return result.Count == 0 ? null : new Presence { Events = result.ToArray() };
     }
 }

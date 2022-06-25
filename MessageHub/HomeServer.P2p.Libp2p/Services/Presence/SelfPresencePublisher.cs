@@ -31,6 +31,26 @@ internal class SelfPresencePublisher
                 Presence = PresenceValues.Unavailable
             };
         }
+        var edu = new EphemeralDataUnit
+        {
+            EventType = PresenceEvent.EventType,
+            Content = JsonSerializer.SerializeToElement(new PresenceUpdate
+            {
+                Push = new[]
+                {
+                    UserPresenceUpdate.Create(userId, presenceStatus)
+                }
+            }, new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull })
+        };
+        string txnId = Guid.NewGuid().ToString();
+        var parameters = new PushMessagesRequest
+        {
+            Origin = identity.Id,
+            OriginServerTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            Pdus = Array.Empty<PersistentDataUnit>(),
+            Edus = new[] { edu }
+        };
+
         var batchStates = await context.TimelineLoader.LoadBatchStatesAsync(_ => true, includeLeave: false);
         foreach (string roomId in batchStates.JoinedRoomIds)
         {
@@ -48,25 +68,6 @@ internal class SelfPresencePublisher
             {
                 continue;
             }
-            var edu = new EphemeralDataUnit
-            {
-                EventType = PresenceEvent.EventType,
-                Content = JsonSerializer.SerializeToElement(new PresenceUpdate
-                {
-                    Push = new[]
-                    {
-                        UserPresenceUpdate.Create(userId, presenceStatus)
-                    }
-                }, new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull })
-            };
-            string txnId = Guid.NewGuid().ToString();
-            var parameters = new PushMessagesRequest
-            {
-                Origin = identity.Id,
-                OriginServerTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                Pdus = Array.Empty<PersistentDataUnit>(),
-                Edus = new[] { edu }
-            };
             var request = identity.SignRequest(
                 destination: roomId,
                 requestMethod: HttpMethods.Put,
