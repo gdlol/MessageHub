@@ -5,22 +5,22 @@ namespace MessageHub.HomeServer.P2p.LocalIdentity;
 internal class KeyRotationService : ScheduledService
 {
     private readonly ILogger logger;
-    private readonly LocalIdentityService identityService;
-    private readonly LocalAuthenticator authenticator;
+    private readonly LocalIdentityService localIdentityService;
+    private readonly LocalAuthenticator localAuthenticator;
 
     public KeyRotationService(
         ILogger<KeyRotationService> logger,
-        LocalIdentityService identityService,
-        LocalAuthenticator authenticator)
+        LocalIdentityService localIdentityService,
+        LocalAuthenticator localAuthenticator)
         : base(initialDelay: TimeSpan.FromDays(1), interval: TimeSpan.FromDays(1))
     {
         ArgumentNullException.ThrowIfNull(logger);
-        ArgumentNullException.ThrowIfNull(identityService);
-        ArgumentNullException.ThrowIfNull(authenticator);
+        ArgumentNullException.ThrowIfNull(localIdentityService);
+        ArgumentNullException.ThrowIfNull(localAuthenticator);
 
         this.logger = logger;
-        this.identityService = identityService;
-        this.authenticator = authenticator;
+        this.localIdentityService = localIdentityService;
+        this.localAuthenticator = localAuthenticator;
     }
 
     protected override void OnError(Exception error)
@@ -30,22 +30,22 @@ internal class KeyRotationService : ScheduledService
 
     protected override async Task RunAsync(CancellationToken stoppingToken)
     {
-        if (!identityService.HasSelfIdentity)
+        if (!localIdentityService.HasSelfIdentity)
         {
             return;
         }
-        var identity = identityService.GetSelfIdentity();
+        var identity = localIdentityService.GetSelfIdentity();
         if (identity.GetServerKeys().ValidUntilTimestamp > DateTimeOffset.UtcNow.AddDays(3).ToUnixTimeMilliseconds())
         {
             return;
         }
         logger.LogInformation("Rotating signing keys...");
-        var (_, key) = await authenticator.CreateOrGetPrivateKeyAsync();
+        var (_, key) = await localAuthenticator.CreateOrGetPrivateKeyAsync();
         using var _ = key;
-        lock (authenticator.CreateIdentity(key))
+        lock (localIdentityService)
         {
-            var newIdentity = authenticator.CreateIdentity(key);
-            identityService.SetSelfIdentity(newIdentity);
+            var newIdentity = localAuthenticator.CreateIdentity(key);
+            localIdentityService.SetSelfIdentity(newIdentity);
             identity.Dispose();
         }
         logger.LogInformation("Updated self identity.");
