@@ -7,7 +7,7 @@ using NSec.Cryptography;
 
 namespace MessageHub.HomeServer.P2p.LocalIdentity;
 
-internal class LocalAuthenticator : IAuthenticator
+public class LocalAuthenticator : IAuthenticator
 {
     private readonly ManualResetEvent locker = new(initialState: true);
     private const string KeyStoreName = nameof(LocalIdentity);

@@ -1,4 +1,3 @@
-using MessageHub.HomeServer.P2p.Providers;
 using MessageHub.HomeServer.Rooms;
 
 namespace MessageHub.HomeServer.P2p.Rooms;
@@ -6,33 +5,30 @@ namespace MessageHub.HomeServer.P2p.Rooms;
 internal class Rooms : IRooms
 {
     private readonly EventStore eventStore;
-    private readonly IStorageProvider storageProvider;
 
-    public Rooms(EventStore eventStore, IStorageProvider storageProvider)
+    public Rooms(EventStore eventStore)
     {
         ArgumentNullException.ThrowIfNull(eventStore);
-        ArgumentNullException.ThrowIfNull(storageProvider);
 
         this.eventStore = eventStore;
-        this.storageProvider = storageProvider;
     }
 
     public bool HasRoom(string roomId)
     {
-        return eventStore.Update().JoinedRoomIds.Contains(roomId);
+        return eventStore.LoadState().JoinedRoomIds.Contains(roomId);
     }
 
     public Task<IRoomEventStore> GetRoomEventStoreAsync(string roomId)
     {
-        var store = storageProvider.GetEventStore();
-        IRoomEventStore roomEventStore = new RoomEventStore(eventStore.Update(), store, roomId);
+        var session = eventStore.GetReadOnlySession();
+        IRoomEventStore roomEventStore = new RoomEventStore(session, roomId);
         return Task.FromResult(roomEventStore);
     }
 
     public async Task<RoomSnapshot> GetRoomSnapshotAsync(string roomId)
     {
-        using var store = storageProvider.GetEventStore();
-        var snapshot = await EventStore.GetRoomSnapshotAsync(store, roomId);
+        var session = eventStore.GetReadOnlySession();
+        var snapshot = await session.GetRoomSnapshotAsync(roomId);
         return snapshot;
     }
 }

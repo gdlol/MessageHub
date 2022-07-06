@@ -11,7 +11,5 @@ services:
     network_mode: "host"
     volumes:
       - data:/root/app/Data
-      - content:/root/app/Content
 volumes:
   data:
-  content:

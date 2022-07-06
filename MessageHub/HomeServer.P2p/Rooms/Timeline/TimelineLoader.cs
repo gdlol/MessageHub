@@ -1,5 +1,3 @@
-using System.Collections.Immutable;
-using MessageHub.HomeServer.P2p.Providers;
 using MessageHub.HomeServer.Rooms.Timeline;
 
 namespace MessageHub.HomeServer.P2p.Rooms.Timeline;
@@ -7,47 +5,42 @@ namespace MessageHub.HomeServer.P2p.Rooms.Timeline;
 internal class TimelineLoader : ITimelineLoader
 {
     private readonly EventStore eventStore;
-    private readonly IStorageProvider storageProvider;
 
-    public TimelineLoader(EventStore eventStore, IStorageProvider storageProvider)
+    public TimelineLoader(EventStore eventStore)
     {
         ArgumentNullException.ThrowIfNull(eventStore);
-        ArgumentNullException.ThrowIfNull(storageProvider);
 
         this.eventStore = eventStore;
-        this.storageProvider = storageProvider;
     }
 
-    public bool IsEmpty => string.IsNullOrEmpty(eventStore.Update().CurrentBatchId);
+    public string CurrentBatchId => eventStore.LoadState().CurrentBatchId;
 
-    public string CurrentBatchId => eventStore.Update().CurrentBatchId;
+    public bool IsEmpty => string.IsNullOrEmpty(CurrentBatchId);
 
     public async Task<BatchStates> LoadBatchStatesAsync(Func<string, bool> roomIdFilter, bool includeLeave)
     {
-        var eventStore = this.eventStore.Update();
-        string batchId = eventStore.CurrentBatchId;
-        using var store = storageProvider.GetEventStore();
-        var roomEventIds = await EventStore.GetRoomEventIdsAsync(store, batchId);
+        using var session = eventStore.GetReadOnlySession();
+        var roomEventIds = await session.GetRoomEventIdsAsync(session.State.CurrentBatchId);
         if (roomEventIds is null)
         {
             throw new InvalidOperationException();
         }
         return new BatchStates
         {
-            BatchId = batchId,
-            JoinedRoomIds = eventStore.JoinedRoomIds,
-            LeftRoomIds = eventStore.LeftRoomIds,
-            Invites = eventStore.Invites,
-            Knocks = eventStore.Knocks,
+            BatchId = session.State.CurrentBatchId,
+            JoinedRoomIds = session.State.JoinedRoomIds,
+            LeftRoomIds = session.State.LeftRoomIds,
+            Invites = session.State.Invites,
+            Knocks = session.State.Knocks,
             RoomEventIds = roomEventIds
         }.Filter(roomIdFilter, includeLeave);
     }
 
-    public async Task<IReadOnlyDictionary<string, string>> GetRoomEventIds(string? batchId)
+    public async Task<IReadOnlyDictionary<string, string>> GetRoomEventIdsAsync(string? batchId)
     {
-        batchId ??= eventStore.Update().CurrentBatchId;
-        using var store = storageProvider.GetEventStore();
-        var roomEventIds = await EventStore.GetRoomEventIdsAsync(store, batchId);
+        using var session = eventStore.GetReadOnlySession();
+        batchId ??= session.State.CurrentBatchId;
+        var roomEventIds = await session.GetRoomEventIdsAsync(batchId);
         if (roomEventIds is null)
         {
             throw new InvalidOperationException();
@@ -57,13 +50,13 @@ internal class TimelineLoader : ITimelineLoader
 
     public async Task<ITimelineIterator?> GetTimelineIteratorAsync(string roomId, string eventId)
     {
-        var store = storageProvider.GetEventStore();
-        var record = await EventStore.GetTimelineRecordAsync(store, roomId, eventId);
+        using var session = eventStore.GetReadOnlySession();
+        var record = await session.GetTimelineRecordAsync(roomId, eventId);
         if (record is null)
         {
             return null;
         }
-        var iterator = new TimelineIterator(store, roomId, eventId);
+        var iterator = new TimelineIterator(eventStore.GetReadOnlySession(), roomId, eventId);
         return iterator;
     }
 }

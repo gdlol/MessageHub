@@ -59,17 +59,17 @@ func createHost(config HostConfig) (*HostNode, error) {
 	dataPath := filepath.Join(config.DataPath, "libp2p")
 	err := os.MkdirAll(dataPath, os.ModePerm)
 	if err != nil {
-		return nil, fmt.Errorf("Error creating dataPath: %w", err)
+		return nil, fmt.Errorf("error creating dataPath: %w", err)
 	}
 	dbPath := filepath.Join(dataPath, "datastore.db")
 	ds, err := leveldb.NewDatastore(dbPath, nil)
 	if err != nil {
-		return nil, fmt.Errorf("Error creating DataStore: %w", err)
+		return nil, fmt.Errorf("error creating DataStore: %w", err)
 	}
 	ps, err := pstoreds.NewPeerstore(context.Background(), ds, pstoreds.DefaultOpts())
 	if err != nil {
 		ds.Close()
-		return nil, fmt.Errorf("Error creating PeerStore: %w", err)
+		return nil, fmt.Errorf("error creating PeerStore: %w", err)
 	}
 	success := false
 	defer func() {
@@ -92,7 +92,7 @@ func createHost(config HostConfig) (*HostNode, error) {
 		for _, s := range *config.StaticRelays {
 			relayAddrInfo, err := peer.AddrInfoFromString(s)
 			if err != nil {
-				return nil, fmt.Errorf("Error parsing static relay address: %w", err)
+				return nil, fmt.Errorf("error parsing static relay address: %w", err)
 			}
 			relayAddrInfos = append(relayAddrInfos, *relayAddrInfo)
 		}
@@ -124,7 +124,7 @@ func createHost(config HostConfig) (*HostNode, error) {
 		psk := make([]byte, 32)
 		_, err := reader.Read(psk)
 		if err != nil {
-			return nil, fmt.Errorf("Error configuring private network: %w", err)
+			return nil, fmt.Errorf("error configuring private network: %w", err)
 		}
 		options = append(options, libp2p.PrivateNetwork(pnet.PSK(psk)))
 		options = append(options, libp2p.ConnectionGater(&privateAddressGater{}))
@@ -192,12 +192,16 @@ func connectToSavedPeers(ctx context.Context, host host.Host) int {
 
 		var wg sync.WaitGroup
 		for _, addrInfo := range savedAddrInfos {
+			canceled := false
 			select {
 			case <-ctx.Done():
-				break
+				canceled = true
 			default:
 				wg.Add(1)
 				go connectPeer(&wg, addrInfo)
+			}
+			if canceled {
+				break
 			}
 		}
 		wg.Wait()
@@ -209,7 +213,7 @@ func connectToSavedPeers(ctx context.Context, host host.Host) int {
 func sendRequest(ctx context.Context, host host.Host, peerID peer.ID, signedRequest SignedRequest) (int, []byte, error) {
 	senderSignatures, ok := signedRequest.Signatures[signedRequest.Origin]
 	if !ok {
-		return 0, nil, fmt.Errorf("Sender signature not found.")
+		return 0, nil, fmt.Errorf("sender signature not found")
 	}
 
 	transport := &http.Transport{}
@@ -286,8 +290,8 @@ func proxyRequests(host host.Host, proxy string) (func() error, error) {
 					_, err = io.Copy(tcpConn, conn)
 					errChan <- err
 				}()
-				_ = <-errChan
-				_ = <-errChan
+				<-errChan
+				<-errChan
 			}()
 		}
 	}()

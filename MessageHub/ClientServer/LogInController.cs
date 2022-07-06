@@ -35,9 +35,9 @@ public class LogInController : ControllerBase
                             name = nameof(MessageHub)
                         }
                     },
-                    type = "m.login.sso"
+                    type = LogInTypes.Sso
                 },
-                new { type = "m.login.token" }
+                new { type = LogInTypes.Token }
             }
         };
     }
@@ -55,23 +55,19 @@ public class LogInController : ControllerBase
 
     [Route("login")]
     [HttpPost]
-    public async Task<object> LogIn([FromBody] LogInParameters parameters)
+    public async Task<object> LogIn([FromBody] LogInRequest request)
     {
-        if (parameters is null)
+        if (request.LogInType != LogInTypes.Token)
         {
-            return new JsonResult(MatrixError.Create(MatrixErrorCode.InvalidParameter));
+            return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(request.LogInType)));
         }
-        if (parameters.LogInType != "m.login.token")
-        {
-            return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(parameters.LogInType)));
-        }
-        if (parameters.Token is null)
+        if (request.Token is null)
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.MissingToken));
         }
 
-        string deviceId = parameters.DeviceId ?? Guid.NewGuid().ToString();
-        var result = await authenticator.LogInAsync(deviceId, parameters.Token);
+        string deviceId = request.DeviceId ?? Guid.NewGuid().ToString();
+        var result = await authenticator.LogInAsync(deviceId, request.Token);
         if (result is (string userId, string accessToken))
         {
             var presenceStatus = userPresence.GetPresence(userId);

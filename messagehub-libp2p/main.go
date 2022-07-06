@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 	"unsafe"
@@ -79,18 +78,18 @@ func CloseHost(handle HostHandle) StringHandle {
 	var errs []error
 	err := hostNode.ps.Close()
 	if err != nil {
-		errs = append(errs, fmt.Errorf("Close ps: %w", err))
+		errs = append(errs, fmt.Errorf("close ps: %w", err))
 	}
 	err = hostNode.ds.Close()
 	if err != nil {
-		errs = append(errs, fmt.Errorf("Close ds: %w", err))
+		errs = append(errs, fmt.Errorf("close ds: %w", err))
 	}
 	err = hostNode.host.Close()
 	if err != nil {
-		errs = append(errs, fmt.Errorf("Close host: %w", err))
+		errs = append(errs, fmt.Errorf("close host: %w", err))
 	}
 	if len(errs) > 0 {
-		err = errors.New(fmt.Sprintf("%v", errs))
+		err = fmt.Errorf("%v", errs)
 		return C.CString(err.Error())
 	}
 	return nil

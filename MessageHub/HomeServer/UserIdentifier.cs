@@ -4,11 +4,12 @@ namespace MessageHub.HomeServer;
 
 public record class UserIdentifier
 {
-    public string UserName { get; } = "p2p";
+    public string UserName { get; }
     public string Id { get; }
 
-    private UserIdentifier(string id)
+    private UserIdentifier(string userName, string id)
     {
+        UserName = userName;
         Id = id;
     }
 
@@ -30,11 +31,7 @@ public record class UserIdentifier
         {
             return false;
         }
-        if (parts[0] != "p2p")
-        {
-            return false;
-        }
-        identifier = new UserIdentifier(parts[1]);
+        identifier = new UserIdentifier(parts[0], parts[1]);
         return true;
     }
 
@@ -53,6 +50,6 @@ public record class UserIdentifier
     {
         ArgumentNullException.ThrowIfNull(id);
 
-        return new UserIdentifier(id);
+        return new UserIdentifier("p2p", id);
     }
 }

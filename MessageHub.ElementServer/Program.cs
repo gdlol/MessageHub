@@ -33,14 +33,14 @@ public class Program
         builder.WebHost.UseUrls($"http://{config.ElementListenAddress}");
         builder.WebHost.ConfigureLogging(builder => builder.ClearProviders());
         var app = builder.Build();
-        app.Use(async (context, next) =>
+        app.Use((context, next) =>
         {
             context.Response.Headers.Add("X-Frame-Options", "SAMEORIGIN");
             context.Response.Headers.Add("Content-Security-Policy", "frame-ancestors 'self'");
             context.Response.Headers.Add("X-Content-Type-Options", "nosniff");
             context.Response.Headers.Add("X-XSS-Protection", "1; mode=block;");
             context.Response.Headers.Add("Cache-Control", "no-cache");
-            await next();
+            return next();
         });
         app.MapGet("/config.json", () =>
         {

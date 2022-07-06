@@ -82,7 +82,7 @@ public class RoomsLoader
         RoomFilter? filter)
     {
         var batchStates = await timelineLoader.LoadBatchStatesAsync(filter.ShouldIncludeRoomId, true);
-        var sinceEventIds = await timelineLoader.GetRoomEventIds(since);
+        var sinceEventIds = await timelineLoader.GetRoomEventIdsAsync(since);
 
         bool includeLeave = filter?.IncludeLeave == true;
         var membershipUpdateRoomIds = new HashSet<string>();
@@ -163,7 +163,7 @@ public class RoomsLoader
             return (since, rooms);
         }
 
-        var currentEventIds = await timelineLoader.GetRoomEventIds(batchStates.BatchId);
+        var currentEventIds = await timelineLoader.GetRoomEventIdsAsync(batchStates.BatchId);
         var timelineEventFilter = GetTimelineEventFilter(filter?.Timeline);
         async Task<(Timeline? timeline, State? stateUpdate)> LoadRecentEvents(string roomId)
         {
