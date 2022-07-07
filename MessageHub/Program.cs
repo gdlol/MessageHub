@@ -64,11 +64,6 @@ public class Program
             });
 
         var app = builder.Build();
-        app.Use((context, next) =>
-        {
-            context.Request.Headers.TryAdd("Content-Type", "application/json");
-            return next();
-        });
         app.UseCors(builder =>
         {
             builder

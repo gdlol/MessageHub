@@ -49,6 +49,7 @@ builder.WebHost.ConfigureKestrel(options =>
         options.ServerCertificate = httpsCertificate;
     });
 });
+builder.Services.AddCors();
 builder.Services.AddControllers()
     .ConfigureApplicationPartManager(manager => manager.ApplicationParts.Clear())
     .AddApplicationPart(Assembly.GetExecutingAssembly())
@@ -61,10 +62,12 @@ builder.Services.AddFasterKV(config.DataPath);
 builder.Services.AddComplementHomeServer();
 
 var app = builder.Build();
-app.Use((context, next) =>
+app.UseCors(builder =>
 {
-    context.Request.Headers.TryAdd("Content-Type", "application/json");
-    return next();
+    builder
+        .AllowAnyOrigin()
+        .AllowAnyMethod()
+        .AllowAnyHeader();
 });
 app.MapControllers();
 app.Run();

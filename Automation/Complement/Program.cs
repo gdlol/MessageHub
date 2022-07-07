@@ -1,5 +1,4 @@
-﻿
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Microsoft.DotNet.Cli.Utils;
 
@@ -52,14 +51,11 @@ else
 
     string projectPath = "/root/project";
     string dockerFilePath = Path.Combine(projectPath, "Automation", "Docker", "Complement.Dockerfile");
-    string tag = "registry:5000/homeserver";
-    string alias = "registry:5000/homeserver:messagehub";
+    string tag = "registry:5000/complement-messagehub";
     Run("docker", "build",
         "--force-rm",
         "--tag", tag,
         "--file", dockerFilePath,
         projectPath);
-    Run("docker", "image", "tag", tag, alias);
     Run("docker", "image", "push", tag);
-    Run("docker", "image", "push", alias);
 }

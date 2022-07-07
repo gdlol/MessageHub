@@ -14,8 +14,9 @@ public static class ComplementHomeServerServiceCollectionExtensions
         services.AddHttpForwarder();
         services.AddSingleton<HomeServerHttpForwarder>();
         services.AddSingleton<HomeServerClient>();
-        services.AddSingleton<IUserRegistration, UserRegistration>();
+        services.AddSingleton<FillJsonContentType>();
         services.AddSingleton<UserProfileProxy>();
+        services.AddSingleton<IUserRegistration, UserRegistration>();
         return services;
     }
 }

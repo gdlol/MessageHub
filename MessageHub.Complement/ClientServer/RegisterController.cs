@@ -35,6 +35,7 @@ public class RegisterController : ControllerBase
 
     [Route("register")]
     [HttpPost]
+    [MiddlewareFilter(typeof(FillJsonContentTypePipeline))]
     public async Task<object> Register(
         [FromQuery] string? kind,
         [FromBody] RegisterRequest request)
