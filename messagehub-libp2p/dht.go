@@ -19,7 +19,7 @@ func createDHT(ctx context.Context, host host.Host, config DHTConfig) (*dual.DHT
 		for _, s := range *config.BootstrapPeers {
 			addrInfo, err := peer.AddrInfoFromString(s)
 			if err != nil {
-				return nil, fmt.Errorf("Error parsing bootstrap peers address: %w", err)
+				return nil, fmt.Errorf("error parsing bootstrap peers address: %w", err)
 			}
 			bootstrapPeers = append(bootstrapPeers, *addrInfo)
 		}

@@ -1,31 +1,30 @@
-using MessageHub.HomeServer.P2p.Providers;
 using MessageHub.HomeServer.Rooms.Timeline;
 
 namespace MessageHub.HomeServer.P2p.Rooms.Timeline;
 
-public sealed class TimelineIterator : ITimelineIterator
+internal sealed class TimelineIterator : ITimelineIterator
 {
-    private readonly IKeyValueStore store;
+    private readonly EventStoreSession session;
     private readonly string roomId;
-    private readonly bool ownsStore;
+    private readonly bool ownsSession;
 
     public string CurrentEventId { get; private set; }
 
-    public TimelineIterator(IKeyValueStore store, string roomId, string currentEventId, bool ownsStore = true)
+    public TimelineIterator(EventStoreSession session, string roomId, string currentEventId, bool ownsSession = true)
     {
-        ArgumentNullException.ThrowIfNull(store);
+        ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(roomId);
         ArgumentNullException.ThrowIfNull(currentEventId);
 
-        this.store = store;
+        this.session = session;
         this.roomId = roomId;
         CurrentEventId = currentEventId;
-        this.ownsStore = ownsStore;
+        this.ownsSession = ownsSession;
     }
 
     public async ValueTask<bool> TryMoveBackwardAsync()
     {
-        var currentRecord = await EventStore.GetTimelineRecordAsync(store, roomId, CurrentEventId);
+        var currentRecord = await session.GetTimelineRecordAsync(roomId, CurrentEventId);
         if (currentRecord is null)
         {
             throw new InvalidOperationException();
@@ -43,7 +42,7 @@ public sealed class TimelineIterator : ITimelineIterator
 
     public async ValueTask<bool> TryMoveForwardAsync()
     {
-        var currentRecord = await EventStore.GetTimelineRecordAsync(store, roomId, CurrentEventId);
+        var currentRecord = await session.GetTimelineRecordAsync(roomId, CurrentEventId);
         if (currentRecord is null)
         {
             throw new InvalidOperationException();
@@ -61,9 +60,9 @@ public sealed class TimelineIterator : ITimelineIterator
 
     public void Dispose()
     {
-        if (ownsStore)
+        if (ownsSession)
         {
-            store.Dispose();
+            session.Dispose();
         }
     }
 }

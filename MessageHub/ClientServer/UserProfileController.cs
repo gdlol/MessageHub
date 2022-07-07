@@ -26,16 +26,36 @@ public class UserProfileController : ControllerBase
         public string DisplayName { get; set; } = default!;
     }
 
+    private readonly IIdentityService identityService;
     private readonly IUserProfile userProfile;
     private readonly UserProfileUpdateNotifier notifier;
 
-    public UserProfileController(IUserProfile userProfile, UserProfileUpdateNotifier notifier)
+    public UserProfileController(
+        IIdentityService identityService,
+        IUserProfile userProfile,
+        UserProfileUpdateNotifier notifier)
     {
+        ArgumentNullException.ThrowIfNull(identityService);
         ArgumentNullException.ThrowIfNull(userProfile);
         ArgumentNullException.ThrowIfNull(notifier);
 
+        this.identityService = identityService;
         this.userProfile = userProfile;
         this.notifier = notifier;
+    }
+
+    private bool CheckUserId(string userId)
+    {
+        if (!identityService.HasSelfIdentity)
+        {
+            return false;
+        }
+        return UserIdentifier.FromId(identityService.GetSelfIdentity().Id).ToString() == userId;
+    }
+
+    private IActionResult UserNotFound(string userId)
+    {
+        return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(userId)}: {userId}"));
     }
 
     [Route("{userId}")]
@@ -46,6 +66,10 @@ public class UserProfileController : ControllerBase
         if (string.IsNullOrEmpty(userId))
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(userId)));
+        }
+        if (!CheckUserId(userId))
+        {
+            return UserNotFound(userId);
         }
 
         string? avatarUrl = await userProfile.GetAvatarUrlAsync(userId);
@@ -66,6 +90,10 @@ public class UserProfileController : ControllerBase
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(userId)));
         }
+        if (!CheckUserId(userId))
+        {
+            return UserNotFound(userId);
+        }
 
         string? avatarUrl = await userProfile.GetAvatarUrlAsync(userId);
         return new JsonResult(new { avatar_url = avatarUrl });
@@ -80,6 +108,10 @@ public class UserProfileController : ControllerBase
         if (string.IsNullOrEmpty(userId))
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(userId)));
+        }
+        if (!CheckUserId(userId))
+        {
+            return UserNotFound(userId);
         }
 
         await userProfile.SetAvatarUrlAsync(userId, requestBody.AvatarUrl);
@@ -96,6 +128,10 @@ public class UserProfileController : ControllerBase
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(userId)));
         }
+        if (!CheckUserId(userId))
+        {
+            return UserNotFound(userId);
+        }
 
         string? displayName = await userProfile.GetDisplayNameAsync(userId);
         return new JsonResult(new { displayname = displayName });
@@ -110,6 +146,10 @@ public class UserProfileController : ControllerBase
         if (string.IsNullOrEmpty(userId))
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(userId)));
+        }
+        if (!CheckUserId(userId))
+        {
+            return UserNotFound(userId);
         }
 
         await userProfile.SetDisplayNameAsync(userId, requestBody.DisplayName);

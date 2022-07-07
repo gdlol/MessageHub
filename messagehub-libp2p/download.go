@@ -22,14 +22,14 @@ func download(ctx context.Context, host host.Host, peerID, url, filePath string)
 	}
 	request = request.WithContext(ctx)
 
-	response, err := client.Get(url)
+	response, err := client.Do(request)
 	if err != nil {
 		return err
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("Status: %v", response.Status)
+		return fmt.Errorf("status: %v", response.Status)
 	}
 
 	file, err := os.Create(filePath)

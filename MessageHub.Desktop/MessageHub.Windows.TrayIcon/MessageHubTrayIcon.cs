@@ -52,6 +52,7 @@ public static class MessageHubTrayIcon
 
     public static void CreateAndLaunch(
         Action<Action> dispatcher,
+        HomeServer.P2p.Config homeServerConfig,
         ElementServer.Config elementConfig,
         Action onLaunch,
         Action onExit,
@@ -107,7 +108,7 @@ public static class MessageHubTrayIcon
 
                 _ = Task.Run(async () =>
                 {
-                    var server = Program.RunAsync(applicationPath, cts.Token);
+                    var server = Program.RunAsync(applicationPath, homeServerConfig, cts.Token);
 
                     var client = Task.CompletedTask;
                     if (elementConfig.ElementListenAddress is not null)
@@ -128,6 +129,8 @@ public static class MessageHubTrayIcon
 
                     try
                     {
+                        await Task.WhenAny(client, server);
+                        cts.Cancel();
                         await Task.WhenAll(client, server);
                     }
                     catch (Exception ex)

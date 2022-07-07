@@ -64,7 +64,7 @@ public interface IKeyValueStore : IDisposable
     }
 }
 
-public interface IStorageProvider
+public interface IStorageProvider : IDisposable
 {
     bool HasKeyValueStore(string name);
     IKeyValueStore GetKeyValueStore(string name);

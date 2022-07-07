@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using MessageHub.DependencyInjection;
 using MessageHub.HomeServer.P2p;
 using MessageHub.HomeServer.P2p.Libp2p;
@@ -11,13 +12,8 @@ namespace MessageHub;
 
 public class Program
 {
-    public static Task RunAsync(string applicationPath, CancellationToken cancellationToken = default)
+    public static Task RunAsync(string applicationPath, Config config, CancellationToken cancellationToken = default)
     {
-        string json = File.ReadAllText(Path.Combine(applicationPath, "config.json"));
-        var element = JsonSerializer.Deserialize<JsonElement>(json);
-        Console.WriteLine($"Config:");
-        Console.WriteLine(JsonSerializer.Serialize(element, new JsonSerializerOptions { WriteIndented = true }));
-        var config = element.Deserialize<Config>()!;
         if (string.IsNullOrEmpty(config.DataPath))
         {
             config.DataPath = Path.Combine(applicationPath, "Data");
@@ -25,16 +21,24 @@ public class Program
         Directory.CreateDirectory(config.DataPath);
         string url = $"http://{config.ListenAddress}";
         var builder = WebApplication.CreateBuilder();
-        builder.Services.AddSingleton(config);
         builder.WebHost.UseUrls(url);
         builder.WebHost.ConfigureLogging(builder =>
         {
-            builder.AddFilter("Default", LogLevel.Information);
+            if (config.LoggerProvider is not null)
+            {
+                builder.ClearProviders();
+                builder.AddProvider(config.LoggerProvider);
+            }
             builder.AddFilter("Microsoft", LogLevel.Warning);
             builder.AddFilter("Microsoft.Hosting.Lifetime", LogLevel.Information);
             builder.AddFilter("MessageHub", LogLevel.Debug);
             builder.AddFilter("MessageHub.Authentication", LogLevel.Information);
         });
+        builder.Services.AddSingleton(config);
+        if (config.Configure is not null)
+        {
+            config.Configure(builder.Services);
+        }
         builder.Services.AddCors();
         builder.Services.AddFasterKV(config.DataPath);
         builder.Services.AddLibp2p(
@@ -52,7 +56,12 @@ public class Program
         builder.Services.AddP2pHomeServer();
         builder.Services.AddMatrixAuthentication();
         builder.Services.AddControllers()
-            .AddApplicationPart(Assembly.GetExecutingAssembly());
+            .ConfigureApplicationPartManager(manager => manager.ApplicationParts.Clear())
+            .AddApplicationPart(Assembly.GetExecutingAssembly())
+            .AddJsonOptions(options =>
+            {
+                options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+            });
 
         var app = builder.Build();
         app.UseCors(builder =>
@@ -66,7 +75,7 @@ public class Program
         {
             ["m.homeserver"] = new { base_url = url }
         });
-        app.Use(async (context, next) =>
+        app.Use((context, next) =>
         {
             if (context.Request.Path.StartsWithSegments("/_matrix/media"))
             {
@@ -75,7 +84,7 @@ public class Program
                     "sandbox; default-src 'none'; script-src 'none'; plugin-types application/pdf; "
                     + "style-src 'unsafe-inline'; object-src 'self';");
             }
-            await next();
+            return next();
         });
         app.UseAuthentication();
         app.UseAuthorization();
@@ -85,6 +94,12 @@ public class Program
 
     public static async Task Main()
     {
-        await RunAsync(AppContext.BaseDirectory);
+        string applicationPath = AppContext.BaseDirectory;
+        string json = File.ReadAllText(Path.Combine(applicationPath, "config.json"));
+        var element = JsonSerializer.Deserialize<JsonElement>(json);
+        Console.WriteLine($"Config:");
+        Console.WriteLine(JsonSerializer.Serialize(element, new JsonSerializerOptions { WriteIndented = true }));
+        var config = element.Deserialize<Config>()!;
+        await RunAsync(applicationPath, config);
     }
 }

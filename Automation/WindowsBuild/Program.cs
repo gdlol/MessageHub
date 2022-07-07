@@ -1,7 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
 using System.IO;
-using System.Net.Http;
 using System.Runtime.CompilerServices;
 using Microsoft.DotNet.Cli.Utils;
 

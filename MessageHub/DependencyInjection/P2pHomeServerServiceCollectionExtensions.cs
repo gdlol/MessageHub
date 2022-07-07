@@ -21,6 +21,7 @@ using MessageHub.HomeServer.Remote;
 using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Rooms.Timeline;
 using MessageHub.HomeServer.Services;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace MessageHub.DependencyInjection;
 
@@ -31,11 +32,11 @@ public static class P2pHomeServerServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(dataPath);
 
-        services.AddSingleton(new FasterStorageConfig
+        services.TryAddSingleton(new FasterStorageConfig
         {
             DataPath = dataPath
         });
-        services.AddSingleton<IStorageProvider, FasterStorageProvider>();
+        services.TryAddSingleton<IStorageProvider, FasterStorageProvider>();
         return services;
     }
 
@@ -48,8 +49,8 @@ public static class P2pHomeServerServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(hostConfig);
         ArgumentNullException.ThrowIfNull(dhtConfig);
 
-        services.AddSingleton(hostConfig);
-        services.AddSingleton(dhtConfig);
+        services.TryAddSingleton(hostConfig);
+        services.TryAddSingleton(dhtConfig);
         services.AddHttpClient();
         services.AddMemoryCache();
         services.AddSingleton<PublishEventNotifier>();
@@ -74,7 +75,7 @@ public static class P2pHomeServerServiceCollectionExtensions
         services.AddSingleton<BackfillingService>();
         services.AddSingleton<PresenceServiceContext>();
         services.AddSingleton<PresenceService>();
-        services.AddSingleton<INetworkProvider, Libp2pNetworkProvider>();
+        services.TryAddSingleton<INetworkProvider, Libp2pNetworkProvider>();
         return services;
     }
 
@@ -86,13 +87,15 @@ public static class P2pHomeServerServiceCollectionExtensions
         services.AddSingleton<LocalAuthenticator>();
         services.AddSingleton<KeyRotationService>();
         services.AddHostedService<HostedKeyRotationService>();
-        services.AddSingleton<IIdentityService>(provider => provider.GetRequiredService<LocalIdentityService>());
-        services.AddSingleton<IAuthenticator>(provider => provider.GetRequiredService<LocalAuthenticator>());
+        services.TryAddSingleton<IIdentityService>(provider => provider.GetRequiredService<LocalIdentityService>());
+        services.TryAddSingleton<IAuthenticator>(provider => provider.GetRequiredService<LocalAuthenticator>());
         return services;
     }
 
     public static IServiceCollection AddP2pHomeServer(this IServiceCollection services)
-    {
+    {        
+        ArgumentNullException.ThrowIfNull(services);
+
         services.AddSingleton<TimelineUpdateNotifier>();
         services.AddSingleton<AuthenticatedRequestNotifier>();
         services.AddSingleton<UserProfileUpdateNotifier>();
@@ -100,27 +103,22 @@ public static class P2pHomeServerServiceCollectionExtensions
         services.AddSingleton<UnresolvedEventNotifier>();
         services.AddSingleton<MembershipUpdateNotifier>();
         services.AddSingleton<RemoteRequestNotifier>();
-        services.AddSingleton<IAccountData, AccountData>();
-        services.AddSingleton<IContentRepository, ContentRepository>();
-        services.AddSingleton<IEventReceiver, EventReceiver>();
-        services.AddSingleton<IRoomDiscoveryService, RoomDiscoveryService>();
-        services.AddSingleton<IUserDiscoveryService, UserDiscoveryService>();
-        services.AddSingleton<IUserProfile, UserProfile>();
-        services.AddSingleton<IUserPresence, UserPresence>();
-        services.AddSingleton<IUserReceipts, UserReceipts>();
-        services.AddSingleton<IEventPublisher, EventPublisher>();
-        services.AddSingleton<IRemoteContentRepository, RemoteContentRepository>();
-        services.AddSingleton<IRemoteRooms, RemoteRooms>();
-        services.AddSingleton<IRequestHandler, RequestHandler>();
-        services.AddSingleton(provider =>
-        {
-            var storageProvider = provider.GetRequiredService<IStorageProvider>();
-            return EventStore.Instance ??
-                EventStore.CreateAsync(storageProvider.GetEventStore()).AsTask().GetAwaiter().GetResult();
-        });
-        services.AddSingleton<IRooms, Rooms>();
-        services.AddSingleton<IEventSaver, EventSaver>();
-        services.AddSingleton<ITimelineLoader, TimelineLoader>();
+        services.TryAddSingleton<IAccountData, AccountData>();
+        services.TryAddSingleton<IContentRepository, ContentRepository>();
+        services.TryAddSingleton<IEventReceiver, EventReceiver>();
+        services.TryAddSingleton<IRoomDiscoveryService, RoomDiscoveryService>();
+        services.TryAddSingleton<IUserDiscoveryService, UserDiscoveryService>();
+        services.TryAddSingleton<IUserProfile, UserProfile>();
+        services.TryAddSingleton<IUserPresence, UserPresence>();
+        services.TryAddSingleton<IUserReceipts, UserReceipts>();
+        services.TryAddSingleton<IEventPublisher, EventPublisher>();
+        services.TryAddSingleton<IRemoteContentRepository, RemoteContentRepository>();
+        services.TryAddSingleton<IRemoteRooms, RemoteRooms>();
+        services.TryAddSingleton<IRequestHandler, RequestHandler>();
+        services.AddSingleton<EventStore>();
+        services.TryAddSingleton<IRooms, Rooms>();
+        services.TryAddSingleton<IEventSaver, EventSaver>();
+        services.TryAddSingleton<ITimelineLoader, TimelineLoader>();
         services.AddSingleton<ProfileUpdateService>();
         services.AddHostedService<HostedProfileUpdateService>();
         return services;

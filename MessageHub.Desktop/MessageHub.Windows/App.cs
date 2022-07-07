@@ -28,6 +28,7 @@ public class App : ApplicationContext
         ArgumentNullException.ThrowIfNull(worker);
 
         string json = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "config.json"));
+        var homeServerConfig = JsonSerializer.Deserialize<HomeServer.P2p.Config>(json)!;
         var elementConfig = JsonSerializer.Deserialize<ElementServer.Config>(json)!;
         string? clientUrl = null;
         if (elementConfig.ElementListenAddress is not null)
@@ -43,6 +44,7 @@ public class App : ApplicationContext
 
         MessageHubTrayIcon.CreateAndLaunch(
             callback => worker.ReportProgress(0, callback),
+            homeServerConfig,
             elementConfig,
             onLaunch: () => LaunchUrl(clientUrl),
             onExit: Application.Exit,

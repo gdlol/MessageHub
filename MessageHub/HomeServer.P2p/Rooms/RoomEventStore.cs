@@ -1,27 +1,26 @@
 using System.Collections.Immutable;
 using MessageHub.HomeServer.Events;
-using MessageHub.HomeServer.P2p.Providers;
 using MessageHub.HomeServer.Rooms;
 
 namespace MessageHub.HomeServer.P2p.Rooms;
 
 internal sealed class RoomEventStore : IRoomEventStore
 {
-    private readonly IKeyValueStore store;
+    private readonly EventStoreSession session;
     private readonly string roomId;
-    private readonly bool ownsStore;
+    private readonly bool ownsSession;
 
     public string Creator { get; }
 
-    public RoomEventStore(EventStore eventStore, IKeyValueStore store, string roomId, bool ownsStore = true)
+    public RoomEventStore(EventStoreSession session, string roomId, bool ownsSession = true)
     {
-        ArgumentNullException.ThrowIfNull(eventStore);
-        ArgumentNullException.ThrowIfNull(store);
+        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(roomId);
 
-        this.store = store;
+        this.session = session;
         this.roomId = roomId;
-        this.ownsStore = ownsStore;
-        Creator = eventStore.RoomCreators[roomId];
+        this.ownsSession = ownsSession;
+        Creator = session.State.RoomCreators[roomId];
     }
 
     public async Task<string[]> GetMissingEventIdsAsync(IEnumerable<string> eventIds)
@@ -29,7 +28,7 @@ internal sealed class RoomEventStore : IRoomEventStore
         var result = new List<string>();
         foreach (string eventId in eventIds)
         {
-            var value = await store.GetAsync(EventStore.GetEventKey(roomId, eventId));
+            var value = await session.GetEventAsync(roomId, eventId);
             if (value is null)
             {
                 result.Add(eventId);
@@ -40,7 +39,7 @@ internal sealed class RoomEventStore : IRoomEventStore
 
     public async ValueTask<PersistentDataUnit> LoadEventAsync(string eventId)
     {
-        var value = await EventStore.GetEventAsync(store, roomId, eventId);
+        var value = await session.GetEventAsync(roomId, eventId);
         if (value is null)
         {
             throw new KeyNotFoundException(eventId);
@@ -50,7 +49,7 @@ internal sealed class RoomEventStore : IRoomEventStore
 
     public async ValueTask<ImmutableDictionary<RoomStateKey, string>> LoadStatesAsync(string eventId)
     {
-        var value = await EventStore.GetStatesAsync(store, roomId, eventId);
+        var value = await session.GetStatesAsync(roomId, eventId);
         if (value is null)
         {
             throw new KeyNotFoundException(eventId);
@@ -60,9 +59,9 @@ internal sealed class RoomEventStore : IRoomEventStore
 
     public void Dispose()
     {
-        if (ownsStore)
+        if (ownsSession)
         {
-            store.Dispose();
+            session.Dispose();
         }
     }
 }

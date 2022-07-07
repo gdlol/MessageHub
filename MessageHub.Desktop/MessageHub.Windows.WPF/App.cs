@@ -25,6 +25,7 @@ public class App : Application
         base.OnStartup(e);
 
         string json = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "config.json"));
+        var homeServerConfig = JsonSerializer.Deserialize<HomeServer.P2p.Config>(json)!;
         var elementConfig = JsonSerializer.Deserialize<ElementServer.Config>(json)!;
 
         MainWindow = new MainWindow(elementConfig);
@@ -64,6 +65,7 @@ public class App : Application
 
         MessageHubTrayIcon.CreateAndLaunch(
             Dispatcher.Invoke,
+            homeServerConfig,
             elementConfig,
             onLaunch: showWidow,
             onExit: Shutdown,
