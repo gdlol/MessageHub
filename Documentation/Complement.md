@@ -1,3 +1,7 @@
 ```
-dotnet run --project ./Automation/Complement/Complement.csproj
+docker build \
+    --force-rm \
+    --tag complement-messagehub \
+    --file Automation/Docker/Complement.Dockerfile \
+    .
 ```
