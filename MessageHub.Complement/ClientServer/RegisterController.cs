@@ -92,8 +92,6 @@ public class RegisterController : ControllerBase
 
         logger.LogDebug("Login user {}...", userName);
         var loginResponse = await homeServerClient.LogInAsync(serverAddress, deviceId);
-        await homeServerClient.LogOutAsync(serverAddress, loginResponse.AccessToken!);
-        loginResponse = await homeServerClient.LogInAsync(serverAddress, deviceId);
         if (loginResponse.AccessToken is null)
         {
             throw new InvalidOperationException();

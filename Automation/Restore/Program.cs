@@ -1,5 +1,4 @@
-﻿
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Microsoft.DotNet.Cli.Utils;
 
@@ -26,9 +25,9 @@ string filePath = GetFilePath();
 string projectPath = new FileInfo(filePath).Directory?.Parent?.Parent?.FullName!;
 Console.WriteLine($"Project path: {projectPath}");
 
-foreach (var csProjectPath in Directory.EnumerateFiles(projectPath, "*.csproj", SearchOption.AllDirectories))
+Parallel.ForEach(Directory.EnumerateFiles(projectPath, "*.csproj", SearchOption.AllDirectories), csProjectPath =>
 {
     Run("dotnet", "restore", csProjectPath);
-}
+});
 Directory.SetCurrentDirectory(Path.Combine(projectPath, "messagehub-libp2p"));
 Run("go", "mod", "download");
