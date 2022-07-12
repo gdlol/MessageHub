@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using MessageHub.Authentication;
+using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Remote;
 using Microsoft.AspNetCore.Authorization;
@@ -145,6 +146,9 @@ public class ContentRepositoryController : ControllerBase
     public async Task<IActionResult> Upload()
     {
         string url = await contentRepository.UploadFileAsync(Request.Body);
-        return new JsonResult(new { content_uri = url });
+        return new JsonResult(new UploadResponse
+        {
+            ContentUrl = url
+        });
     }
 }

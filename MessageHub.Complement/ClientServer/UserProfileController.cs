@@ -1,10 +1,13 @@
+using MessageHub.Complement.Authentication;
 using MessageHub.Complement.ReverseProxy;
 using MessageHub.HomeServer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MessageHub.Complement.ClientServer;
 
 [Route("_matrix/client/{version}/profile")]
+[Authorize(AuthenticationSchemes = ComplementAuthenticationSchemes.Complement)]
 public class UserProfileController : ControllerBase
 {
     private IActionResult UserNotFound(string userId)
@@ -14,11 +17,13 @@ public class UserProfileController : ControllerBase
 
     [Route("{userId}")]
     [HttpGet]
+    [AllowAnonymous]
     [MiddlewareFilter(typeof(UserProfilePipeline))]
     public IActionResult GetProfile(string userId) => UserNotFound(userId);
 
     [Route("{userId}/avatar_url")]
     [HttpGet]
+    [AllowAnonymous]
     [MiddlewareFilter(typeof(UserProfilePipeline))]
     public IActionResult GetAvatarUrl(string userId) => UserNotFound(userId);
 
@@ -30,6 +35,7 @@ public class UserProfileController : ControllerBase
 
     [Route("{userId}/displayname")]
     [HttpGet]
+    [AllowAnonymous]
     [MiddlewareFilter(typeof(UserProfilePipeline))]
     public IActionResult GetDisplayName(string userId) => UserNotFound(userId);
 

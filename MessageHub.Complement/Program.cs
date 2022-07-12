@@ -50,6 +50,7 @@ builder.WebHost.ConfigureKestrel(options =>
     });
 });
 builder.Services.AddCors();
+builder.Services.AddComplementAuthentication();
 builder.Services.AddControllers()
     .ConfigureApplicationPartManager(manager => manager.ApplicationParts.Clear())
     .AddApplicationPart(Assembly.GetExecutingAssembly())
@@ -69,5 +70,7 @@ app.UseCors(builder =>
         .AllowAnyMethod()
         .AllowAnyHeader();
 });
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
 app.Run();

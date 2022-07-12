@@ -21,6 +21,7 @@ static void Run(string commandName, params string[] args)
         throw new Win32Exception(result.ExitCode);
     }
 }
+
 string filePath = GetFilePath();
 string projectPath = new FileInfo(filePath).Directory?.Parent?.Parent?.FullName!;
 Console.WriteLine($"Project path: {projectPath}");

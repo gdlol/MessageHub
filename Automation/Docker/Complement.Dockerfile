@@ -12,7 +12,7 @@ COPY MessageHub.Complement/*.csproj ./
 RUN dotnet restore
 COPY MessageHub /MessageHub/
 COPY MessageHub.Complement ./
-RUN dotnet publish --configuration Release --output /root/app/
+RUN dotnet publish --configuration Debug --output /root/app/
 
 FROM mcr.microsoft.com/dotnet/aspnet:6.0
 WORKDIR /root/app

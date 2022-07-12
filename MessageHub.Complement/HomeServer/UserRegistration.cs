@@ -87,6 +87,10 @@ public sealed class UserRegistration : IUserRegistration, IDisposable
 
     private async ValueTask InitializeAsync()
     {
+        if (isInitialized)
+        {
+            return;
+        }
         locker.WaitOne();
         try
         {
@@ -107,7 +111,7 @@ public sealed class UserRegistration : IUserRegistration, IDisposable
         }
     }
 
-    public async ValueTask<string?> TryRegisterAsync(string userName)
+    public async ValueTask<bool> TryRegisterAsync(string userName)
     {
         await InitializeAsync();
 
@@ -133,15 +137,11 @@ public sealed class UserRegistration : IUserRegistration, IDisposable
             await store.PutAsync(userName, serverAddress.GetAddressBytes());
             await store.CommitAsync();
             StartServer(userName, serverAddress.ToString());
-            return serverAddress.ToString();
         }
-        else
-        {
-            return null;
-        }
+        return created;
     }
 
-    public async ValueTask<string?> TryGetAddress(string userName)
+    public async ValueTask<string?> TryGetAddressAsync(string userName)
     {
         await InitializeAsync();
 
@@ -152,7 +152,7 @@ public sealed class UserRegistration : IUserRegistration, IDisposable
         return null;
     }
 
-    public async ValueTask<string?> TryGetP2pUserId(string userName)
+    public async ValueTask<string?> TryGetP2pUserIdAsync(string userName)
     {
         await InitializeAsync();
 
@@ -160,7 +160,7 @@ public sealed class UserRegistration : IUserRegistration, IDisposable
         {
             return value;
         }
-        string? serverAddress = await TryGetAddress(userName);
+        string? serverAddress = await TryGetAddressAsync(userName);
         if (serverAddress is null)
         {
             return null;
