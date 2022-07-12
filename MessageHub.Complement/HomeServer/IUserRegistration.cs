@@ -2,7 +2,7 @@ namespace MessageHub.Complement.HomeServer;
 
 public interface IUserRegistration
 {
-    ValueTask<string?> TryRegisterAsync(string userName);
-    ValueTask<string?> TryGetAddress(string userName);
-    ValueTask<string?> TryGetP2pUserId(string userName);
+    ValueTask<bool> TryRegisterAsync(string userName);
+    ValueTask<string?> TryGetAddressAsync(string userName);
+    ValueTask<string?> TryGetP2pUserIdAsync(string userName);
 }

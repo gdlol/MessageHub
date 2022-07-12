@@ -13,24 +13,24 @@ public class RegisterController : ControllerBase
 {
     private readonly ILogger logger;
     private readonly Config config;
-    private readonly HomeServerClient homeServerClient;
     private readonly IUserRegistration userRegistration;
+    private readonly IUserLogIn userLogIn;
 
     public RegisterController(
         ILogger<RegisterController> logger,
         Config config,
-        HomeServerClient homeServerClient,
-        IUserRegistration userRegistration)
+        IUserRegistration userRegistration,
+        IUserLogIn userLogIn)
     {
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(config);
-        ArgumentNullException.ThrowIfNull(homeServerClient);
         ArgumentNullException.ThrowIfNull(userRegistration);
+        ArgumentNullException.ThrowIfNull(userLogIn);
 
         this.logger = logger;
         this.config = config;
-        this.homeServerClient = homeServerClient;
         this.userRegistration = userRegistration;
+        this.userLogIn = userLogIn;
     }
 
     [Route("register")]
@@ -72,8 +72,8 @@ public class RegisterController : ControllerBase
             return BadRequest(error);
         }
 
-        string? serverAddress = await userRegistration.TryRegisterAsync(userName);
-        if (serverAddress is null)
+        bool registered = await userRegistration.TryRegisterAsync(userName);
+        if (!registered)
         {
             var error = MatrixError.Create(MatrixErrorCode.UserInUse, $"{nameof(userName)}: {userName}");
             return BadRequest(error);
@@ -91,11 +91,7 @@ public class RegisterController : ControllerBase
         }
 
         logger.LogDebug("Login user {}...", userName);
-        var loginResponse = await homeServerClient.LogInAsync(serverAddress, deviceId);
-        if (loginResponse.AccessToken is null)
-        {
-            throw new InvalidOperationException();
-        }
+        var loginResponse = await userLogIn.LogInAsync(userName, deviceId);
 
         return new RegisterResponse
         {

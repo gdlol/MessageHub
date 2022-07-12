@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Net.Http.Headers;
 using MessageHub.ClientServer.Protocol;
 using Microsoft.AspNetCore.WebUtilities;

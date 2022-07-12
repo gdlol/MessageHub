@@ -34,13 +34,10 @@ public class UserProfileProxy : IMiddleware
         string? userId = context.GetRouteValue(nameof(userId))?.ToString();
         if (userId is not null
             && UserIdentifier.TryParse(userId, out var userIdentifier)
-            && (await userRegistration.TryGetAddress(userIdentifier.UserName)) is string serverAddress
-            && (await userRegistration.TryGetP2pUserId(userIdentifier.UserName)) is string p2pUserId)
+            && (await userRegistration.TryGetAddressAsync(userIdentifier.UserName)) is string serverAddress
+            && (await userRegistration.TryGetP2pUserIdAsync(userIdentifier.UserName)) is string p2pUserId)
         {
-            var routeData = context.GetRouteData().Values;
-            routeData[nameof(userId)] = p2pUserId;
-            var binder = templateBinderFactory.Create(routeEndpoint.RoutePattern);
-            string? newPath = binder.BindValues(routeData);
+            string newPath = context.UpdateRoute(templateBinderFactory, nameof(userId), p2pUserId);
             await forwarder.SendAsync(context, serverAddress, context =>
             {
                 context.AddRequestTransform(context =>
