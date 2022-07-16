@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using MessageHub.ClientServer.Protocol;
 using MessageHub.Complement.ClientServer.Protocol;
@@ -5,6 +7,7 @@ using MessageHub.Complement.HomeServer;
 using MessageHub.Complement.ReverseProxy;
 using MessageHub.HomeServer;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
 namespace MessageHub.Complement.ClientServer;
 
@@ -33,13 +36,47 @@ public class RegisterController : ControllerBase
         this.userLogIn = userLogIn;
     }
 
+    public class FlowsResult : IActionResult
+    {
+        private static readonly JsonSerializerOptions ignoreNullOptions = new()
+        {
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        };
+
+        // Set content type without charset;
+        public async Task ExecuteResultAsync(ActionContext context)
+        {
+            var resonse = context.HttpContext.Response;
+            resonse.ContentType = "application/json";
+            resonse.StatusCode = StatusCodes.Status401Unauthorized;
+            await JsonSerializer.SerializeAsync(
+                resonse.Body,
+                new AuthenticationResponse
+                {
+                    Flows = new[]
+                    {
+                        new FlowInformation
+                        {
+                            Stages = new[] { LogInTypes.Dummy }
+                        }
+                    }
+                },
+                ignoreNullOptions);
+        }
+    }
+
     [Route("register")]
     [HttpPost]
     [MiddlewareFilter(typeof(FillJsonContentTypePipeline))]
     public async Task<object> Register(
         [FromQuery] string? kind,
-        [FromBody] RegisterRequest request)
+        [FromBody, ValidateNever] RegisterRequest request)
     {
+        if (!ModelState.IsValid || request.AuthenticationData?.Type != LogInTypes.Dummy)
+        {
+            return new FlowsResult();
+        }
+
         kind ??= "user";
         if (kind != "user")
         {
@@ -49,23 +86,9 @@ public class RegisterController : ControllerBase
             };
         }
 
-        if (request.AuthenticationData?.Type != LogInTypes.Dummy)
-        {
-            return Unauthorized(new AuthenticationResponse
-            {
-                Flows = new[]
-                {
-                    new FlowInformation
-                    {
-                        Stages = new[] { LogInTypes.Token }
-                    }
-                }
-            });
-        }
-
         string deviceId = request.DeviceId ?? Guid.NewGuid().ToString();
 
-        string userName = request.Username ?? Guid.NewGuid().ToString();
+        string userName = request.Username?.ToLowerInvariant() ?? Guid.NewGuid().ToString();
         if (userName == string.Empty || !Regex.IsMatch(userName, "^[a-z0-9._=/-]+$"))
         {
             var error = MatrixError.Create(MatrixErrorCode.InvalidUserName, $"{nameof(userName)}: {userName}");

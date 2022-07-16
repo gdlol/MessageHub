@@ -42,10 +42,7 @@ public class Program
             context.Response.Headers.Add("Cache-Control", "no-cache");
             return next();
         });
-        app.MapGet("/config.json", () =>
-        {
-            return Results.Json(elementConfig);
-        });
+        app.MapGet("/config.json", () => elementConfig);
         app.UseDefaultFiles();
         app.UseStaticFiles();
         return app.RunAsync(cancellationToken);

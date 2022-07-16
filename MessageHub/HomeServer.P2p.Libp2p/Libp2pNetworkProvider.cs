@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text.Json;
 using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer.P2p.Libp2p.Notifiers;
@@ -126,7 +127,19 @@ internal sealed class Libp2pNetworkProvider : IDisposable, INetworkProvider
 
         logger.LogInformation("Starting background services...");
         backgroundService = BackgroundService.Aggregate(p2pServices.Select(x => x.Create(p2pNode)).ToArray());
-        backgroundService.Start();
+        Task.Run(async () =>
+        {
+            int jitter = RandomNumberGenerator.GetInt32(-1000, 1000);
+            await Task.Delay(TimeSpan.FromMilliseconds(3000 + jitter));
+            try
+            {
+                backgroundService.Start();
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error starting backgound services.");
+            }
+        });
 
         logger.LogInformation("Initialized libp2p.");
     }
