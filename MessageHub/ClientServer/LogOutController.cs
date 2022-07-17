@@ -45,7 +45,7 @@ public class LogOutController : ControllerBase
     [HttpPost]
     public async Task<object> LogOut()
     {
-        if (Request.HttpContext.Items["token"] is string token)
+        if (Request.HttpContext.TryGetAccessToken(out string? token))
         {
             string? deviceId = await authenticator.GetDeviceIdAsync(token);
             if (deviceId is not null)

@@ -43,7 +43,7 @@ public class LeaveRoomController : ControllerBase
     public async Task<IActionResult> MakeLeave(string roomId, string userId)
     {
         var identity = identityService.GetSelfIdentity();
-        SignedRequest request = (SignedRequest)Request.HttpContext.Items[nameof(request)]!;
+        var request = Request.HttpContext.GetSignedRequest();
         var senderId = UserIdentifier.FromId(request.Origin);
         if (senderId.ToString() != userId)
         {
@@ -84,7 +84,7 @@ public class LeaveRoomController : ControllerBase
         [FromRoute] string eventId,
         [FromBody] PersistentDataUnit pdu)
     {
-        SignedRequest request = (SignedRequest)Request.HttpContext.Items[nameof(request)]!;
+        var request = Request.HttpContext.GetSignedRequest();
         var sender = UserIdentifier.FromId(request.Origin);
         if (!rooms.HasRoom(roomId))
         {

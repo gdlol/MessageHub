@@ -184,7 +184,7 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
         var requestElement = request.ToJsonElement();
         if (identityService.VerifyJson(sender, requestElement))
         {
-            Request.HttpContext.Items[nameof(request)] = request;
+            Request.HttpContext.SetSignedRequest(request);
             var claims = new[] { new Claim(ClaimTypes.Name, sender) };
             var claimsIdentity = new ClaimsIdentity(claims, MatrixAuthenticationSchemes.Federation);
             var ticket = new AuthenticationTicket(new ClaimsPrincipal(claimsIdentity), Scheme.Name);

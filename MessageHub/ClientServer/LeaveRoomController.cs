@@ -1,6 +1,5 @@
 using System.Collections.Immutable;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.Authentication;
 using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
@@ -59,12 +58,14 @@ public class LeaveRoomController : ControllerBase
     {
         logger.LogInformation("Forgetting {}...", roomId);
         var batchStates = await timelineLoader.LoadBatchStatesAsync(id => id == roomId, true);
-        if (!batchStates.LeftRoomIds.Contains(roomId))
+        if (batchStates.LeftRoomIds.Contains(roomId))
+        {
+            await eventSaver.ForgetAsync(roomId);
+        }
+        else
         {
             logger.LogWarning("Room id not found in left rooms: {}", roomId);
-            return BadRequest(MatrixError.Create(MatrixErrorCode.Unknown));
         }
-        await eventSaver.ForgetAsync(roomId);
         return new JsonResult(new object());
     }
 
