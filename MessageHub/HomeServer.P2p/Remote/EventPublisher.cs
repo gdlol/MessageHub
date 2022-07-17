@@ -29,7 +29,7 @@ public class EventPublisher : IEventPublisher
     {
         var identity = identityService.GetSelfIdentity();
         string txnId = Guid.NewGuid().ToString();
-        var parameters = new PushMessagesRequest
+        var request = new PushMessagesRequest
         {
             Origin = identity.Id,
             OriginServerTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
@@ -54,32 +54,32 @@ public class EventPublisher : IEventPublisher
         }
         if (edus.Count > 0)
         {
-            parameters.Edus = edus.ToArray();
+            request.Edus = edus.ToArray();
         }
-        var request = identity.SignRequest(
+        var signedRequest = identity.SignRequest(
             destination: pdu.RoomId,
             requestMethod: HttpMethods.Put,
             requestTarget: $"/_matrix/federation/v1/send/{txnId}",
-            content: parameters);
-        await requestHandler.SendRequest(request);
+            content: request);
+        await requestHandler.SendRequest(signedRequest);
     }
 
     public async Task PublishAsync(string roomId, EphemeralDataUnit edu)
     {
         var identity = identityService.GetSelfIdentity();
         string txnId = Guid.NewGuid().ToString();
-        var parameters = new PushMessagesRequest
+        var request = new PushMessagesRequest
         {
             Origin = identity.Id,
             OriginServerTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             Pdus = Array.Empty<PersistentDataUnit>(),
             Edus = new[] { edu }
         };
-        var request = identity.SignRequest(
+        var signedRequest = identity.SignRequest(
             destination: roomId,
             requestMethod: HttpMethods.Put,
             requestTarget: $"/_matrix/federation/v1/send/{txnId}",
-            content: parameters);
-        await requestHandler.SendRequest(request);
+            content: request);
+        await requestHandler.SendRequest(signedRequest);
     }
 }

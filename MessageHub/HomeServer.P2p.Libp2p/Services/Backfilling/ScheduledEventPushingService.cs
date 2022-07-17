@@ -52,18 +52,18 @@ internal class ScheduledEventPushingService : ScheduledService
                         pdus.Add(pdu);
                     }
                     string txnId = Guid.NewGuid().ToString();
-                    var parameters = new PushMessagesRequest
+                    var request = new PushMessagesRequest
                     {
                         Origin = identity.Id,
                         OriginServerTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                         Pdus = pdus.ToArray()
                     };
-                    var request = identity.SignRequest(
+                    var signedRequest = identity.SignRequest(
                         destination: roomId,
                         requestMethod: HttpMethods.Put,
                         requestTarget: $"/_matrix/federation/v1/send/{txnId}",
-                        content: parameters);
-                    context.PublishEventNotifier.Notify(new(roomId, request.ToJsonElement()));
+                        content: request);
+                    context.PublishEventNotifier.Notify(new(roomId, signedRequest.ToJsonElement()));
                 }
             }
         }

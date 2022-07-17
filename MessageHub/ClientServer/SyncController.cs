@@ -9,6 +9,7 @@ using MessageHub.HomeServer.Rooms;
 using Microsoft.AspNetCore.Authorization;
 using MessageHub.Authentication;
 using MessageHub.HomeServer.Notifiers;
+using MessageHub.HomeServer.Events.General;
 
 namespace MessageHub.ClientServer;
 
@@ -60,32 +61,32 @@ public class SyncController : ControllerBase
         {
             throw new InvalidOperationException();
         }
-        var parameters = new SyncParameters
+        var request = new SyncRequest
         {
             Filter = filterString,
             FullState = fullState ?? false,
-            SetPresence = setPresence ?? SyncParameters.SetPresenceValues.Online,
+            SetPresence = setPresence ?? PresenceValues.Online,
             Since = since ?? string.Empty,
             Timeout = timeout ?? 0
         };
 
-        var (filter, error) = await filterLoader.LoadFilterAsync(parameters.Filter);
+        var (filter, error) = await filterLoader.LoadFilterAsync(request.Filter);
         if (error is not null)
         {
             return BadRequest(error);
         }
-        if (parameters.Timeout > 0)
+        if (request.Timeout > 0)
         {
             var tcs = new TaskCompletionSource();
             using var timer = new Timer(
                 _ => tcs.TrySetResult(),
                 null,
                 dueTime: Math.Min(
-                    parameters.Timeout,
+                    request.Timeout,
                     (long)TimeSpan.FromSeconds(30).TotalMilliseconds),
                 period: Timeout.Infinite);
             using var _ = notifier.Register(() => tcs.TrySetResult());
-            if (roomLoader.CurrentBatchId == parameters.Since)
+            if (roomLoader.CurrentBatchId == request.Since)
             {
                 await tcs.Task;
             }
@@ -93,8 +94,8 @@ public class SyncController : ControllerBase
         var accountData = await accountDataLoader.LoadAccountDataAsync(userId, filter?.AccountData);
         var (nextBatch, rooms) = await roomLoader.LoadRoomsAsync(
             userId,
-            parameters.FullState,
-            parameters.Since,
+            request.FullState,
+            request.Since,
             filter?.Room);
         var presence = presenceLoader.LoadPresenceUpdates(filter?.Presence);
         return new JsonResult(new SyncResponse

@@ -272,7 +272,7 @@ public class LeaveRoomController : ControllerBase
 
     [Route("rooms/{roomId}/kick")]
     [HttpPost]
-    public async Task<IActionResult> Kick([FromRoute] string roomId, [FromBody] KickParameters parameters)
+    public async Task<IActionResult> Kick([FromRoute] string roomId, [FromBody] KickRequest request)
     {
         string? userId = Request.HttpContext.User.Identity?.Name;
         if (userId is null)
@@ -280,11 +280,11 @@ public class LeaveRoomController : ControllerBase
             throw new InvalidOperationException();
         }
         var sender = UserIdentifier.Parse(userId);
-        if (!UserIdentifier.TryParse(parameters.UserId, out var target) || target == sender)
+        if (!UserIdentifier.TryParse(request.UserId, out var target) || target == sender)
         {
             return BadRequest(MatrixError.Create(
                 MatrixErrorCode.InvalidParameter,
-                $"{nameof(parameters.UserId)}: {parameters.UserId}"));
+                $"{nameof(request.UserId)}: {request.UserId}"));
         }
         if (!rooms.HasRoom(roomId))
         {
@@ -297,7 +297,7 @@ public class LeaveRoomController : ControllerBase
         var content = JsonSerializer.SerializeToElement(new MemberEvent
         {
             MemberShip = MembershipStates.Leave,
-            Reason = parameters.Reason
+            Reason = request.Reason
         }, ignoreNullOptions);
         if (!authorizer.Authorize(EventTypes.Member, target.ToString(), sender, content))
         {

@@ -38,9 +38,9 @@ public class RoomDiscoveryController : ControllerBase
 
     [Route("directory/room/{roomAlias}")]
     [HttpPut]
-    public async Task<IActionResult> SetAlias([FromRoute] string roomAlias, [FromBody] SetAliasParameters parameters)
+    public async Task<IActionResult> SetAlias([FromRoute] string roomAlias, [FromBody] SetAliasRequest request)
     {
-        bool? result = await roomDiscoveryService.SetRoomAliasAsync(parameters.RoomId, roomAlias);
+        bool? result = await roomDiscoveryService.SetRoomAliasAsync(request.RoomId, roomAlias);
         if (result is null)
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));

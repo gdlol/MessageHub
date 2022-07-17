@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace MessageHub.Federation.Protocol;
 
-public class GetMissingEventsParameters
+public class GetMissingEventsRequest
 {
     [Required]
     [JsonPropertyName("earliest_events")]

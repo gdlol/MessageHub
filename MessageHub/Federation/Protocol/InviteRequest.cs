@@ -4,7 +4,7 @@ using MessageHub.HomeServer.Events;
 
 namespace MessageHub.Federation.Protocol;
 
-public class InviteParameters
+public class InviteRequest
 {
     [Required]
     [JsonPropertyName("event")]

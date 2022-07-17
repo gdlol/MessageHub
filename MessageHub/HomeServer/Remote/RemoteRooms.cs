@@ -36,15 +36,15 @@ public class RemoteRooms : IRemoteRooms
         this.eventReceiver = eventReceiver;
     }
 
-    public Task InviteAsync(string roomId, string eventId, InviteParameters parameters)
+    public Task InviteAsync(string roomId, string eventId, InviteRequest request)
     {
-        var userId = UserIdentifier.Parse(parameters.Event.StateKey!);
-        var request = identityService.GetSelfIdentity().SignRequest(
+        var userId = UserIdentifier.Parse(request.Event.StateKey!);
+        var signedRequest = identityService.GetSelfIdentity().SignRequest(
             destination: userId.Id,
             requestMethod: HttpMethods.Put,
             requestTarget: $"/_matrix/federation/v2/invite/{roomId}/{eventId}",
-            content: parameters);
-        return requestHandler.SendRequest(request);
+            content: request);
+        return requestHandler.SendRequest(signedRequest);
     }
 
     public async Task<PersistentDataUnit> MakeJoinAsync(string destination, string roomId, string userId)

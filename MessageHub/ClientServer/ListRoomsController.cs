@@ -48,9 +48,9 @@ public class ListRoomsController : ControllerBase
     [HttpPut]
     public async Task<IActionResult> SetVisibility(
         [FromRoute] string roomId,
-        [FromBody] SetVisibilityParameters parameters)
+        [FromBody] SetVisibilityRequest request)
     {
-        bool result = await accountData.SetRoomVisibilityAsync(roomId, parameters.Visibility);
+        bool result = await accountData.SetRoomVisibilityAsync(roomId, request.Visibility);
         if (result is false)
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound));
@@ -162,7 +162,7 @@ public class ListRoomsController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> GetPublicRooms(
         [FromQuery] string? server,
-        [FromBody] GetPublicRoomsParameters parameters)
+        [FromBody] GetPublicRoomsRequest request)
     {
         GetPublicRoomsResponse result;
         var identity = identityService.GetSelfIdentity();
@@ -173,7 +173,7 @@ public class ListRoomsController : ControllerBase
                 Chunk = Array.Empty<PublicRoomsChunk>()
             };
         }
-        else if (parameters.ThirdPartyInstanceId is not null)
+        else if (request.ThirdPartyInstanceId is not null)
         {
             result = new GetPublicRoomsResponse
             {
@@ -183,7 +183,7 @@ public class ListRoomsController : ControllerBase
         else
         {
             var publicRoomIds = await accountData.GetPublicRoomListAsync();
-            if (parameters.Since is string since)
+            if (request.Since is string since)
             {
                 publicRoomIds = publicRoomIds.SkipWhile(x => x != since).ToArray();
             }
@@ -201,9 +201,9 @@ public class ListRoomsController : ControllerBase
                 var chunk = GetPublicRoomsChunk(roomId, stateEvents);
                 chunks.Add(chunk);
             }
-            var filteredChunks = FilterChunks(chunks, parameters.Filter).ToArray();
+            var filteredChunks = FilterChunks(chunks, request.Filter).ToArray();
             string? nextBatch = null;
-            if (parameters.Limit is int limit && limit < filteredChunks.Length)
+            if (request.Limit is int limit && limit < filteredChunks.Length)
             {
                 nextBatch = filteredChunks[limit].RoomId;
             }
@@ -225,7 +225,7 @@ public class ListRoomsController : ControllerBase
         [FromQuery] string? server,
         [FromQuery] string? since)
     {
-        return GetPublicRooms(server, new GetPublicRoomsParameters
+        return GetPublicRooms(server, new GetPublicRoomsRequest
         {
             Limit = limit,
             Since = since

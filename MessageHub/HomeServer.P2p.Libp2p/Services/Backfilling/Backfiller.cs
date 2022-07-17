@@ -31,19 +31,19 @@ internal class Backfiller
     private async Task<PersistentDataUnit[]> GetMissingEventsAsync(
         string roomId,
         string destination,
-        GetMissingEventsParameters parameters,
+        GetMissingEventsRequest request,
         CancellationToken cancellationToken)
     {
         string target = $"/_matrix/federation/v1/get_missing_events/{roomId}";
-        var request = identityService.GetSelfIdentity().SignRequest(
+        var signedRequest = identityService.GetSelfIdentity().SignRequest(
             destination: destination,
             requestMethod: HttpMethods.Post,
             requestTarget: target,
-            content: parameters);
+            content: request);
         JsonElement response;
         try
         {
-            response = await p2pNode.SendAsync(request, cancellationToken);
+            response = await p2pNode.SendAsync(signedRequest, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -116,13 +116,13 @@ internal class Backfiller
             logger.LogDebug("Latest events count: {}", latestEventIds.Count);
             logger.LogDebug("Received events count: {}", receivedEventIds.Count);
 
-            var parameters = new GetMissingEventsParameters
+            var request = new GetMissingEventsRequest
             {
                 EarliestEvents = earliestEventIds.ToArray(),
                 LatestEvents = latestEventIds.ToArray(),
                 Limit = 100
             };
-            var events = await GetMissingEventsAsync(roomId, destination, parameters, cancellationToken);
+            var events = await GetMissingEventsAsync(roomId, destination, request, cancellationToken);
             var newEvents = new Dictionary<string, PersistentDataUnit>();
             foreach (var pdu in events)
             {

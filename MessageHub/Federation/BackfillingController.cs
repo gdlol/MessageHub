@@ -101,32 +101,32 @@ public class BackfillingController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> GetMissingEvents(
         [FromRoute] string roomId,
-        [FromBody] GetMissingEventsParameters parameters)
+        [FromBody] GetMissingEventsRequest request)
     {
-        SignedRequest request = (SignedRequest)Request.HttpContext.Items[nameof(request)]!;
+        SignedRequest signedRequest = (SignedRequest)Request.HttpContext.Items[nameof(signedRequest)]!;
         if (!rooms.HasRoom(roomId))
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));
         }
         var roomSnapshot = await rooms.GetRoomSnapshotAsync(roomId);
         if (!roomSnapshot.StateContents.TryGetValue(
-                new RoomStateKey(EventTypes.Member, UserIdentifier.FromId(request.Origin).ToString()),
+                new RoomStateKey(EventTypes.Member, UserIdentifier.FromId(signedRequest.Origin).ToString()),
                 out var content)
             || JsonSerializer.Deserialize<MemberEvent>(content) is not MemberEvent memberEvent
             || memberEvent.MemberShip != MembershipStates.Join)
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));
         }
-        if (parameters.MinDepth > 3)
+        if (request.MinDepth > 3)
         {
-            return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(parameters.MinDepth)));
+            return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(request.MinDepth)));
         }
         using var roomEventStore = await rooms.GetRoomEventStoreAsync(roomId);
-        int limit = Math.Min(parameters.Limit, 100);
-        var earliestEvents = parameters.EarliestEvents.Where(x => x is not null).ToHashSet();
+        int limit = Math.Min(request.Limit, 100);
+        var earliestEvents = request.EarliestEvents.Where(x => x is not null).ToHashSet();
         var eventMap = new Dictionary<string, PersistentDataUnit>();
         var foundEventIds = new List<string>();
-        var latestEventIds = parameters.LatestEvents.Where(x => x is not null).Distinct().ToList();
+        var latestEventIds = request.LatestEvents.Where(x => x is not null).Distinct().ToList();
         var missingEventIds = await roomEventStore.GetMissingEventIdsAsync(latestEventIds.ToArray());
         latestEventIds = latestEventIds.Except(missingEventIds).ToList();
         int depth = -1;
@@ -140,7 +140,7 @@ public class BackfillingController : ControllerBase
                     break;
                 }
                 var pdu = await roomEventStore.LoadEventAsync(eventId);
-                if (depth >= parameters.MinDepth && !earliestEvents.Contains(eventId))
+                if (depth >= request.MinDepth && !earliestEvents.Contains(eventId))
                 {
                     eventMap[eventId] = pdu;
                     foundEventIds.Add(eventId);

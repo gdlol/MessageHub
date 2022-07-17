@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace MessageHub.ClientServer.Protocol;
 
-public class SetAliasParameters
+public class SetAliasRequest
 {
     [Required]
     [JsonPropertyName("room_id")]
