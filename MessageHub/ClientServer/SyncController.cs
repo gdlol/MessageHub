@@ -1,5 +1,3 @@
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.ClientServer.Sync;
 using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
@@ -104,10 +102,6 @@ public class SyncController : ControllerBase
             NextBatch = nextBatch,
             Rooms = rooms,
             Presence = presence
-        },
-        new JsonSerializerOptions
-        {
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         });
     }
 }

@@ -1,10 +1,10 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.Federation;
 using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Events.General;
 using MessageHub.HomeServer.Events.Room;
+using MessageHub.Serialization;
 
 namespace MessageHub.HomeServer.P2p.Libp2p.Services.Presence;
 
@@ -34,13 +34,13 @@ internal class SelfPresencePublisher
         var edu = new EphemeralDataUnit
         {
             EventType = PresenceEvent.EventType,
-            Content = JsonSerializer.SerializeToElement(new PresenceUpdate
+            Content = DefaultJsonSerializer.SerializeToElement(new PresenceUpdate
             {
                 Push = new[]
                 {
                     UserPresenceUpdate.Create(userId, presenceStatus)
                 }
-            }, new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull })
+            })
         };
         string txnId = Guid.NewGuid().ToString();
         var request = new PushMessagesRequest

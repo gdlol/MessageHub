@@ -1,8 +1,7 @@
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events.General;
+using MessageHub.Serialization;
 
 namespace MessageHub.ClientServer.Sync;
 
@@ -48,13 +47,13 @@ public class PresenceLoader
             {
                 Sender = userId,
                 EventType = PresenceEvent.EventType,
-                Content = JsonSerializer.SerializeToElement(new PresenceEvent
+                Content = DefaultJsonSerializer.SerializeToElement(new PresenceEvent
                 {
                     CurrentlyActive = presenceStatus.CurrentlyActive,
                     LastActiveAgo = presenceStatus.LastActiveAgo,
                     Presence = presenceStatus.Presence,
                     StatusMessage = presenceStatus.StatusMessage,
-                }, new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull })
+                })
             });
         }
         return result.Count == 0 ? null : new Presence { Events = result.ToArray() };

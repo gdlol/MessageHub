@@ -1,5 +1,3 @@
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.Authentication;
 using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
@@ -50,7 +48,7 @@ public class PresenceController : ControllerBase
             LastActiveAgo = presence.LastActiveAgo,
             Presence = presence.Presence,
             StatusMessage = presence.StatusMessage
-        }, new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull });
+        });
     }
 
     [Route("presence/{userId}/status")]

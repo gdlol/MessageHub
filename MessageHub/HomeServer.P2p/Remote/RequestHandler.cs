@@ -1,8 +1,8 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer.P2p.Providers;
 using MessageHub.HomeServer.Remote;
+using MessageHub.Serialization;
 
 namespace MessageHub.HomeServer.P2p.Remote;
 
@@ -23,11 +23,8 @@ public class RequestHandler : IRequestHandler
         {
             networkProvider.Publish(
                 signedRequest.Destination,
-                JsonSerializer.SerializeToElement(signedRequest, new JsonSerializerOptions
-                {
-                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-                }));
-            return JsonSerializer.SerializeToElement<object?>(null);
+                DefaultJsonSerializer.SerializeToElement(signedRequest));
+            return DefaultJsonSerializer.SerializeToElement<object?>(null);
         }
         else
         {

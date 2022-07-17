@@ -1,10 +1,9 @@
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.Federation;
 using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Events.General;
 using MessageHub.HomeServer.Remote;
+using MessageHub.Serialization;
 
 namespace MessageHub.HomeServer.P2p.Remote;
 
@@ -43,13 +42,13 @@ public class EventPublisher : IEventPublisher
             edus.Add(new EphemeralDataUnit
             {
                 EventType = PresenceEvent.EventType,
-                Content = JsonSerializer.SerializeToElement(new PresenceUpdate
+                Content = DefaultJsonSerializer.SerializeToElement(new PresenceUpdate
                 {
                     Push = new[]
                     {
                         UserPresenceUpdate.Create(pdu.Sender, presenceStatus)
                     }
-                }, new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull })
+                })
             });
         }
         if (edus.Count > 0)

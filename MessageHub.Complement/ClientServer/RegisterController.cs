@@ -1,11 +1,10 @@
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using MessageHub.ClientServer.Protocol;
 using MessageHub.Complement.ClientServer.Protocol;
 using MessageHub.Complement.HomeServer;
 using MessageHub.Complement.ReverseProxy;
 using MessageHub.HomeServer;
+using MessageHub.Serialization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
@@ -38,18 +37,13 @@ public class RegisterController : ControllerBase
 
     public class FlowsResult : IActionResult
     {
-        private static readonly JsonSerializerOptions ignoreNullOptions = new()
-        {
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-        };
-
         // Set content type without charset;
-        public async Task ExecuteResultAsync(ActionContext context)
+        public Task ExecuteResultAsync(ActionContext context)
         {
             var resonse = context.HttpContext.Response;
             resonse.ContentType = "application/json";
             resonse.StatusCode = StatusCodes.Status401Unauthorized;
-            await JsonSerializer.SerializeAsync(
+            return DefaultJsonSerializer.SerializeAsync(
                 resonse.Body,
                 new AuthenticationResponse
                 {
@@ -60,8 +54,7 @@ public class RegisterController : ControllerBase
                             Stages = new[] { LogInTypes.Dummy }
                         }
                     }
-                },
-                ignoreNullOptions);
+                });
         }
     }
 

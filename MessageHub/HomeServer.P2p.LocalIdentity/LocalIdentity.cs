@@ -1,20 +1,15 @@
 using System.Collections.Immutable;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Formatting;
 using MessageHub.HomeServer.P2p.Libp2p;
+using MessageHub.Serialization;
 using NSec.Cryptography;
 
 namespace MessageHub.HomeServer.P2p.LocalIdentity;
 
 public sealed class LocalIdentity : IIdentity
 {
-    private static readonly JsonSerializerOptions ignoreNullOptions = new()
-    {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
-
     public const string AlgorithmName = "ed25519";
     public const string KeyName = "local";
     public readonly static KeyIdentifier ServerKeyIdentifier = new(AlgorithmName, "ID");
@@ -41,7 +36,7 @@ public sealed class LocalIdentity : IIdentity
     private LocalIdentity(Key? key, ServerKeys serverKeys)
     {
         this.key = key;
-        this.serverKeys = JsonSerializer.SerializeToElement(serverKeys);
+        this.serverKeys = DefaultJsonSerializer.SerializeToElement(serverKeys);
         validUntilTimestamp = serverKeys.ValidUntilTimestamp;
         var publicKeyBlob = UnpaddedBase64Encoder.DecodeBytes(serverKeys.ServerName);
         Id = CidEncoding.EncodeEd25519PublicKey(publicKeyBlob);
@@ -64,7 +59,7 @@ public sealed class LocalIdentity : IIdentity
             ValidUntilTimestamp = verifyKeys.ExpireTimestamp,
             VerifyKeys = verifyKeys.Keys.ToDictionary(x => x.Key, x => x.Value)
         };
-        var element = JsonSerializer.SerializeToElement(serverKeys, ignoreNullOptions);
+        var element = DefaultJsonSerializer.SerializeToElement(serverKeys);
         var data = CanonicalJson.SerializeToBytes(element);
         var signatureData = signatureAlgorithm.Sign(serverKey, data);
         serverKeys.Signatures = new Signatures

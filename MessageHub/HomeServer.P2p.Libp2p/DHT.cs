@@ -1,6 +1,5 @@
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.HomeServer.P2p.Libp2p.Native;
+using MessageHub.Serialization;
 
 namespace MessageHub.HomeServer.P2p.Libp2p;
 
@@ -29,11 +28,7 @@ public sealed class DHT : IDisposable
         ArgumentNullException.ThrowIfNull(config);
 
         using var context = new Context(cancellationToken);
-        var options = new JsonSerializerOptions
-        {
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-        };
-        using var configJson = StringHandle.FromUtf8Bytes(JsonSerializer.SerializeToUtf8Bytes(config, options));
+        using var configJson = StringHandle.FromUtf8Bytes(DefaultJsonSerializer.SerializeToUtf8Bytes(config));
         using var error = NativeMethods.CreateDHT(context.Handle, host.Handle, configJson, out var dhtHandle);
         if (!error.IsInvalid)
         {

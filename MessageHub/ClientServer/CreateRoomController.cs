@@ -1,6 +1,5 @@
 using System.Collections.Immutable;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.Authentication;
 using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
@@ -9,6 +8,7 @@ using MessageHub.HomeServer.Events.Room;
 using MessageHub.HomeServer.Remote;
 using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Rooms.Timeline;
+using MessageHub.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,11 +18,6 @@ namespace MessageHub.ClientServer;
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
 public class CreateRoomController : ControllerBase
 {
-    private static readonly JsonSerializerOptions ignoreNullOptions = new()
-    {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
-
     private readonly ILogger logger;
     private readonly IIdentityService identityService;
     private readonly IUserProfile userProfile;
@@ -75,14 +70,14 @@ public class CreateRoomController : ControllerBase
                 Creator = userId,
                 RoomVersion = "9"
             };
-            result = JsonSerializer.SerializeToElement(content, ignoreNullOptions);
+            result = DefaultJsonSerializer.SerializeToElement(content);
         }
         else
         {
             var content = creationContent.Value.Deserialize<Dictionary<string, object>>()!;
             content["creator"] = userId;
             content["room_version"] = "9";
-            result = JsonSerializer.SerializeToElement(content, ignoreNullOptions);
+            result = DefaultJsonSerializer.SerializeToElement(content);
         }
         return result;
     }
@@ -109,12 +104,12 @@ public class CreateRoomController : ControllerBase
         }
         if (request.PowerLevelContentOverride is null)
         {
-            return JsonSerializer.SerializeToElement(powerLevelContent, ignoreNullOptions);
+            return DefaultJsonSerializer.SerializeToElement(powerLevelContent);
         }
         else
         {
-            var propertyMapping = JsonSerializer
-                .SerializeToElement(powerLevelContent, ignoreNullOptions)
+            var propertyMapping = DefaultJsonSerializer
+                .SerializeToElement(powerLevelContent)
                 .Deserialize<Dictionary<string, JsonElement>>()!;
             var overwriteMapping = request.PowerLevelContentOverride.Value
                 .Deserialize<Dictionary<string, JsonElement>>()!;
@@ -131,7 +126,7 @@ public class CreateRoomController : ControllerBase
             {
                 propertyMapping[key] = overwriteMapping[key];
             }
-            return JsonSerializer.SerializeToElement(propertyMapping, ignoreNullOptions);
+            return DefaultJsonSerializer.SerializeToElement(propertyMapping);
         }
     }
 
@@ -213,13 +208,12 @@ public class CreateRoomController : ControllerBase
             stateKey: userId,
             serverKeys: serverKeys,
             sender: senderId,
-            content: JsonSerializer.SerializeToElement(new MemberEvent
+            content: DefaultJsonSerializer.SerializeToElement(new MemberEvent
             {
                 AvatarUrl = avatarUrl,
                 DisplayName = displayName,
                 MemberShip = MembershipStates.Join
-            },
-            ignoreNullOptions),
+            }),
             timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
         AddEvent(pdu, roomSnapshot.States);
 
@@ -247,9 +241,8 @@ public class CreateRoomController : ControllerBase
                 stateKey: string.Empty,
                 serverKeys: serverKeys,
                 sender: senderId,
-                content: JsonSerializer.SerializeToElement(
-                    new CanonicalAliasEvent { Alias = roomAlias.ToString() },
-                    ignoreNullOptions),
+                content: DefaultJsonSerializer.SerializeToElement(
+                    new CanonicalAliasEvent { Alias = roomAlias.ToString() }),
                 timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
             AddEvent(pdu, roomSnapshot.States);
             await roomDiscoveryService.SetRoomAliasAsync(roomId, roomAlias.ToString());
@@ -285,7 +278,7 @@ public class CreateRoomController : ControllerBase
                     stateKey: string.Empty,
                     serverKeys: serverKeys,
                     sender: senderId,
-                    content: JsonSerializer.SerializeToElement(joinRulesContent, ignoreNullOptions),
+                    content: DefaultJsonSerializer.SerializeToElement(joinRulesContent),
                     timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
                 AddEvent(pdu, roomSnapshot.States);
             }
@@ -298,7 +291,7 @@ public class CreateRoomController : ControllerBase
                     stateKey: string.Empty,
                     serverKeys: serverKeys,
                     sender: senderId,
-                    content: JsonSerializer.SerializeToElement(historyVisibilityContent, ignoreNullOptions),
+                    content: DefaultJsonSerializer.SerializeToElement(historyVisibilityContent),
                     timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
                 AddEvent(pdu, roomSnapshot.States);
             }
@@ -332,9 +325,7 @@ public class CreateRoomController : ControllerBase
                 stateKey: string.Empty,
                 serverKeys: serverKeys,
                 sender: senderId,
-                content: JsonSerializer.SerializeToElement(
-                    new NameEvent { Name = name },
-                    ignoreNullOptions),
+                content: DefaultJsonSerializer.SerializeToElement(new NameEvent { Name = name }),
                 timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
             AddEvent(pdu, roomSnapshot.States);
         }
@@ -349,9 +340,7 @@ public class CreateRoomController : ControllerBase
                 stateKey: string.Empty,
                 serverKeys: serverKeys,
                 sender: senderId,
-                content: JsonSerializer.SerializeToElement(
-                    new TopicEvent { Topic = topic },
-                    ignoreNullOptions),
+                content: DefaultJsonSerializer.SerializeToElement(new TopicEvent { Topic = topic }),
                 timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
             AddEvent(pdu, roomSnapshot.States);
         }
@@ -381,15 +370,13 @@ public class CreateRoomController : ControllerBase
                     stateKey: invitedId,
                     serverKeys: serverKeys,
                     sender: senderId,
-                    content: JsonSerializer.SerializeToElement(
-                        new MemberEvent
-                        {
-                            AvatarUrl = avatarUrl,
-                            DisplayName = displayName,
-                            IsDirect = request.IsDirect,
-                            MemberShip = MembershipStates.Invite
-                        },
-                        ignoreNullOptions),
+                    content: DefaultJsonSerializer.SerializeToElement(new MemberEvent
+                    {
+                        AvatarUrl = avatarUrl,
+                        DisplayName = displayName,
+                        IsDirect = request.IsDirect,
+                        MemberShip = MembershipStates.Invite
+                    }),
                     timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
                 pdu = identity.SignEvent(pdu);
                 string eventId = EventHash.GetEventId(pdu);

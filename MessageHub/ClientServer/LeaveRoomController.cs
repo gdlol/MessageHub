@@ -9,6 +9,7 @@ using MessageHub.HomeServer.Events.Room;
 using MessageHub.HomeServer.Remote;
 using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Rooms.Timeline;
+using MessageHub.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,11 +19,6 @@ namespace MessageHub.ClientServer;
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
 public class LeaveRoomController : ControllerBase
 {
-    private static readonly JsonSerializerOptions ignoreNullOptions = new()
-    {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
-
     private readonly ILogger logger;
     private readonly IIdentityService identityService;
     private readonly IRooms rooms;
@@ -139,13 +135,9 @@ public class LeaveRoomController : ControllerBase
                 return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(destination)}: {destination}"));
             }
 
-            pdu.Content = JsonSerializer.SerializeToElement(new MemberEvent
+            pdu.Content = DefaultJsonSerializer.SerializeToElement(new MemberEvent
             {
                 MemberShip = MembershipStates.Leave
-            },
-            new JsonSerializerOptions
-            {
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
             });
             pdu.OriginServerTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             pdu.RoomId = roomId;
@@ -192,13 +184,9 @@ public class LeaveRoomController : ControllerBase
                 }
             }
 
-            var leaveContent = JsonSerializer.SerializeToElement(new MemberEvent
+            var leaveContent = DefaultJsonSerializer.SerializeToElement(new MemberEvent
             {
                 MemberShip = MembershipStates.Leave
-            },
-            new JsonSerializerOptions
-            {
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
             });
             var eventAuthorizer = new EventAuthorizer(snapshot.StateContents);
             if (!eventAuthorizer.Authorize(
@@ -294,11 +282,11 @@ public class LeaveRoomController : ControllerBase
 
         var snapshot = await rooms.GetRoomSnapshotAsync(roomId);
         var authorizer = new EventAuthorizer(snapshot.StateContents);
-        var content = JsonSerializer.SerializeToElement(new MemberEvent
+        var content = DefaultJsonSerializer.SerializeToElement(new MemberEvent
         {
             MemberShip = MembershipStates.Leave,
             Reason = request.Reason
-        }, ignoreNullOptions);
+        });
         if (!authorizer.Authorize(EventTypes.Member, target.ToString(), sender, content))
         {
             return Unauthorized(MatrixError.Create(MatrixErrorCode.Unauthorized));

@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.Authentication;
 using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer;
@@ -7,6 +6,7 @@ using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Events.Room;
 using MessageHub.HomeServer.Remote;
 using MessageHub.HomeServer.Rooms;
+using MessageHub.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -59,9 +59,8 @@ public class LeaveRoomController : ControllerBase
             eventType: EventTypes.Member,
             stateKey: userId,
             sender: senderId,
-            content: JsonSerializer.SerializeToElement(
-                new MemberEvent { MemberShip = MembershipStates.Leave },
-                new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull })))
+            content: DefaultJsonSerializer.SerializeToElement(
+                new MemberEvent { MemberShip = MembershipStates.Leave })))
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));
         }
@@ -72,9 +71,8 @@ public class LeaveRoomController : ControllerBase
             stateKey: userId,
             serverKeys: identity.GetServerKeys(),
             sender: senderId,
-            content: JsonSerializer.SerializeToElement(
-                new MemberEvent { MemberShip = MembershipStates.Leave },
-                new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull }),
+            content: DefaultJsonSerializer.SerializeToElement(
+                new MemberEvent { MemberShip = MembershipStates.Leave }),
             timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
         return new JsonResult(pdu);
     }

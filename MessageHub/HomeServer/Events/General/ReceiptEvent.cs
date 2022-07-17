@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MessageHub.Serialization;
 
 namespace MessageHub.HomeServer.Events.General;
 
@@ -66,10 +67,7 @@ public class ReceiptEvent
         return new EphemeralDataUnit
         {
             EventType = EventType,
-            Content = JsonSerializer.SerializeToElement(Content, new JsonSerializerOptions
-            {
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-            })
+            Content = DefaultJsonSerializer.SerializeToElement(Content)
         };
     }
 

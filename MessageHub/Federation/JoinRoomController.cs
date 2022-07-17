@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.Authentication;
 using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer;
@@ -7,6 +6,7 @@ using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Events.Room;
 using MessageHub.HomeServer.Remote;
 using MessageHub.HomeServer.Rooms;
+using MessageHub.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -55,9 +55,8 @@ public class JoinRoomController : ControllerBase
         }
         var roomSnapshot = await rooms.GetRoomSnapshotAsync(roomId);
         var eventAuthorizer = new EventAuthorizer(roomSnapshot.StateContents);
-        var joinContent = JsonSerializer.SerializeToElement(
-            new MemberEvent { MemberShip = MembershipStates.Join },
-            new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull });
+        var joinContent = DefaultJsonSerializer.SerializeToElement(
+            new MemberEvent { MemberShip = MembershipStates.Join });
         if (!eventAuthorizer.Authorize(
             eventType: EventTypes.Member,
             stateKey: userId,
@@ -194,7 +193,7 @@ public class JoinRoomController : ControllerBase
             unsigned["replaces_state"] = oldEventId;
             unsigned["prev_content"] = oldEvent.Content;
             unsigned["prev_sender"] = oldEvent.Sender;
-            pdu.Unsigned = JsonSerializer.SerializeToElement(unsigned);
+            pdu.Unsigned = DefaultJsonSerializer.SerializeToElement(unsigned);
         }
         var errors = await eventReceiver.ReceivePersistentEventsAsync(new[] { pdu });
         if (errors.TryGetValue(eventId, out string? error) && !string.IsNullOrEmpty(error))

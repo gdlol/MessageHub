@@ -8,6 +8,7 @@ using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Notifiers;
 using MessageHub.HomeServer.Rooms;
+using MessageHub.Serialization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.Extensions.Options;
@@ -172,7 +173,7 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
             Destination = destination,
             Content = content,
             ServerKeys = serverKeys,
-            Signatures = JsonSerializer.SerializeToElement(signatures)
+            Signatures = DefaultJsonSerializer.SerializeToElement(signatures)
         };
         if (request.Destination != identity.Id && !rooms.HasRoom(request.Destination))
         {

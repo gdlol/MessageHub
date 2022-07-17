@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MessageHub.Serialization;
 
 namespace MessageHub.HomeServer.Events;
 
@@ -51,10 +52,7 @@ public class PersistentDataUnit
     [JsonPropertyName("unsigned")]
     public JsonElement? Unsigned { get; set; }
 
-    public JsonElement ToJsonElement() => JsonSerializer.SerializeToElement(this, new JsonSerializerOptions
-    {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    });
+    public JsonElement ToJsonElement() => DefaultJsonSerializer.SerializeToElement(this);
 
     public override string ToString()
     {

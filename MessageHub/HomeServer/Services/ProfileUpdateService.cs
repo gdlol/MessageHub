@@ -1,20 +1,15 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Events.Room;
 using MessageHub.HomeServer.Remote;
 using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Rooms.Timeline;
+using MessageHub.Serialization;
 
 namespace MessageHub.HomeServer.Services;
 
 public class ProfileUpdateService : ScheduledService
 {
-    private static readonly JsonSerializerOptions ignoreNullOptions = new()
-    {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
-
     private readonly ILogger logger;
     private readonly IIdentityService identityService;
     private readonly IUserProfile userProfile;
@@ -93,7 +88,7 @@ public class ProfileUpdateService : ScheduledService
                     DisplayName = displayName,
                     AvatarUrl = avatarUrl
                 };
-                var contentElement = JsonSerializer.SerializeToElement(content, ignoreNullOptions);
+                var contentElement = DefaultJsonSerializer.SerializeToElement(content);
 
                 var (newSnapshot, pdu) = EventCreation.CreateEvent(
                     roomId,

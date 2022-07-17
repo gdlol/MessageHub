@@ -4,9 +4,9 @@ using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Events.Room;
 using MessageHub.HomeServer.Notifiers;
 using MessageHub.HomeServer.P2p.Notifiers;
-using MessageHub.HomeServer.P2p.Providers;
 using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Rooms.Timeline;
+using MessageHub.Serialization;
 
 namespace MessageHub.HomeServer.P2p.Rooms.Timeline;
 
@@ -428,7 +428,7 @@ internal sealed class EventSaver : IEventSaver
                     foundInvite = true;
                     newStateEvents.Add(new StrippedStateEvent
                     {
-                        Content = JsonSerializer.SerializeToElement(new MemberEvent
+                        Content = DefaultJsonSerializer.SerializeToElement(new MemberEvent
                         {
                             MemberShip = MembershipStates.Leave
                         }),
@@ -499,7 +499,7 @@ internal sealed class EventSaver : IEventSaver
                     foundKnock = true;
                     newStateEvents.Add(new StrippedStateEvent
                     {
-                        Content = JsonSerializer.SerializeToElement(new MemberEvent
+                        Content = DefaultJsonSerializer.SerializeToElement(new MemberEvent
                         {
                             MemberShip = MembershipStates.Leave
                         }),

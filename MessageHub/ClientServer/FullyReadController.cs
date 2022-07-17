@@ -1,4 +1,3 @@
-using System.Text.Json;
 using MessageHub.Authentication;
 using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
@@ -6,6 +5,7 @@ using MessageHub.HomeServer.Events.General;
 using MessageHub.HomeServer.Notifiers;
 using MessageHub.HomeServer.Remote;
 using MessageHub.HomeServer.Rooms;
+using MessageHub.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -63,7 +63,7 @@ public class FullyReadController : ControllerBase
         await accountData.SaveAccountDataAsync(
             roomId,
             FullyReadEvent.EventType,
-            JsonSerializer.SerializeToElement(fullyReadContent));
+            DefaultJsonSerializer.SerializeToElement(fullyReadContent));
 
         // Send read receipt.
         if (requestBody.Read is not null)

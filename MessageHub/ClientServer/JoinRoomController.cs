@@ -1,11 +1,11 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.Authentication;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Events.Room;
 using MessageHub.HomeServer.Remote;
 using MessageHub.HomeServer.Rooms.Timeline;
+using MessageHub.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -89,15 +89,11 @@ public class JoinRoomController : ControllerBase
         }
         string? avatarUrl = await userProfile.GetAvatarUrlAsync(userId.ToString());
         string? displayName = await userProfile.GetDisplayNameAsync(userId.ToString());
-        pdu.Content = JsonSerializer.SerializeToElement(new MemberEvent
+        pdu.Content = DefaultJsonSerializer.SerializeToElement(new MemberEvent
         {
             AvatarUrl = avatarUrl,
             DisplayName = displayName,
             MemberShip = MembershipStates.Join
-        },
-        new JsonSerializerOptions
-        {
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         });
         pdu.OriginServerTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         pdu.RoomId = roomId;

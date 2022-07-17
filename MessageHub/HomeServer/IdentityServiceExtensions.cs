@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Formatting;
+using MessageHub.Serialization;
 
 namespace MessageHub.HomeServer;
 
@@ -41,7 +42,7 @@ public static class IdentityServiceExtensions
             signatures[keyIdentifier] = signatureString;
         }
         jsonObject[nameof(signatures)] = JsonObject.Create(
-            JsonSerializer.SerializeToElement(new Signatures
+            DefaultJsonSerializer.SerializeToElement(new Signatures
             {
                 [identity.Id] = signatures
             }));
@@ -49,7 +50,7 @@ public static class IdentityServiceExtensions
         {
             jsonObject[nameof(unsigned)] = unsigned;
         }
-        return JsonSerializer.SerializeToElement(jsonObject);
+        return DefaultJsonSerializer.SerializeToElement(jsonObject);
     }
 
     public static PersistentDataUnit SignEvent(this IIdentity identity, PersistentDataUnit pdu)

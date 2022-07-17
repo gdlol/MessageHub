@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using MessageHub.HomeServer;
+using MessageHub.Serialization;
 
 namespace MessageHub.Federation.Protocol;
 
@@ -30,10 +31,7 @@ public class SignedRequest
     [JsonPropertyName("signatures")]
     public JsonElement Signatures { get; set; } = default!;
 
-    public JsonElement ToJsonElement() => JsonSerializer.SerializeToElement(this, new JsonSerializerOptions
-    {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    });
+    public JsonElement ToJsonElement() => DefaultJsonSerializer.SerializeToElement(this);
 
     public override string ToString()
     {
