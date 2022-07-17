@@ -10,10 +10,9 @@ It runs locally on your device, finds other nodes through mDNS/DHT, and sends/re
 
 # Quick Start
 :point_right:[Windows Build](#windows-build)
-```
-docker compose up --no-build
-```
-Browse http://127.84.48.1
+
+1. `docker compose up --no-build`
+2. Browse http://127.84.48.1
 
 The default configuration fetches the official [Element](https://element.io/) Matrix client with custom config and serves it along with the home server. You could use other clients with home server URL http://127.84.48.2.
 
