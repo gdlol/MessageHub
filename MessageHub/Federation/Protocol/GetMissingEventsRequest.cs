@@ -1,15 +1,12 @@
-using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 namespace MessageHub.Federation.Protocol;
 
 public class GetMissingEventsRequest
 {
-    [Required]
     [JsonPropertyName("earliest_events")]
     public string[] EarliestEvents { get; set; } = default!;
 
-    [Required]
     [JsonPropertyName("latest_events")]
     public string[] LatestEvents { get; set; } = default!;
 

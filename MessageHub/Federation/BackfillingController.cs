@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.Authentication;
 using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer;
@@ -15,11 +14,6 @@ namespace MessageHub.Federation;
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Federation)]
 public class BackfillingController : ControllerBase
 {
-    private static readonly JsonSerializerOptions ignoreNullOptions = new()
-    {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
-
     private readonly IIdentityService identityService;
     private readonly IRooms rooms;
 

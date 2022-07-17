@@ -1,6 +1,5 @@
-using System.ComponentModel.DataAnnotations;
-using System.Text.Json.Serialization;
 using MessageHub.Authentication;
+using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Notifiers;
 using Microsoft.AspNetCore.Authorization;
@@ -12,20 +11,6 @@ namespace MessageHub.ClientServer;
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
 public class UserProfileController : ControllerBase
 {
-    public class SetAvatarUrlRequest
-    {
-        [Required]
-        [JsonPropertyName("avatar_url")]
-        public string AvatarUrl { get; set; } = default!;
-    }
-
-    public class SetDisplayNameRequest
-    {
-        [Required]
-        [JsonPropertyName("displayname")]
-        public string DisplayName { get; set; } = default!;
-    }
-
     private readonly IIdentityService identityService;
     private readonly IUserProfile userProfile;
     private readonly UserProfileUpdateNotifier notifier;

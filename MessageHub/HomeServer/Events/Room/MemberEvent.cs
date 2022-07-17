@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 namespace MessageHub.HomeServer.Events.Room;
@@ -24,7 +23,6 @@ public record MemberEvent
     [JsonPropertyName("is_direct")]
     public bool? IsDirect { get; init; }
 
-    [Required]
     [JsonPropertyName("membership")]
     public string MemberShip { get; init; } = default!;
 

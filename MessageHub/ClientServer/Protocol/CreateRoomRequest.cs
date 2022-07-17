@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -6,19 +5,15 @@ namespace MessageHub.ClientServer.Protocol;
 
 public class Invite3pid
 {
-    [Required]
     [JsonPropertyName("address")]
     public string Address { get; set; } = default!;
 
-    [Required]
     [JsonPropertyName("id_access_token")]
     public string IdAccessToken { get; set; } = default!;
 
-    [Required]
     [JsonPropertyName("id_server")]
     public string IdServer { get; set; } = default!;
 
-    [Required]
     [JsonPropertyName("medium")]
     public string Medium { get; set; } = default!;
 }
