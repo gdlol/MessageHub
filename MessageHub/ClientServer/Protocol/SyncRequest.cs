@@ -1,16 +1,10 @@
 using System.Text.Json.Serialization;
+using MessageHub.HomeServer.Events.General;
 
 namespace MessageHub.ClientServer.Protocol;
 
-public class SyncParameters
+public class SyncRequest
 {
-    public static class SetPresenceValues
-    {
-        public const string Offline = "offline";
-        public const string Online = "online";
-        public const string Unavailable = "unavailable";
-    }
-
     [JsonPropertyName("filter")]
     public string? Filter { get; set; }
 
@@ -18,7 +12,7 @@ public class SyncParameters
     public bool FullState { get; set; } = false;
 
     [JsonPropertyName("set_presence")]
-    public string SetPresence { get; set; } = SetPresenceValues.Online;
+    public string SetPresence { get; set; } = PresenceValues.Online;
 
     [JsonPropertyName("since")]
     public string Since { get; set; } = string.Empty;

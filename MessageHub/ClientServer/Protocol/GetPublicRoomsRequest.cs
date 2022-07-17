@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace MessageHub.ClientServer.Protocol;
 
-public class GetPublicRoomsParameters
+public class GetPublicRoomsRequest
 {
     [JsonPropertyName("filter")]
     public JsonElement? Filter { get; set; }

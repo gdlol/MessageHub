@@ -82,10 +82,11 @@ internal class KeyValueStore
     private readonly FasterKVSettings<ReadOnlyMemory<byte>, Memory<byte>> settings;
     private readonly FasterKV<ReadOnlyMemory<byte>, Memory<byte>> fasterKV;
 
-    public KeyValueStore(string path)
+    public KeyValueStore(string name, FasterStorageConfig config)
     {
-        ArgumentNullException.ThrowIfNull(path);
+        ArgumentNullException.ThrowIfNull(config);
 
+        var path = Path.Combine(config.DataPath, name);
         device = Devices.CreateLogDevice(path);
         settings = new FasterKVSettings<ReadOnlyMemory<byte>, Memory<byte>>(path)
         {
@@ -94,6 +95,16 @@ internal class KeyValueStore
             TryRecoverLatest = true,
             ReadCacheEnabled = true
         };
+        if (config.PageSize is long pageSize)
+        {
+            settings.PageSize = pageSize;
+            settings.ReadCachePageSize = pageSize;
+        }
+        if (config.PageCount is int pageCount)
+        {
+            settings.MemorySize = settings.PageSize * pageCount;
+            settings.ReadCacheMemorySize = settings.ReadCachePageSize * pageCount;
+        }
         fasterKV = new FasterKV<ReadOnlyMemory<byte>, Memory<byte>>(settings);
     }
 

@@ -58,6 +58,8 @@ public sealed class UserRegistration : IUserRegistration, IDisposable
         {
             ListenAddress = $"{address}:80",
             PrivateNetworkSecret = config.PrivateNetworkSecret,
+            FasterKVPageSize = 4096,
+            FasterKVPageCount = 16,
             LoggerProvider = new PrefixedLoggerProvider(config.ConsoleLoggerProvider, $"{userName}: "),
             Configure = services =>
             {

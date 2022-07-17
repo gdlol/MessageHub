@@ -1,7 +1,7 @@
-using System.Text.Json;
 using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events.General;
+using MessageHub.Serialization;
 
 namespace MessageHub.ClientServer.Sync;
 using UserReceipts = Dictionary<string, ReadReceiptMetadata>;
@@ -56,7 +56,7 @@ public class EphemeralLoader
             {
                 new Event
                 {
-                    Content = JsonSerializer.SerializeToElement(content),
+                    Content = DefaultJsonSerializer.SerializeToElement(content),
                     EventType = ReceiptEvent.EventType
                 }
             }

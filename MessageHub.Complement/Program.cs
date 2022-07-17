@@ -6,6 +6,7 @@ using MessageHub.Complement;
 using MessageHub.Complement.DependencyInjection;
 using MessageHub.Complement.Logging;
 using MessageHub.DependencyInjection;
+using MessageHub.HomeServer.P2p.FasterKV;
 using Microsoft.AspNetCore.Mvc;
 
 [assembly: ApiController]
@@ -59,7 +60,12 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
     });
 builder.Services.AddSingleton(config);
-builder.Services.AddFasterKV(config.DataPath);
+builder.Services.AddFasterKV(new FasterStorageConfig
+{
+    DataPath = Path.Combine(config.DataPath, "FasterKV"),
+    PageSize = 4096,
+    PageCount = 16,
+});
 builder.Services.AddComplementHomeServer();
 
 var app = builder.Build();

@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using MessageHub.DependencyInjection;
 using MessageHub.HomeServer.P2p;
+using MessageHub.HomeServer.P2p.FasterKV;
 using MessageHub.HomeServer.P2p.Libp2p;
 using Microsoft.AspNetCore.Mvc;
 
@@ -40,7 +41,12 @@ public class Program
             config.Configure(builder.Services);
         }
         builder.Services.AddCors();
-        builder.Services.AddFasterKV(config.DataPath);
+        builder.Services.AddFasterKV(new FasterStorageConfig
+        {
+            DataPath = Path.Combine(config.DataPath, "FasterKV"),
+            PageSize = config.FasterKVPageSize,
+            PageCount = config.FasterKVPageCount
+        });
         builder.Services.AddLibp2p(
             new HostConfig
             {

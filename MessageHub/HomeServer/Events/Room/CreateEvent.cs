@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 namespace MessageHub.HomeServer.Events.Room;
@@ -6,7 +5,6 @@ namespace MessageHub.HomeServer.Events.Room;
 [EventType(EventTypes.Create)]
 public class CreateEvent
 {
-    [Required]
     [JsonPropertyName("creator")]
     public string Creator { get; init; } = default!;
 

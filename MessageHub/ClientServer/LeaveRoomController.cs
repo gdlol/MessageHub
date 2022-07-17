@@ -1,6 +1,5 @@
 using System.Collections.Immutable;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.Authentication;
 using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
@@ -9,6 +8,7 @@ using MessageHub.HomeServer.Events.Room;
 using MessageHub.HomeServer.Remote;
 using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Rooms.Timeline;
+using MessageHub.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,11 +18,6 @@ namespace MessageHub.ClientServer;
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
 public class LeaveRoomController : ControllerBase
 {
-    private static readonly JsonSerializerOptions ignoreNullOptions = new()
-    {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
-
     private readonly ILogger logger;
     private readonly IIdentityService identityService;
     private readonly IRooms rooms;
@@ -63,12 +58,14 @@ public class LeaveRoomController : ControllerBase
     {
         logger.LogInformation("Forgetting {}...", roomId);
         var batchStates = await timelineLoader.LoadBatchStatesAsync(id => id == roomId, true);
-        if (!batchStates.LeftRoomIds.Contains(roomId))
+        if (batchStates.LeftRoomIds.Contains(roomId))
+        {
+            await eventSaver.ForgetAsync(roomId);
+        }
+        else
         {
             logger.LogWarning("Room id not found in left rooms: {}", roomId);
-            return BadRequest(MatrixError.Create(MatrixErrorCode.Unknown));
         }
-        await eventSaver.ForgetAsync(roomId);
         return new JsonResult(new object());
     }
 
@@ -139,13 +136,9 @@ public class LeaveRoomController : ControllerBase
                 return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(destination)}: {destination}"));
             }
 
-            pdu.Content = JsonSerializer.SerializeToElement(new MemberEvent
+            pdu.Content = DefaultJsonSerializer.SerializeToElement(new MemberEvent
             {
                 MemberShip = MembershipStates.Leave
-            },
-            new JsonSerializerOptions
-            {
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
             });
             pdu.OriginServerTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             pdu.RoomId = roomId;
@@ -192,13 +185,9 @@ public class LeaveRoomController : ControllerBase
                 }
             }
 
-            var leaveContent = JsonSerializer.SerializeToElement(new MemberEvent
+            var leaveContent = DefaultJsonSerializer.SerializeToElement(new MemberEvent
             {
                 MemberShip = MembershipStates.Leave
-            },
-            new JsonSerializerOptions
-            {
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
             });
             var eventAuthorizer = new EventAuthorizer(snapshot.StateContents);
             if (!eventAuthorizer.Authorize(
@@ -272,7 +261,7 @@ public class LeaveRoomController : ControllerBase
 
     [Route("rooms/{roomId}/kick")]
     [HttpPost]
-    public async Task<IActionResult> Kick([FromRoute] string roomId, [FromBody] KickParameters parameters)
+    public async Task<IActionResult> Kick([FromRoute] string roomId, [FromBody] KickRequest request)
     {
         string? userId = Request.HttpContext.User.Identity?.Name;
         if (userId is null)
@@ -280,11 +269,11 @@ public class LeaveRoomController : ControllerBase
             throw new InvalidOperationException();
         }
         var sender = UserIdentifier.Parse(userId);
-        if (!UserIdentifier.TryParse(parameters.UserId, out var target) || target == sender)
+        if (!UserIdentifier.TryParse(request.UserId, out var target) || target == sender)
         {
             return BadRequest(MatrixError.Create(
                 MatrixErrorCode.InvalidParameter,
-                $"{nameof(parameters.UserId)}: {parameters.UserId}"));
+                $"{nameof(request.UserId)}: {request.UserId}"));
         }
         if (!rooms.HasRoom(roomId))
         {
@@ -294,11 +283,11 @@ public class LeaveRoomController : ControllerBase
 
         var snapshot = await rooms.GetRoomSnapshotAsync(roomId);
         var authorizer = new EventAuthorizer(snapshot.StateContents);
-        var content = JsonSerializer.SerializeToElement(new MemberEvent
+        var content = DefaultJsonSerializer.SerializeToElement(new MemberEvent
         {
             MemberShip = MembershipStates.Leave,
-            Reason = parameters.Reason
-        }, ignoreNullOptions);
+            Reason = request.Reason
+        });
         if (!authorizer.Authorize(EventTypes.Member, target.ToString(), sender, content))
         {
             return Unauthorized(MatrixError.Create(MatrixErrorCode.Unauthorized));

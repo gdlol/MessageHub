@@ -1,10 +1,9 @@
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.Federation;
 using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Events.General;
 using MessageHub.HomeServer.Remote;
+using MessageHub.Serialization;
 
 namespace MessageHub.HomeServer.P2p.Remote;
 
@@ -29,7 +28,7 @@ public class EventPublisher : IEventPublisher
     {
         var identity = identityService.GetSelfIdentity();
         string txnId = Guid.NewGuid().ToString();
-        var parameters = new PushMessagesRequest
+        var request = new PushMessagesRequest
         {
             Origin = identity.Id,
             OriginServerTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
@@ -43,43 +42,43 @@ public class EventPublisher : IEventPublisher
             edus.Add(new EphemeralDataUnit
             {
                 EventType = PresenceEvent.EventType,
-                Content = JsonSerializer.SerializeToElement(new PresenceUpdate
+                Content = DefaultJsonSerializer.SerializeToElement(new PresenceUpdate
                 {
                     Push = new[]
                     {
                         UserPresenceUpdate.Create(pdu.Sender, presenceStatus)
                     }
-                }, new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull })
+                })
             });
         }
         if (edus.Count > 0)
         {
-            parameters.Edus = edus.ToArray();
+            request.Edus = edus.ToArray();
         }
-        var request = identity.SignRequest(
+        var signedRequest = identity.SignRequest(
             destination: pdu.RoomId,
             requestMethod: HttpMethods.Put,
             requestTarget: $"/_matrix/federation/v1/send/{txnId}",
-            content: parameters);
-        await requestHandler.SendRequest(request);
+            content: request);
+        await requestHandler.SendRequest(signedRequest);
     }
 
     public async Task PublishAsync(string roomId, EphemeralDataUnit edu)
     {
         var identity = identityService.GetSelfIdentity();
         string txnId = Guid.NewGuid().ToString();
-        var parameters = new PushMessagesRequest
+        var request = new PushMessagesRequest
         {
             Origin = identity.Id,
             OriginServerTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             Pdus = Array.Empty<PersistentDataUnit>(),
             Edus = new[] { edu }
         };
-        var request = identity.SignRequest(
+        var signedRequest = identity.SignRequest(
             destination: roomId,
             requestMethod: HttpMethods.Put,
             requestTarget: $"/_matrix/federation/v1/send/{txnId}",
-            content: parameters);
-        await requestHandler.SendRequest(request);
+            content: request);
+        await requestHandler.SendRequest(signedRequest);
     }
 }

@@ -35,11 +35,11 @@ public class InviteController : ControllerBase
     public async Task<IActionResult> Invite(
         [FromRoute] string roomId,
         [FromRoute] string eventId,
-        [FromBody] InviteParameters parameters)
+        [FromBody] InviteRequest request)
     {
         var identity = identityService.GetSelfIdentity();
-        SignedRequest request = (SignedRequest)Request.HttpContext.Items[nameof(request)]!;
-        var pdu = parameters.Event;
+        var signedRequest = Request.HttpContext.GetSignedRequest();
+        var pdu = request.Event;
         if (string.IsNullOrEmpty(roomId) || roomId != pdu.RoomId)
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(roomId)));
@@ -61,7 +61,7 @@ public class InviteController : ControllerBase
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(pdu.StateKey)));
         }
-        var userIdentifier = UserIdentifier.FromId(request.Origin);
+        var userIdentifier = UserIdentifier.FromId(signedRequest.Origin);
         if (userIdentifier.ToString() != pdu.Sender)
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(pdu.Sender)));
@@ -78,7 +78,7 @@ public class InviteController : ControllerBase
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(pdu.Content)));
         }
-        await eventSaver.SaveInviteAsync(roomId, parameters.InviteRoomState);
+        await eventSaver.SaveInviteAsync(roomId, request.InviteRoomState);
 
         var signedEvent = identity.SignEvent(pdu);
         return new JsonResult(new Dictionary<string, object>

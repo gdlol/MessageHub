@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using MessageHub.HomeServer.Events;
@@ -19,7 +18,6 @@ public class Event
     [JsonPropertyName("sender")]
     public string? Sender { get; set; }
 
-    [Required]
     [JsonPropertyName("type")]
     public string EventType { get; set; } = default!;
 }
@@ -56,7 +54,6 @@ public class RoomSummary
 
 public class Timeline
 {
-    [Required]
     [JsonPropertyName("events")]
     public ClientEventWithoutRoomID[] Events { get; set; } = default!;
 
@@ -177,7 +174,6 @@ public class SyncResponse
     [JsonPropertyName("device_unused_fallback_key_types")]
     public string[]? DeviceUnusedFallbackKeyAlgorithms { get; set; }
 
-    [Required]
     [JsonPropertyName("next_batch")]
     public string NextBatch { get; set; } = default!;
 

@@ -6,7 +6,7 @@ namespace MessageHub.HomeServer.Remote;
 
 public interface IRemoteRooms
 {
-    Task InviteAsync(string roomId, string eventId, InviteParameters parameters);
+    Task InviteAsync(string roomId, string eventId, InviteRequest request);
     Task<PersistentDataUnit> MakeJoinAsync(string destination, string roomId, string userId);
     Task SendJoinAsync(string destination, string roomId, string userId, JsonElement pdu);
     Task<PersistentDataUnit> MakeLeaveAsync(string destination, string roomId, string userId);

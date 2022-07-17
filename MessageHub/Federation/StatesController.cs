@@ -39,7 +39,7 @@ public class StatesController : ControllerBase
         [FromRoute] string roomId,
         [FromQuery(Name = "event_id")] string? eventId)
     {
-        SignedRequest request = (SignedRequest)Request.HttpContext.Items[nameof(request)]!;
+        var request = Request.HttpContext.GetSignedRequest();
         if (!rooms.HasRoom(roomId))
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));
@@ -79,7 +79,7 @@ public class StatesController : ControllerBase
         [FromRoute] string roomId,
         [FromQuery(Name = "event_id")] string? eventId)
     {
-        SignedRequest request = (SignedRequest)Request.HttpContext.Items[nameof(request)]!;
+        var request = Request.HttpContext.GetSignedRequest();
         if (!rooms.HasRoom(roomId))
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));

@@ -1,9 +1,9 @@
 using System.Net;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.P2p.Libp2p.Native;
+using MessageHub.Serialization;
 
 namespace MessageHub.HomeServer.P2p.Libp2p;
 
@@ -52,11 +52,7 @@ public sealed class Host : IDisposable
     {
         ArgumentNullException.ThrowIfNull(config);
 
-        var options = new JsonSerializerOptions
-        {
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-        };
-        using var configJson = StringHandle.FromUtf8Bytes(JsonSerializer.SerializeToUtf8Bytes(config, options));
+        using var configJson = StringHandle.FromUtf8Bytes(DefaultJsonSerializer.SerializeToUtf8Bytes(config));
         using var error = NativeMethods.CreateHost(configJson, out var handle);
         LibP2pException.Check(error);
         return new Host(handle);
@@ -186,7 +182,7 @@ public sealed class Host : IDisposable
             Origin = "dummy",
             Destination = peerId,
             ServerKeys = new ServerKeys { ServerName = "dummy" },
-            Signatures = JsonSerializer.SerializeToElement(new Signatures
+            Signatures = DefaultJsonSerializer.SerializeToElement(new Signatures
             {
                 ["dummy"] = new ServerSignatures
                 {

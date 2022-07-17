@@ -4,6 +4,7 @@ using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Rooms;
+using MessageHub.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -32,7 +33,7 @@ public class TransactionsController : ControllerBase
         [FromRoute(Name = "txnId")] string _,
         [FromBody] PushMessagesRequest requestBody)
     {
-        SignedRequest request = (SignedRequest)Request.HttpContext.Items[nameof(request)]!;
+        var request = Request.HttpContext.GetSignedRequest();
         var pdus = new List<PersistentDataUnit>();
         foreach (var pdu in requestBody.Pdus)
         {
@@ -62,6 +63,6 @@ public class TransactionsController : ControllerBase
             var sender = UserIdentifier.FromId(request.Origin);
             await eventReceiver.ReceiveEphemeralEventsAsync(sender, requestBody.Edus);
         }
-        return JsonSerializer.SerializeToElement(response);
+        return DefaultJsonSerializer.SerializeToElement(response);
     }
 }

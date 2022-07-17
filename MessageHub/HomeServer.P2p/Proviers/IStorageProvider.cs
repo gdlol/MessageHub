@@ -1,6 +1,6 @@
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
+using MessageHub.Serialization;
 
 namespace MessageHub.HomeServer.P2p.Providers;
 
@@ -57,10 +57,7 @@ public interface IKeyValueStore : IDisposable
     {
         ArgumentNullException.ThrowIfNull(key);
 
-        await PutAsync(key, JsonSerializer.SerializeToUtf8Bytes(value, new JsonSerializerOptions
-        {
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-        }));
+        await PutAsync(key, DefaultJsonSerializer.SerializeToUtf8Bytes(value));
     }
 }
 

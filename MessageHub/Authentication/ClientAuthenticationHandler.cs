@@ -55,7 +55,7 @@ public class ClientAuthenticationHandler : AuthenticationHandler<ClientAuthentic
                 var error = MatrixError.Create(MatrixErrorCode.UnknownToken);
                 return AuthenticateResult.Fail(error.ToString());
             }
-            Request.HttpContext.Items[nameof(token)] = token;
+            Request.HttpContext.SetAccessToken(token);
             var claims = new[] { new Claim(ClaimTypes.Name, userId) };
             var claimsIdentity = new ClaimsIdentity(claims, MatrixAuthenticationSchemes.Client);
             var ticket = new AuthenticationTicket(new ClaimsPrincipal(claimsIdentity), Scheme.Name);

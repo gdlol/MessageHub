@@ -1,6 +1,5 @@
 using System.Collections.Immutable;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.Authentication;
 using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
@@ -9,6 +8,7 @@ using MessageHub.HomeServer.Events.Room;
 using MessageHub.HomeServer.Remote;
 using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Rooms.Timeline;
+using MessageHub.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,17 +18,15 @@ namespace MessageHub.ClientServer;
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
 public class CreateRoomController : ControllerBase
 {
-    private static readonly JsonSerializerOptions ignoreNullOptions = new()
-    {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
-
     private readonly ILogger logger;
     private readonly IIdentityService identityService;
     private readonly IUserProfile userProfile;
     private readonly IUserDiscoveryService userDiscoveryService;
     private readonly IAccountData accountData;
     private readonly IEventSaver eventSaver;
+    private readonly IRemoteRooms remoteRooms;
+    private readonly IEventPublisher eventPublisher;
+    private readonly IRoomDiscoveryService roomDiscoveryService;
 
     public CreateRoomController(
         ILogger<CreateRoomController> logger,
@@ -36,14 +34,20 @@ public class CreateRoomController : ControllerBase
         IUserProfile userProfile,
         IUserDiscoveryService userDiscoveryService,
         IAccountData accountData,
-        IEventSaver eventSaver)
+        IEventSaver eventSaver,
+        IRemoteRooms remoteRooms,
+        IEventPublisher eventPublisher,
+        IRoomDiscoveryService roomDiscoveryService)
     {
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(identityService);
         ArgumentNullException.ThrowIfNull(userProfile);
         ArgumentNullException.ThrowIfNull(userDiscoveryService);
-        ArgumentNullException.ThrowIfNull(eventSaver);
         ArgumentNullException.ThrowIfNull(accountData);
+        ArgumentNullException.ThrowIfNull(eventSaver);
+        ArgumentNullException.ThrowIfNull(remoteRooms);
+        ArgumentNullException.ThrowIfNull(eventPublisher);
+        ArgumentNullException.ThrowIfNull(roomDiscoveryService);
 
         this.logger = logger;
         this.identityService = identityService;
@@ -51,6 +55,9 @@ public class CreateRoomController : ControllerBase
         this.userDiscoveryService = userDiscoveryService;
         this.accountData = accountData;
         this.eventSaver = eventSaver;
+        this.remoteRooms = remoteRooms;
+        this.eventPublisher = eventPublisher;
+        this.roomDiscoveryService = roomDiscoveryService;
     }
 
     private static JsonElement GetRoomCreateContent(string userId, JsonElement? creationContent, string? _)
@@ -63,22 +70,22 @@ public class CreateRoomController : ControllerBase
                 Creator = userId,
                 RoomVersion = "9"
             };
-            result = JsonSerializer.SerializeToElement(content, ignoreNullOptions);
+            result = DefaultJsonSerializer.SerializeToElement(content);
         }
         else
         {
             var content = creationContent.Value.Deserialize<Dictionary<string, object>>()!;
             content["creator"] = userId;
             content["room_version"] = "9";
-            result = JsonSerializer.SerializeToElement(content, ignoreNullOptions);
+            result = DefaultJsonSerializer.SerializeToElement(content);
         }
         return result;
     }
 
-    private static JsonElement GetPowerLevelContent(string userId, CreateRoomParameters parameters)
+    private static JsonElement GetPowerLevelContent(string userId, CreateRoomRequest request)
     {
         PowerLevelsEvent powerLevelContent;
-        if (parameters.IsDirect == true && parameters.Invite is string[] inviteIds)
+        if (request.IsDirect == true && request.Invite is string[] inviteIds)
         {
             powerLevelContent = new PowerLevelsEvent
             {
@@ -95,16 +102,16 @@ public class CreateRoomController : ControllerBase
                 }.ToImmutableDictionary()
             };
         }
-        if (parameters.PowerLevelContentOverride is null)
+        if (request.PowerLevelContentOverride is null)
         {
-            return JsonSerializer.SerializeToElement(powerLevelContent, ignoreNullOptions);
+            return DefaultJsonSerializer.SerializeToElement(powerLevelContent);
         }
         else
         {
-            var propertyMapping = JsonSerializer
-                .SerializeToElement(powerLevelContent, ignoreNullOptions)
+            var propertyMapping = DefaultJsonSerializer
+                .SerializeToElement(powerLevelContent)
                 .Deserialize<Dictionary<string, JsonElement>>()!;
-            var overwriteMapping = parameters.PowerLevelContentOverride.Value
+            var overwriteMapping = request.PowerLevelContentOverride.Value
                 .Deserialize<Dictionary<string, JsonElement>>()!;
             var overwriteKeys = new List<string>();
             foreach (var (key, value) in propertyMapping)
@@ -119,17 +126,13 @@ public class CreateRoomController : ControllerBase
             {
                 propertyMapping[key] = overwriteMapping[key];
             }
-            return JsonSerializer.SerializeToElement(propertyMapping, ignoreNullOptions);
+            return DefaultJsonSerializer.SerializeToElement(propertyMapping);
         }
     }
 
     [Route("createRoom")]
     [HttpPost]
-    public async Task<IActionResult> CreateRoom(
-        [FromBody] CreateRoomParameters parameters,
-        [FromServices] IRemoteRooms remoteRooms,
-        [FromServices] IEventPublisher eventPublisher,
-        [FromServices] IRoomDiscoveryService roomDiscoveryService)
+    public async Task<IActionResult> CreateRoom([FromBody] CreateRoomRequest request)
     {
         string? userId = Request.HttpContext.User.Identity?.Name;
         if (userId is null)
@@ -137,31 +140,31 @@ public class CreateRoomController : ControllerBase
             throw new InvalidOperationException();
         }
         var senderId = UserIdentifier.Parse(userId);
-        if (parameters is null)
+        if (request is null)
         {
             return new JsonResult(MatrixError.Create(MatrixErrorCode.MissingParameter));
         }
-        if (parameters.CreationContent is not null
-            && parameters.CreationContent.Value.ValueKind != JsonValueKind.Object)
+        if (request.CreationContent is not null
+            && request.CreationContent.Value.ValueKind != JsonValueKind.Object)
         {
             return new JsonResult(
                 MatrixError.Create(
                     MatrixErrorCode.InvalidParameter,
-                    $"{nameof(parameters.CreationContent)}: {parameters.CreationContent}"));
+                    $"{nameof(request.CreationContent)}: {request.CreationContent}"));
         }
-        var roomCreateEventContent = GetRoomCreateContent(userId, parameters.CreationContent, parameters.RoomVersion);
-        if (parameters.PowerLevelContentOverride is not null)
+        var roomCreateEventContent = GetRoomCreateContent(userId, request.CreationContent, request.RoomVersion);
+        if (request.PowerLevelContentOverride is not null)
         {
             try
             {
-                parameters.PowerLevelContentOverride.Value.Deserialize<PowerLevelsEvent>();
+                request.PowerLevelContentOverride.Value.Deserialize<PowerLevelsEvent>();
             }
             catch (Exception)
             {
                 return new JsonResult(
                     MatrixError.Create(
                         MatrixErrorCode.InvalidParameter,
-                        $"{nameof(parameters.PowerLevelContentOverride)}: {parameters.PowerLevelContentOverride}"));
+                        $"{nameof(request.PowerLevelContentOverride)}: {request.PowerLevelContentOverride}"));
             }
         }
         var identity = identityService.GetSelfIdentity();
@@ -205,18 +208,17 @@ public class CreateRoomController : ControllerBase
             stateKey: userId,
             serverKeys: serverKeys,
             sender: senderId,
-            content: JsonSerializer.SerializeToElement(new MemberEvent
+            content: DefaultJsonSerializer.SerializeToElement(new MemberEvent
             {
                 AvatarUrl = avatarUrl,
                 DisplayName = displayName,
                 MemberShip = MembershipStates.Join
-            },
-            ignoreNullOptions),
+            }),
             timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
         AddEvent(pdu, roomSnapshot.States);
 
         // Set power levels.
-        var powerLevelContent = GetPowerLevelContent(userId, parameters);
+        var powerLevelContent = GetPowerLevelContent(userId, request);
         (roomSnapshot, pdu) = EventCreation.CreateEvent(
             roomId: roomId,
             snapshot: roomSnapshot,
@@ -229,7 +231,7 @@ public class CreateRoomController : ControllerBase
         AddEvent(pdu, roomSnapshot.States);
 
         // Set alias.
-        if (parameters.RoomAliasName is string alias)
+        if (request.RoomAliasName is string alias)
         {
             var roomAlias = new RoomAlias(alias, identity.Id);
             (roomSnapshot, pdu) = EventCreation.CreateEvent(
@@ -239,16 +241,15 @@ public class CreateRoomController : ControllerBase
                 stateKey: string.Empty,
                 serverKeys: serverKeys,
                 sender: senderId,
-                content: JsonSerializer.SerializeToElement(
-                    new CanonicalAliasEvent { Alias = roomAlias.ToString() },
-                    ignoreNullOptions),
+                content: DefaultJsonSerializer.SerializeToElement(
+                    new CanonicalAliasEvent { Alias = roomAlias.ToString() }),
                 timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
             AddEvent(pdu, roomSnapshot.States);
             await roomDiscoveryService.SetRoomAliasAsync(roomId, roomAlias.ToString());
         }
 
         // Presets.
-        if (parameters.Preset is string preset)
+        if (request.Preset is string preset)
         {
             JoinRulesEvent? joinRulesContent = null;
             HistoryVisibilityEvent? historyVisibilityContent = null;
@@ -277,7 +278,7 @@ public class CreateRoomController : ControllerBase
                     stateKey: string.Empty,
                     serverKeys: serverKeys,
                     sender: senderId,
-                    content: JsonSerializer.SerializeToElement(joinRulesContent, ignoreNullOptions),
+                    content: DefaultJsonSerializer.SerializeToElement(joinRulesContent),
                     timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
                 AddEvent(pdu, roomSnapshot.States);
             }
@@ -290,16 +291,16 @@ public class CreateRoomController : ControllerBase
                     stateKey: string.Empty,
                     serverKeys: serverKeys,
                     sender: senderId,
-                    content: JsonSerializer.SerializeToElement(historyVisibilityContent, ignoreNullOptions),
+                    content: DefaultJsonSerializer.SerializeToElement(historyVisibilityContent),
                     timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
                 AddEvent(pdu, roomSnapshot.States);
             }
         }
 
         // Initial state events.
-        if (parameters.InitialState is not null)
+        if (request.InitialState is not null)
         {
-            foreach (var stateEvent in parameters.InitialState)
+            foreach (var stateEvent in request.InitialState)
             {
                 (roomSnapshot, pdu) = EventCreation.CreateEvent(
                     roomId: roomId,
@@ -315,7 +316,7 @@ public class CreateRoomController : ControllerBase
         }
 
         // Room name.
-        if (parameters.Name is string name)
+        if (request.Name is string name)
         {
             (roomSnapshot, pdu) = EventCreation.CreateEvent(
                 roomId: roomId,
@@ -324,15 +325,13 @@ public class CreateRoomController : ControllerBase
                 stateKey: string.Empty,
                 serverKeys: serverKeys,
                 sender: senderId,
-                content: JsonSerializer.SerializeToElement(
-                    new NameEvent { Name = name },
-                    ignoreNullOptions),
+                content: DefaultJsonSerializer.SerializeToElement(new NameEvent { Name = name }),
                 timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
             AddEvent(pdu, roomSnapshot.States);
         }
 
         // Topic.
-        if (parameters.Topic is string topic)
+        if (request.Topic is string topic)
         {
             (roomSnapshot, pdu) = EventCreation.CreateEvent(
                 roomId: roomId,
@@ -341,9 +340,7 @@ public class CreateRoomController : ControllerBase
                 stateKey: string.Empty,
                 serverKeys: serverKeys,
                 sender: senderId,
-                content: JsonSerializer.SerializeToElement(
-                    new TopicEvent { Topic = topic },
-                    ignoreNullOptions),
+                content: DefaultJsonSerializer.SerializeToElement(new TopicEvent { Topic = topic }),
                 timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
             AddEvent(pdu, roomSnapshot.States);
         }
@@ -351,7 +348,7 @@ public class CreateRoomController : ControllerBase
         await eventSaver.SaveBatchAsync(roomId, eventIds, events, statesMap);
 
         // Invites.
-        if (parameters.Invite is string[] userIds)
+        if (request.Invite is string[] userIds)
         {
             foreach (var invitedId in userIds)
             {
@@ -373,15 +370,13 @@ public class CreateRoomController : ControllerBase
                     stateKey: invitedId,
                     serverKeys: serverKeys,
                     sender: senderId,
-                    content: JsonSerializer.SerializeToElement(
-                        new MemberEvent
-                        {
-                            AvatarUrl = avatarUrl,
-                            DisplayName = displayName,
-                            IsDirect = parameters.IsDirect,
-                            MemberShip = MembershipStates.Invite
-                        },
-                        ignoreNullOptions),
+                    content: DefaultJsonSerializer.SerializeToElement(new MemberEvent
+                    {
+                        AvatarUrl = avatarUrl,
+                        DisplayName = displayName,
+                        IsDirect = request.IsDirect,
+                        MemberShip = MembershipStates.Invite
+                    }),
                     timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
                 pdu = identity.SignEvent(pdu);
                 string eventId = EventHash.GetEventId(pdu);
@@ -401,14 +396,14 @@ public class CreateRoomController : ControllerBase
                     Sender = pdu.Sender,
                     StateKey = pdu.StateKey!
                 });
-                var remoteInviteParameters = new Federation.Protocol.InviteParameters
+                var remoteInviteRequest = new Federation.Protocol.InviteRequest
                 {
                     Event = pdu,
                     InviteRoomState = inviteRoomState.ToArray(),
                     RoomVersion = 9
                 };
                 logger.LogInformation("Sending invite to {}...", invitedId);
-                await remoteRooms.InviteAsync(roomId, eventId, remoteInviteParameters);
+                await remoteRooms.InviteAsync(roomId, eventId, remoteInviteRequest);
                 var signedPdu = identity.SignEvent(pdu);
                 await eventSaver.SaveAsync(roomId, eventId, pdu, roomSnapshot.States);
                 await eventPublisher.PublishAsync(pdu);
@@ -416,9 +411,9 @@ public class CreateRoomController : ControllerBase
         }
 
         // Set visibility.
-        if (parameters.Visibility is not null)
+        if (request.Visibility is not null)
         {
-            await accountData.SetRoomVisibilityAsync(roomId, parameters.Visibility);
+            await accountData.SetRoomVisibilityAsync(roomId, request.Visibility);
         }
 
         return new JsonResult(new { room_id = roomId });

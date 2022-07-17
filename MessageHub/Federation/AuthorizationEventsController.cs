@@ -49,7 +49,7 @@ public class AuthorizationEventsController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAuthorizationEvents(string roomId, string eventId)
     {
-        SignedRequest request = (SignedRequest)Request.HttpContext.Items[nameof(request)]!;
+        var request = Request.HttpContext.GetSignedRequest();
         if (!rooms.HasRoom(roomId))
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));

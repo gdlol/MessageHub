@@ -1,19 +1,13 @@
-using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Text.Json.Serialization;
 using MessageHub.HomeServer.Formatting;
 using MessageHub.HomeServer.P2p.Libp2p;
+using MessageHub.Serialization;
 using NSec.Cryptography;
 
 namespace MessageHub.HomeServer.P2p.LocalIdentity;
 
 public class LocalIdentityService : IIdentityService
 {
-    private static readonly JsonSerializerOptions ignoreNullOptions = new()
-    {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
-
     private LocalIdentity? selfIdentity;
 
     public bool HasSelfIdentity => selfIdentity is not null;
@@ -47,7 +41,7 @@ public class LocalIdentityService : IIdentityService
             return null;
         }
         var signatureData = UnpaddedBase64Encoder.DecodeBytes(signature);
-        var element = JsonSerializer.SerializeToElement(serverKeys, ignoreNullOptions);
+        var element = DefaultJsonSerializer.SerializeToElement(serverKeys);
         var jsonObject = JsonObject.Create(element);
         if (jsonObject is null)
         {

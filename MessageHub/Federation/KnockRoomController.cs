@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.Authentication;
 using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer;
@@ -7,6 +6,7 @@ using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Events.Room;
 using MessageHub.HomeServer.Remote;
 using MessageHub.HomeServer.Rooms;
+using MessageHub.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -43,7 +43,7 @@ public class KnockRoomController : ControllerBase
     public async Task<IActionResult> MakeKnock(string roomId, string userId)
     {
         var identity = identityService.GetSelfIdentity();
-        SignedRequest request = (SignedRequest)Request.HttpContext.Items[nameof(request)]!;
+        var request = Request.HttpContext.GetSignedRequest();
         var senderId = UserIdentifier.FromId(request.Origin);
         if (senderId.ToString() != userId)
         {
@@ -55,9 +55,8 @@ public class KnockRoomController : ControllerBase
         }
         var roomSnapshot = await rooms.GetRoomSnapshotAsync(roomId);
         var eventAuthorizer = new EventAuthorizer(roomSnapshot.StateContents);
-        var knockContent = JsonSerializer.SerializeToElement(
-            new MemberEvent { MemberShip = MembershipStates.Knock },
-            new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull });
+        var knockContent = DefaultJsonSerializer.SerializeToElement(
+            new MemberEvent { MemberShip = MembershipStates.Knock });
         if (!eventAuthorizer.Authorize(
             eventType: EventTypes.Member,
             stateKey: userId,
@@ -95,7 +94,7 @@ public class KnockRoomController : ControllerBase
         [FromRoute] string eventId,
         [FromBody] PersistentDataUnit pdu)
     {
-        SignedRequest request = (SignedRequest)Request.HttpContext.Items[nameof(request)]!;
+        var request = Request.HttpContext.GetSignedRequest();
         var sender = UserIdentifier.FromId(request.Origin);
         if (!rooms.HasRoom(roomId))
         {

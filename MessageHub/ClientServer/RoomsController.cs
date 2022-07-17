@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
 using Microsoft.AspNetCore.Mvc;
@@ -14,11 +13,6 @@ namespace MessageHub.ClientServer;
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
 public class RoomsController : ControllerBase
 {
-    private static readonly JsonSerializerOptions ignoreNullOptions = new()
-    {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
-
     private readonly IRooms rooms;
 
     public RoomsController(IRooms rooms)
@@ -44,7 +38,7 @@ public class RoomsController : ControllerBase
         }
         else
         {
-            return new JsonResult(ClientEvent.FromPersistentDataUnit(pdu), ignoreNullOptions);
+            return new JsonResult(ClientEvent.FromPersistentDataUnit(pdu));
         }
     }
 
@@ -73,7 +67,7 @@ public class RoomsController : ControllerBase
                 }
             }
         }
-        return new JsonResult(new { joined }, ignoreNullOptions);
+        return new JsonResult(new { joined });
     }
 
     [Route("{roomId}/members")]
@@ -129,7 +123,7 @@ public class RoomsController : ControllerBase
                 }
             }
         }
-        return new JsonResult(new { chunk = clientEvents }, ignoreNullOptions);
+        return new JsonResult(new { chunk = clientEvents });
     }
 
     [Route("{roomId}/state")]
@@ -149,7 +143,7 @@ public class RoomsController : ControllerBase
             var clientEvent = ClientEvent.FromPersistentDataUnit(pdu);
             stateEvents.Add(clientEvent);
         }
-        return new JsonResult(stateEvents, ignoreNullOptions);
+        return new JsonResult(stateEvents);
     }
 
     [Route("{roomId}/state/{eventType}/{stateKey?}")]

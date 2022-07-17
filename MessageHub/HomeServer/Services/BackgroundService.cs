@@ -20,7 +20,7 @@ public abstract class BackgroundService
             }
             cts = new CancellationTokenSource();
         }
-        Task.Run(async () =>
+        Task.Factory.StartNew(async () =>
         {
             try
             {
@@ -37,7 +37,7 @@ public abstract class BackgroundService
             {
                 OnError(ex);
             }
-        });
+        }, TaskCreationOptions.LongRunning);
     }
 
     public void Stop()

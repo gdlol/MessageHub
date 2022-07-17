@@ -1,12 +1,11 @@
-using System.ComponentModel.DataAnnotations;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.Authentication;
+using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events.General;
 using MessageHub.HomeServer.Notifiers;
 using MessageHub.HomeServer.Remote;
 using MessageHub.HomeServer.Rooms;
+using MessageHub.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,16 +15,6 @@ namespace MessageHub.ClientServer;
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
 public class FullyReadController : ControllerBase
 {
-    public class SetReadMarkerRequest
-    {
-        [Required]
-        [JsonPropertyName("m.fully_read")]
-        public string FullyRead { get; set; } = default!;
-
-        [JsonPropertyName("m.read")]
-        public string? Read { get; set; }
-    }
-
     private readonly TimelineUpdateNotifier notifier;
     private readonly IRooms rooms;
     private readonly IAccountData accountData;
@@ -74,7 +63,7 @@ public class FullyReadController : ControllerBase
         await accountData.SaveAccountDataAsync(
             roomId,
             FullyReadEvent.EventType,
-            JsonSerializer.SerializeToElement(fullyReadContent));
+            DefaultJsonSerializer.SerializeToElement(fullyReadContent));
 
         // Send read receipt.
         if (requestBody.Read is not null)

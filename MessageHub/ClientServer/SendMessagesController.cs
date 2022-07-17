@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
 using Microsoft.AspNetCore.Mvc;
@@ -10,6 +9,7 @@ using MessageHub.HomeServer.Events.Room;
 using MessageHub.HomeServer.Remote;
 using Microsoft.AspNetCore.Authorization;
 using MessageHub.Authentication;
+using MessageHub.Serialization;
 
 namespace MessageHub.ClientServer;
 
@@ -17,11 +17,6 @@ namespace MessageHub.ClientServer;
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
 public class SendMessagesController : ControllerBase
 {
-    private static readonly JsonSerializerOptions ignoreNullOptions = new()
-    {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
-
     private readonly IIdentityService identityService;
     private readonly IRooms rooms;
     private readonly IEventSaver eventSaver;
@@ -122,12 +117,10 @@ public class SendMessagesController : ControllerBase
             sender: senderId,
             content: body,
             timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-            unsigned: JsonSerializer.SerializeToElement(
-                new UnsignedData
-                {
-                    TransactionId = transactionId
-                },
-                ignoreNullOptions));
+            unsigned: DefaultJsonSerializer.SerializeToElement(new UnsignedData
+            {
+                TransactionId = transactionId
+            }));
         string eventId = EventHash.GetEventId(pdu);
         var signedPdu = identity.SignEvent(pdu);
         await eventSaver.SaveAsync(roomId, eventId, signedPdu, snapshot.States);
@@ -186,12 +179,10 @@ public class SendMessagesController : ControllerBase
             content: body,
             timestamp: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             redacts: eventId,
-            unsigned: JsonSerializer.SerializeToElement(
-                new UnsignedData
-                {
-                    TransactionId = transactionId
-                },
-                ignoreNullOptions));
+            unsigned: DefaultJsonSerializer.SerializeToElement(new UnsignedData
+            {
+                TransactionId = transactionId
+            }));
         string redactEventId = EventHash.GetEventId(pdu);
         var signedPdu = identity.SignEvent(pdu);
         await eventSaver.SaveAsync(roomId, redactEventId, signedPdu, snapshot.States);

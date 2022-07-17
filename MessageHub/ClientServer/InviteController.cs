@@ -1,13 +1,12 @@
-using System.ComponentModel.DataAnnotations;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.Authentication;
+using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Events.Room;
 using MessageHub.HomeServer.Remote;
 using MessageHub.HomeServer.Rooms;
 using MessageHub.HomeServer.Rooms.Timeline;
+using MessageHub.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -17,16 +16,6 @@ namespace MessageHub.ClientServer;
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
 public class InviteController : ControllerBase
 {
-    public class InviteParameters
-    {
-        [JsonPropertyName("reason")]
-        public string? Reason { get; set; }
-
-        [Required]
-        [JsonPropertyName("user_id")]
-        public string UserId { get; set; } = default!;
-    }
-
     private readonly IIdentityService identityService;
     private readonly IRooms rooms;
     private readonly IUserDiscoveryService userDiscoveryService;
@@ -59,7 +48,7 @@ public class InviteController : ControllerBase
 
     [Route("rooms/{roomId}/invite")]
     [HttpPost]
-    public async Task<IActionResult> Invite([FromRoute] string roomId, [FromBody] InviteParameters parameters)
+    public async Task<IActionResult> Invite([FromRoute] string roomId, [FromBody] InviteRequest request)
     {
         if (!rooms.HasRoom(roomId))
         {
@@ -77,7 +66,7 @@ public class InviteController : ControllerBase
         string? displayName;
         try
         {
-            (avatarUrl, displayName) = await userDiscoveryService.GetUserProfileAsync(parameters.UserId, token);
+            (avatarUrl, displayName) = await userDiscoveryService.GetUserProfileAsync(request.UserId, token);
         }
         catch (OperationCanceledException)
         {
@@ -86,19 +75,18 @@ public class InviteController : ControllerBase
                 StatusCode = StatusCodes.Status404NotFound
             };
         }
-        var content = JsonSerializer.SerializeToElement(
+        var content = DefaultJsonSerializer.SerializeToElement(
             new MemberEvent
             {
                 AvatarUrl = avatarUrl,
                 DisplayName = displayName,
                 MemberShip = MembershipStates.Invite,
-                Reason = parameters.Reason
-            },
-            new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull });
+                Reason = request.Reason
+            });
         var eventAuthorizer = new EventAuthorizer(roomSnapshot.StateContents);
         if (!eventAuthorizer.Authorize(
             eventType: EventTypes.Member,
-            stateKey: parameters.UserId,
+            stateKey: request.UserId,
             sender: sender,
             content: content))
         {
@@ -108,7 +96,7 @@ public class InviteController : ControllerBase
             roomId: roomId,
             snapshot: roomSnapshot,
             eventType: EventTypes.Member,
-            stateKey: parameters.UserId,
+            stateKey: request.UserId,
             serverKeys: identity.GetServerKeys(),
             sender: sender,
             content: content,
@@ -125,7 +113,7 @@ public class InviteController : ControllerBase
             Sender = pdu.Sender,
             StateKey = pdu.StateKey!
         })
-        .Where(x => (x.EventType, x.StateKey) != (EventTypes.Member, parameters.UserId))
+        .Where(x => (x.EventType, x.StateKey) != (EventTypes.Member, request.UserId))
         .ToList();
         inviteRoomState.Add(new StrippedStateEvent
         {
@@ -134,13 +122,13 @@ public class InviteController : ControllerBase
             Sender = pdu.Sender,
             StateKey = pdu.StateKey!
         });
-        var remoteInviteParameters = new Federation.Protocol.InviteParameters
+        var remoteInviteRequest = new Federation.Protocol.InviteRequest
         {
             Event = pdu,
             InviteRoomState = inviteRoomState.ToArray(),
             RoomVersion = 9
         };
-        await remoteRooms.InviteAsync(roomId, eventId, remoteInviteParameters);
+        await remoteRooms.InviteAsync(roomId, eventId, remoteInviteRequest);
         await eventSaver.SaveAsync(roomId, eventId, pdu, newSnapshot.States);
         await eventPublisher.PublishAsync(pdu);
         return new JsonResult(new object());

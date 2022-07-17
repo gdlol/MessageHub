@@ -28,30 +28,33 @@ public class PersistentLocalAuthenticator : IAuthenticator
 
     private async ValueTask InitializeAsync()
     {
+        if (isInitialized)
+        {
+            return;
+        }
         locker.WaitOne();
         try
         {
-            if (isInitialized)
+            if (!isInitialized)
             {
-                return;
-            }
-            using var store = storageProvider.GetKeyValueStore(storeName);
-            if (!store.IsEmpty)
-            {
-                using var iterator = store.Iterate();
-                do
+                using var store = storageProvider.GetKeyValueStore(storeName);
+                if (!store.IsEmpty)
                 {
-                    var (deviceId, savedToken) = iterator.CurrentValue;
-                    var result = await authenticator.LogInAsync(deviceId, "loginToken");
-                    if (result is null)
+                    using var iterator = store.Iterate();
+                    do
                     {
-                        throw new InvalidOperationException();
-                    }
-                    tokenMapping[Encoding.UTF8.GetString(savedToken.Span)] = result.Value.accessToken;
-                } while (await iterator.TryMoveAsync());
-            }
+                        var (deviceId, savedToken) = iterator.CurrentValue;
+                        var result = await authenticator.LogInAsync(deviceId, "loginToken");
+                        if (result is null)
+                        {
+                            throw new InvalidOperationException();
+                        }
+                        tokenMapping[Encoding.UTF8.GetString(savedToken.Span)] = result.Value.accessToken;
+                    } while (await iterator.TryMoveAsync());
+                }
 
-            isInitialized = true;
+                isInitialized = true;
+            }
         }
         finally
         {

@@ -1,6 +1,5 @@
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.Authentication;
+using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Notifiers;
 using Microsoft.AspNetCore.Authorization;
@@ -12,30 +11,6 @@ namespace MessageHub.ClientServer;
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
 public class PresenceController : ControllerBase
 {
-    public class GetPresenceResponse
-    {
-        [JsonPropertyName("currently_active")]
-        public bool? CurrentlyActive { get; init; }
-
-        [JsonPropertyName("last_active_ago")]
-        public long? LastActiveAgo { get; init; }
-
-        [JsonPropertyName("presence")]
-        public string Presence { get; init; } = default!;
-
-        [JsonPropertyName("status_msg")]
-        public string? StatusMessage { get; init; }
-    }
-
-    public class SetPresenceParameters
-    {
-        [JsonPropertyName("presence")]
-        public string Presence { get; init; } = default!;
-
-        [JsonPropertyName("status_msg")]
-        public string? StatusMessage { get; init; }
-    }
-
     private readonly ILogger logger;
     private readonly IIdentityService identityService;
     private readonly IUserPresence userPresence;
@@ -73,12 +48,12 @@ public class PresenceController : ControllerBase
             LastActiveAgo = presence.LastActiveAgo,
             Presence = presence.Presence,
             StatusMessage = presence.StatusMessage
-        }, new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull });
+        });
     }
 
     [Route("presence/{userId}/status")]
     [HttpPut]
-    public object SetStatus(string userId, SetPresenceParameters parameters)
+    public object SetStatus(string userId, SetPresenceRequest request)
     {
         var identity = identityService.GetSelfIdentity();
         if (UserIdentifier.FromId(identity.Id).ToString() != userId)
@@ -87,7 +62,7 @@ public class PresenceController : ControllerBase
         }
         else
         {
-            userPresence.SetPresence(userId, parameters.Presence, parameters.StatusMessage);
+            userPresence.SetPresence(userId, request.Presence, request.StatusMessage);
             notifier.Notify();
         }
         return new object();

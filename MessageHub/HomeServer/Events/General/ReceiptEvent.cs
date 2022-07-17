@@ -1,6 +1,6 @@
-using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MessageHub.Serialization;
 
 namespace MessageHub.HomeServer.Events.General;
 
@@ -11,25 +11,21 @@ public static class ReceiptTypes
 
 public class ReadReceiptMetadata
 {
-    [Required]
     [JsonPropertyName("ts")]
     public long Timestamp { get; set; }
 }
 
 public class UserReadReceipt
 {
-    [Required]
     [JsonPropertyName("data")]
     public ReadReceiptMetadata Data { get; set; } = default!;
 
-    [Required]
     [JsonPropertyName("event_ids")]
     public string[] EventIds { get; set; } = default!;
 }
 
 public class RoomReceipts
 {
-    [Required]
     [JsonPropertyName(ReceiptTypes.Read)]
     public Dictionary<string, UserReadReceipt> ReadReceipts { get; set; } = default!;
 }
@@ -39,7 +35,6 @@ public class ReceiptEvent
 {
     public const string EventType = "m.receipt";
 
-    [Required]
     [JsonPropertyName("content")]
     public Dictionary<string, RoomReceipts> Content { get; set; } = default!;
 
@@ -72,10 +67,7 @@ public class ReceiptEvent
         return new EphemeralDataUnit
         {
             EventType = EventType,
-            Content = JsonSerializer.SerializeToElement(Content, new JsonSerializerOptions
-            {
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-            })
+            Content = DefaultJsonSerializer.SerializeToElement(Content)
         };
     }
 

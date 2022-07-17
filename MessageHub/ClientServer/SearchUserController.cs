@@ -1,8 +1,7 @@
 using System.Collections.Concurrent;
-using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.Authentication;
+using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Events.Room;
@@ -17,40 +16,6 @@ namespace MessageHub.ClientServer;
 [Authorize(AuthenticationSchemes = MatrixAuthenticationSchemes.Client)]
 public class SearchUserController : ControllerBase
 {
-    public class SearchRequestBody
-    {
-        [JsonPropertyName("limit")]
-        public int? Limit { get; set; }
-
-        [Required]
-        [JsonPropertyName("search_term")]
-        public string SearchTerm { get; set; } = default!;
-    }
-
-    public class SearchResponse
-    {
-        public class User
-        {
-            [JsonPropertyName("avatar_url")]
-            public string? AvatarUrl { get; set; }
-
-            [Required]
-            [JsonPropertyName("display_name")]
-            public string? DisplayName { get; set; }
-
-            [JsonPropertyName("user_id")]
-            public string? UserId { get; set; }
-        }
-
-        [Required]
-        [JsonPropertyName("limited")]
-        public bool Limited { get; set; }
-
-        [Required]
-        [JsonPropertyName("results")]
-        public User[] Results { get; set; } = default!;
-    }
-
     private readonly ILogger logger;
     private readonly ITimelineLoader timelineLoader;
     private readonly IRooms rooms;
@@ -75,13 +40,13 @@ public class SearchUserController : ControllerBase
 
     [Route("user_directory/search")]
     [HttpPost]
-    public async Task<IActionResult> SearchUser([FromBody] SearchRequestBody requestBody)
+    public async Task<IActionResult> SearchUser([FromBody] SearchUserRequest request)
     {
-        if (string.IsNullOrEmpty(requestBody.SearchTerm))
+        if (string.IsNullOrEmpty(request.SearchTerm))
         {
-            return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(requestBody.SearchTerm)));
+            return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter, nameof(request.SearchTerm)));
         }
-        logger.LogDebug("Searching users with term: {}", requestBody.SearchTerm);
+        logger.LogDebug("Searching users with term: {}", request.SearchTerm);
 
         var avatarUrls = new ConcurrentDictionary<string, (string url, long timestamp)>();
         var displayNames = new ConcurrentDictionary<string, (string name, long timestamp)>();
@@ -143,13 +108,13 @@ public class SearchUserController : ControllerBase
                 }
             }
         }
-        var users = new Dictionary<string, SearchResponse.User>();
-        var searchTokens = requestBody.SearchTerm.Split(
+        var users = new Dictionary<string, SearchUserResponse.User>();
+        var searchTokens = request.SearchTerm.Split(
             ' ',
             StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         foreach (string userId in userIds.OrderBy(x => x))
         {
-            var user = new SearchResponse.User
+            var user = new SearchUserResponse.User
             {
                 UserId = userId
             };
@@ -171,16 +136,16 @@ public class SearchUserController : ControllerBase
         }
         bool limited = false;
         {
-            if (!(requestBody.Limit is int limit && limit > users.Count))
+            if (!(request.Limit is int limit && limit > users.Count))
             {
                 // Find remote users.
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-                var remoteUsers = new ConcurrentBag<SearchResponse.User>();
+                var remoteUsers = new ConcurrentBag<SearchUserResponse.User>();
                 try
                 {
-                    logger.LogDebug("Searching remote users: {}", requestBody.SearchTerm);
+                    logger.LogDebug("Searching remote users: {}", request.SearchTerm);
                     var remoteIdentities = await userDiscoveryService.SearchUsersAsync(
-                        requestBody.SearchTerm,
+                        request.SearchTerm,
                         cts.Token);
                     await Parallel.ForEachAsync(
                         remoteIdentities,
@@ -200,7 +165,7 @@ public class SearchUserController : ControllerBase
                             {
                                 var profile = await userDiscoveryService.GetUserProfileAsync(userId, token);
                                 (avatarUrl, displayName) = profile;
-                                remoteUsers.Add(new SearchResponse.User
+                                remoteUsers.Add(new SearchUserResponse.User
                                 {
                                     AvatarUrl = avatarUrl,
                                     DisplayName = displayName,
@@ -227,14 +192,14 @@ public class SearchUserController : ControllerBase
             }
         }
         {
-            if (requestBody.Limit is int limit && limit > users.Count)
+            if (request.Limit is int limit && limit > users.Count)
             {
                 users = users.OrderBy(x => x.Key).Take(limit).ToDictionary(x => x.Key, x => x.Value);
                 limited = true;
             }
         }
         logger.LogDebug("Found {} users: {}", users.Count, JsonSerializer.SerializeToElement(users.Values));
-        return new JsonResult(new SearchResponse
+        return new JsonResult(new SearchUserResponse
         {
             Limited = limited,
             Results = users.Values.ToArray()

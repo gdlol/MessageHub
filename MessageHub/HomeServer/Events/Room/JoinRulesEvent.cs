@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 namespace MessageHub.HomeServer.Events.Room;
@@ -14,7 +13,6 @@ public static class JoinRules
 [EventType(EventTypes.JoinRules)]
 public class JoinRulesEvent
 {
-    [Required]
     [JsonPropertyName("join_rule")]
     public string JoinRule { get; init; } = default!;
 }

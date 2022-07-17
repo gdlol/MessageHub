@@ -1,17 +1,12 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer;
+using MessageHub.Serialization;
 
 namespace MessageHub.Federation;
 
 public static class IdentityServiceExtensions
 {
-    private static readonly JsonSerializerOptions ignoreNullOptions = new()
-    {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
-
     public static SignedRequest SignRequest(
         this IIdentity identity,
         string destination,
@@ -33,13 +28,13 @@ public static class IdentityServiceExtensions
             OriginServerTimestamp = timestamp ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             Destination = destination,
             ServerKeys = identity.GetServerKeys(),
-            Signatures = JsonSerializer.SerializeToElement<object?>(null)
+            Signatures = DefaultJsonSerializer.SerializeToElement<object?>(null)
         };
         if (content is not null)
         {
-            request.Content = JsonSerializer.SerializeToElement(content, ignoreNullOptions);
+            request.Content = DefaultJsonSerializer.SerializeToElement(content);
         }
-        var element = JsonSerializer.SerializeToElement(request, ignoreNullOptions);
+        var element = DefaultJsonSerializer.SerializeToElement(request);
         element = identity.SignJson(element, request.OriginServerTimestamp);
         return element.Deserialize<SignedRequest>()!;
     }
@@ -53,10 +48,10 @@ public static class IdentityServiceExtensions
         var response = new SignedResponse
         {
             Request = request,
-            Content = JsonSerializer.SerializeToElement(content, ignoreNullOptions),
-            Signatures = JsonSerializer.SerializeToElement<object?>(null)
+            Content = DefaultJsonSerializer.SerializeToElement(content),
+            Signatures = DefaultJsonSerializer.SerializeToElement<object?>(null)
         };
-        var element = JsonSerializer.SerializeToElement(response, ignoreNullOptions);
+        var element = DefaultJsonSerializer.SerializeToElement(response);
         return identity.SignJson(element, request.OriginServerTimestamp);
     }
 }

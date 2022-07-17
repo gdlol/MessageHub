@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 namespace MessageHub.HomeServer.Events.Room;
@@ -14,7 +13,6 @@ public static class HistoryVisibilityKinds
 [EventType(EventTypes.HistoryVisibility)]
 public class HistoryVisibilityEvent
 {
-    [Required]
     [JsonPropertyName("history_visibility")]
     public string HistoryVisibility { get; init; } = default!;
 }

@@ -53,18 +53,18 @@ internal class TopicMemberUpdateEventPushingService : QueuedService<TopicMemberU
                     pdus.Add(pdu);
                 }
                 string txnId = Guid.NewGuid().ToString();
-                var parameters = new PushMessagesRequest
+                var request = new PushMessagesRequest
                 {
                     Origin = identity.Id,
                     OriginServerTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                     Pdus = pdus.ToArray()
                 };
-                var request = identity.SignRequest(
+                var signedRequest = identity.SignRequest(
                     destination: id,
                     requestMethod: HttpMethods.Put,
                     requestTarget: $"/_matrix/federation/v1/send/{txnId}",
-                    content: parameters);
-                await p2pNode.SendAsync(request, stoppingToken);
+                    content: request);
+                await p2pNode.SendAsync(signedRequest, stoppingToken);
             }
         }
         catch (Exception ex)
