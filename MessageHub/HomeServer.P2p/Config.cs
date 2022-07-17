@@ -16,6 +16,12 @@ public class Config
     [JsonPropertyName("libp2p.dht.bootstrapPeers")]
     public string[]? BootstrapPeers { get; set; }
 
+    [JsonPropertyName("fasterKV.pageSize")]
+    public long? FasterKVPageSize { get; set; }
+
+    [JsonPropertyName("fasterKV.pageCount")]
+    public int? FasterKVPageCount { get; set; }
+
     [JsonIgnore]
     public string DataPath { get; set; } = string.Empty;
 

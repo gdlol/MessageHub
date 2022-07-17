@@ -27,15 +27,12 @@ namespace MessageHub.DependencyInjection;
 
 public static class P2pHomeServerServiceCollectionExtensions
 {
-    public static IServiceCollection AddFasterKV(this IServiceCollection services, string dataPath)
+    public static IServiceCollection AddFasterKV(this IServiceCollection services, FasterStorageConfig config)
     {
         ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(dataPath);
+        ArgumentNullException.ThrowIfNull(config);
 
-        services.TryAddSingleton(new FasterStorageConfig
-        {
-            DataPath = dataPath
-        });
+        services.TryAddSingleton(config);
         services.TryAddSingleton<IStorageProvider, FasterStorageProvider>();
         return services;
     }
@@ -93,7 +90,7 @@ public static class P2pHomeServerServiceCollectionExtensions
     }
 
     public static IServiceCollection AddP2pHomeServer(this IServiceCollection services)
-    {        
+    {
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<TimelineUpdateNotifier>();

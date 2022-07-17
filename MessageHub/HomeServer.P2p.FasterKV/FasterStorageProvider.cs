@@ -3,23 +3,17 @@ using MessageHub.HomeServer.P2p.Providers;
 
 namespace MessageHub.HomeServer.P2p.FasterKV;
 
-public class FasterStorageConfig
-{
-    public string DataPath { get; set; } = default!;
-}
-
 public sealed class FasterStorageProvider : IStorageProvider
 {
-    private readonly string dataPath;
-    private readonly ConcurrentDictionary<string, KeyValueStore> stores;
+    private readonly FasterStorageConfig config;
+    private readonly ConcurrentDictionary<string, KeyValueStore> stores = new();
 
     public FasterStorageProvider(FasterStorageConfig config)
     {
         ArgumentNullException.ThrowIfNull(config);
 
-        dataPath = Path.Combine(config.DataPath, nameof(FasterKV));
-        Directory.CreateDirectory(dataPath);
-        stores = new ConcurrentDictionary<string, KeyValueStore>();
+        Directory.CreateDirectory(config.DataPath);
+        this.config = config;
     }
 
     private bool isDisposed;
@@ -49,7 +43,7 @@ public sealed class FasterStorageProvider : IStorageProvider
     {
         ThrowIfDisposed();
 
-        return File.Exists(Path.Combine(dataPath, name));
+        return File.Exists(Path.Combine(config.DataPath, name));
     }
 
     public IKeyValueStore GetKeyValueStore(string name)
@@ -60,8 +54,7 @@ public sealed class FasterStorageProvider : IStorageProvider
         }
         ThrowIfDisposed();
 
-        var path = Path.Combine(dataPath, name);
-        var store = stores.GetOrAdd(name, _ => new KeyValueStore(path));
+        var store = stores.GetOrAdd(name, _ => new KeyValueStore(name, config));
         return store.CreateSession();
     }
 }
