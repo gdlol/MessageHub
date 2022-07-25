@@ -4,7 +4,6 @@ using MessageHub.Complement.ClientServer.Protocol;
 using MessageHub.Complement.HomeServer;
 using MessageHub.Complement.ReverseProxy;
 using MessageHub.HomeServer;
-using MessageHub.Serialization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
@@ -35,29 +34,6 @@ public class RegisterController : ControllerBase
         this.userLogIn = userLogIn;
     }
 
-    public class FlowsResult : IActionResult
-    {
-        // Set content type without charset;
-        public Task ExecuteResultAsync(ActionContext context)
-        {
-            var resonse = context.HttpContext.Response;
-            resonse.ContentType = "application/json";
-            resonse.StatusCode = StatusCodes.Status401Unauthorized;
-            return DefaultJsonSerializer.SerializeAsync(
-                resonse.Body,
-                new AuthenticationResponse
-                {
-                    Flows = new[]
-                    {
-                        new FlowInformation
-                        {
-                            Stages = new[] { LogInTypes.Dummy }
-                        }
-                    }
-                });
-        }
-    }
-
     [Route("register")]
     [HttpPost]
     [MiddlewareFilter(typeof(FillJsonContentTypePipeline))]
@@ -65,9 +41,18 @@ public class RegisterController : ControllerBase
         [FromQuery] string? kind,
         [FromBody, ValidateNever] RegisterRequest request)
     {
-        if (!ModelState.IsValid || request.AuthenticationData?.Type != LogInTypes.Dummy)
+        if (!ModelState.IsValid || request.AuthenticationData is null)
         {
-            return new FlowsResult();
+            return ApplicationResults.Json(new AuthenticationResponse
+            {
+                Flows = new[]
+                {
+                    new FlowInformation
+                    {
+                        Stages = new[] { LogInTypes.Password }
+                    }
+                }
+            }, StatusCodes.Status401Unauthorized);
         }
 
         kind ??= "user";
@@ -88,7 +73,13 @@ public class RegisterController : ControllerBase
             return BadRequest(error);
         }
 
-        bool registered = await userRegistration.TryRegisterAsync(userName);
+        if (request.Password is null)
+        {
+            var error = MatrixError.Create(MatrixErrorCode.MissingParameter, nameof(request.Password));
+            return BadRequest(error);
+        }
+
+        bool registered = await userRegistration.TryRegisterAsync(userName, request.Password);
         if (!registered)
         {
             var error = MatrixError.Create(MatrixErrorCode.UserInUse, $"{nameof(userName)}: {userName}");

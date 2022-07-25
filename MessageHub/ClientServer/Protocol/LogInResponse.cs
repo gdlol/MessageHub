@@ -2,20 +2,20 @@ using System.Text.Json.Serialization;
 
 namespace MessageHub.ClientServer.Protocol;
 
-public class LogInResponse
+public record class LogInResponse
 {
     [JsonPropertyName("access_token")]
-    public string? AccessToken { get; set; }
+    public string? AccessToken { get; init; }
 
     [JsonPropertyName("device_id")]
-    public string? DeviceId { get; set; }
+    public string? DeviceId { get; init; }
 
     [JsonPropertyName("expires_in_ms")]
-    public long? ExpiresInMillisecond { get; set; }
+    public long? ExpiresInMillisecond { get; init; }
 
     [JsonPropertyName("refresh_token")]
-    public string? RefreshToken { get; set; }
+    public string? RefreshToken { get; init; }
 
     [JsonPropertyName("user_id")]
-    public string UserId { get; set; } = default!;
+    public string UserId { get; init; } = default!;
 }

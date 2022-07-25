@@ -2,20 +2,32 @@ using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Net;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using MessageHub.Complement.HomeServer.P2p.LocalIdentity;
 using MessageHub.Complement.Logging;
 using MessageHub.Complement.ReverseProxy;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.P2p.Providers;
+using Microsoft.AspNetCore.Identity;
 
 namespace MessageHub.Complement.HomeServer;
 
 public sealed class UserRegistration : IUserRegistration, IDisposable
 {
+    private class UserInfo
+    {
+        [JsonPropertyName("serverAddress")]
+        public string ServerAddress { get; init; } = default!;
+
+        [JsonPropertyName("passwordHash")]
+        public string PasswordHash { get; init; } = default!;
+    }
+
     private const string storeName = nameof(UserRegistration);
 
     private readonly ManualResetEvent locker = new(initialState: true);
-    private readonly ConcurrentDictionary<string, IPAddress> serverAddresses = new();
+    private readonly ConcurrentDictionary<string, UserInfo> userInfoCache = new();
     private bool isInitialized = false;
     private ushort serverCount = 0;
 
@@ -69,19 +81,19 @@ public sealed class UserRegistration : IUserRegistration, IDisposable
         Program.RunAsync(applicationPath, p2pConfig);
     }
 
-    private async ValueTask<ImmutableDictionary<string, IPAddress>> RestoreAsync()
+    private async ValueTask<ImmutableDictionary<string, UserInfo>> RestoreAsync()
     {
-        var builder = ImmutableDictionary.CreateBuilder<string, IPAddress>();
+        var builder = ImmutableDictionary.CreateBuilder<string, UserInfo>();
         using var store = storageProvider.GetKeyValueStore(storeName);
         if (!store.IsEmpty)
         {
             using var iterator = store.Iterate();
             do
             {
-                var (userName, addressBytes) = iterator.CurrentValue;
-                var address = new IPAddress(addressBytes.Span);
-                builder.Add(userName, address);
-                StartServer(userName, address.ToString());
+                var (userName, userInfoBytes) = iterator.CurrentValue;
+                var userInfo = JsonSerializer.Deserialize<UserInfo>(userInfoBytes.Span)!;
+                builder.Add(userName, userInfo);
+                StartServer(userName, userInfo.ServerAddress);
             } while (await iterator.TryMoveAsync());
         }
         return builder.ToImmutable();
@@ -98,12 +110,12 @@ public sealed class UserRegistration : IUserRegistration, IDisposable
         {
             if (!isInitialized)
             {
-                var addresses = await RestoreAsync();
-                foreach (var (key, address) in addresses)
+                var cache = await RestoreAsync();
+                foreach (var (key, userInfo) in cache)
                 {
-                    serverAddresses[key] = address;
+                    userInfoCache[key] = userInfo;
                 }
-                checked { serverCount = (ushort)serverAddresses.Count; }
+                checked { serverCount = (ushort)userInfoCache.Count; }
                 isInitialized = true;
             }
         }
@@ -113,12 +125,13 @@ public sealed class UserRegistration : IUserRegistration, IDisposable
         }
     }
 
-    public async ValueTask<bool> TryRegisterAsync(string userName)
+    public async ValueTask<bool> TryRegisterAsync(string userName, string password)
     {
         await InitializeAsync();
 
         bool created = false;
-        var serverAddress = serverAddresses.AddOrUpdate(
+        var passwrodHasher = new PasswordHasher<string>();
+        var userInfo = userInfoCache.AddOrUpdate(
             userName,
             _ =>
             {
@@ -130,26 +143,44 @@ public sealed class UserRegistration : IUserRegistration, IDisposable
                 created = true;
                 var bytes = IPAddress.Loopback.GetAddressBytes();
                 BinaryPrimitives.WriteUInt16BigEndian(bytes.AsSpan(1, 2), serverCount);
-                return new IPAddress(bytes);
+                string passwordHadh = passwrodHasher.HashPassword(userName, password);
+                return new UserInfo
+                {
+                    ServerAddress = new IPAddress(bytes).ToString(),
+                    PasswordHash = passwordHadh
+                };
             },
-            (_, address) => address);
+            (_, userInfo) => userInfo);
         if (created)
         {
             using var store = storageProvider.GetKeyValueStore(storeName);
-            await store.PutAsync(userName, serverAddress.GetAddressBytes());
+            await store.PutSerializedValueAsync(userName, userInfo);
             await store.CommitAsync();
-            StartServer(userName, serverAddress.ToString());
+            StartServer(userName, userInfo.ServerAddress);
         }
         return created;
+    }
+
+    public async ValueTask<bool> VerifyUserAsync(string userName, string password)
+    {
+        await InitializeAsync();
+
+        if (userInfoCache.TryGetValue(userName, out var userInfo))
+        {
+            var passwrodHasher = new PasswordHasher<string>();
+            var result = passwrodHasher.VerifyHashedPassword(userName, userInfo.PasswordHash, password);
+            return result == PasswordVerificationResult.Success;
+        }
+        return false;
     }
 
     public async ValueTask<string?> TryGetAddressAsync(string userName)
     {
         await InitializeAsync();
 
-        if (serverAddresses.TryGetValue(userName, out var serverAddress))
+        if (userInfoCache.TryGetValue(userName, out var userInfo))
         {
-            return serverAddress.ToString();
+            return userInfo.ServerAddress;
         }
         return null;
     }
