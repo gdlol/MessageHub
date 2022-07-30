@@ -100,6 +100,7 @@ public static class P2pHomeServerServiceCollectionExtensions
         services.AddSingleton<UnresolvedEventNotifier>();
         services.AddSingleton<MembershipUpdateNotifier>();
         services.AddSingleton<RemoteRequestNotifier>();
+        services.AddSingleton<DeviceMonitorMiddleware>();
         services.TryAddSingleton<IAccountData, AccountData>();
         services.TryAddSingleton<IDeviceManager, DeviceManager>();
         services.TryAddSingleton<IContentRepository, ContentRepository>();
