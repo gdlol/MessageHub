@@ -129,7 +129,7 @@ public class ContentRepositoryProxy : IMiddleware
     }
 }
 
-public class ContentRepositoryPipeline
+public class ContentRepositoryProxyPipeline
 {
     public void Configure(IApplicationBuilder app) => app.UseMiddleware<ContentRepositoryProxy>();
 }

@@ -47,11 +47,7 @@ public class FullyReadController : ControllerBase
         [FromRoute] string roomId,
         [FromBody] SetReadMarkerRequest requestBody)
     {
-        string? userId = Request.HttpContext.User.Identity?.Name;
-        if (userId is null)
-        {
-            throw new InvalidOperationException();
-        }
+        string? userId = HttpContext.User.Identity?.Name ?? throw new InvalidOperationException();
         if (!rooms.HasRoom(roomId))
         {
             return BadRequest(MatrixError.Create(MatrixErrorCode.NotFound, $"{nameof(roomId)}: {roomId}"));

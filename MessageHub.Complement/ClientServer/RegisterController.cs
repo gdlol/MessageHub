@@ -5,6 +5,7 @@ using MessageHub.Complement.HomeServer;
 using MessageHub.Complement.ReverseProxy;
 using MessageHub.HomeServer;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
 namespace MessageHub.Complement.ClientServer;
@@ -37,11 +38,12 @@ public class RegisterController : ControllerBase
     [Route("register")]
     [HttpPost]
     [MiddlewareFilter(typeof(FillJsonContentTypePipeline))]
+    [MiddlewareFilter(typeof(FillNullBodyPipeline))]
     public async Task<object> Register(
         [FromQuery] string? kind,
-        [FromBody, ValidateNever] RegisterRequest request)
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow), ValidateNever] RegisterRequest? request)
     {
-        if (!ModelState.IsValid || request.AuthenticationData is null)
+        if (!ModelState.IsValid || request?.AuthenticationData is null)
         {
             return ApplicationResults.Json(new AuthenticationResponse
             {
@@ -98,7 +100,7 @@ public class RegisterController : ControllerBase
         }
 
         logger.LogDebug("Login user {}...", userName);
-        var loginResponse = await userLogIn.LogInAsync(userName, deviceId);
+        var loginResponse = await userLogIn.LogInAsync(userName, deviceId, request.InitialDeviceDisplayName);
 
         return new RegisterResponse
         {

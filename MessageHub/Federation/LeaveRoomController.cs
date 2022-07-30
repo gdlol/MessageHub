@@ -1,6 +1,5 @@
 using System.Text.Json;
 using MessageHub.Authentication;
-using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Events.Room;
@@ -43,7 +42,7 @@ public class LeaveRoomController : ControllerBase
     public async Task<IActionResult> MakeLeave(string roomId, string userId)
     {
         var identity = identityService.GetSelfIdentity();
-        var request = Request.HttpContext.GetSignedRequest();
+        var request = HttpContext.GetSignedRequest();
         var senderId = UserIdentifier.FromId(request.Origin);
         if (senderId.ToString() != userId)
         {
@@ -84,7 +83,7 @@ public class LeaveRoomController : ControllerBase
         [FromRoute] string eventId,
         [FromBody] PersistentDataUnit pdu)
     {
-        var request = Request.HttpContext.GetSignedRequest();
+        var request = HttpContext.GetSignedRequest();
         var sender = UserIdentifier.FromId(request.Origin);
         if (!rooms.HasRoom(roomId))
         {

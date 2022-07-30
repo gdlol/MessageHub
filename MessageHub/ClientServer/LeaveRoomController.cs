@@ -263,11 +263,7 @@ public class LeaveRoomController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Kick([FromRoute] string roomId, [FromBody] KickRequest request)
     {
-        string? userId = Request.HttpContext.User.Identity?.Name;
-        if (userId is null)
-        {
-            throw new InvalidOperationException();
-        }
+        string? userId = HttpContext.User.Identity?.Name ?? throw new InvalidOperationException();
         var sender = UserIdentifier.Parse(userId);
         if (!UserIdentifier.TryParse(request.UserId, out var target) || target == sender)
         {

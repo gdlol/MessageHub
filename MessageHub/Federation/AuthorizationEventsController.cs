@@ -1,6 +1,5 @@
 using System.Text.Json;
 using MessageHub.Authentication;
-using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Events.Room;
@@ -49,7 +48,7 @@ public class AuthorizationEventsController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAuthorizationEvents(string roomId, string eventId)
     {
-        var request = Request.HttpContext.GetSignedRequest();
+        var request = HttpContext.GetSignedRequest();
         if (!rooms.HasRoom(roomId))
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));

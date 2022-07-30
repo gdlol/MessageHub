@@ -1,6 +1,5 @@
 using System.Text.Json;
 using MessageHub.Authentication;
-using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Events.Room;
@@ -43,7 +42,7 @@ public class KnockRoomController : ControllerBase
     public async Task<IActionResult> MakeKnock(string roomId, string userId)
     {
         var identity = identityService.GetSelfIdentity();
-        var request = Request.HttpContext.GetSignedRequest();
+        var request = HttpContext.GetSignedRequest();
         var senderId = UserIdentifier.FromId(request.Origin);
         if (senderId.ToString() != userId)
         {
@@ -94,7 +93,7 @@ public class KnockRoomController : ControllerBase
         [FromRoute] string eventId,
         [FromBody] PersistentDataUnit pdu)
     {
-        var request = Request.HttpContext.GetSignedRequest();
+        var request = HttpContext.GetSignedRequest();
         var sender = UserIdentifier.FromId(request.Origin);
         if (!rooms.HasRoom(roomId))
         {
@@ -121,7 +120,7 @@ public class KnockRoomController : ControllerBase
             return BadRequest(MatrixError.Create(MatrixErrorCode.InvalidParameter));
         }
         var roomSnapshot = await rooms.GetRoomSnapshotAsync(roomId);
-        var eventAuthorizer = new EventAuthorizer(roomSnapshot.StateContents);        
+        var eventAuthorizer = new EventAuthorizer(roomSnapshot.StateContents);
         if (!eventAuthorizer.Authorize(pdu.EventType, pdu.StateKey, sender, pdu.Content))
         {
             if (eventAuthorizer.TryGetJoinRulesEvent()?.JoinRule == JoinRules.Knock)

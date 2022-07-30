@@ -8,6 +8,7 @@ namespace MessageHub.HomeServer.P2p.LocalIdentity;
 
 public class LocalIdentityService : IIdentityService
 {
+    private readonly object locker = new();
     private LocalIdentity? selfIdentity;
 
     public bool HasSelfIdentity => selfIdentity is not null;
@@ -19,9 +20,19 @@ public class LocalIdentityService : IIdentityService
         return selfIdentity ?? throw new InvalidOperationException();
     }
 
-    public void SetSelfIdentity(LocalIdentity? identity)
+    public void UpdateSelfIdentity(Func<LocalIdentity?, LocalIdentity> update)
     {
-        selfIdentity = identity;
+        ArgumentNullException.ThrowIfNull(update);
+
+        lock (locker)
+        {
+            var identity = selfIdentity;
+            selfIdentity = update(identity);
+            if (identity != selfIdentity)
+            {
+                identity?.Dispose();
+            }
+        }
     }
 
     public string? Verify(ServerKeys serverKeys)

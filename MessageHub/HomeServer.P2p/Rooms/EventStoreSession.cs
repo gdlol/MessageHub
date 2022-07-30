@@ -70,8 +70,9 @@ internal class EventStoreSession : IDisposable
         string? currentBatchId = await store.GetStringAsync(CurrentBatchIdKey);
         if (currentBatchId is null)
         {
-            currentBatchId = string.Empty;
+            currentBatchId = EventStoreState.EmptyBatchId;
             await store.PutSerializedValueAsync(GetRoomEventIdsKey(currentBatchId), RoomEventIds.Empty);
+            await store.CommitAsync();
         }
         return new EventStoreState
         {

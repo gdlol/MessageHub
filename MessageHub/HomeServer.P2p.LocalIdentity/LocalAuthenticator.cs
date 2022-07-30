@@ -7,7 +7,7 @@ using NSec.Cryptography;
 
 namespace MessageHub.HomeServer.P2p.LocalIdentity;
 
-public class LocalAuthenticator : IAuthenticator
+public sealed class LocalAuthenticator : IAuthenticator, IDisposable
 {
     private readonly ManualResetEvent locker = new(initialState: true);
     private const string KeyStoreName = nameof(LocalIdentity);
@@ -19,8 +19,8 @@ public class LocalAuthenticator : IAuthenticator
     private readonly LocalIdentityService localIdentityService;
     private readonly IUserProfile userProfile;
     private readonly string loginToken = nameof(loginToken);
-    private readonly string accessTokenPrefix = Guid.NewGuid().ToString();
-    private readonly ConcurrentDictionary<string, object?> accessTokens = new();
+    private readonly JwtAuthenticator jwtAuthenticator = new();
+    private readonly ConcurrentDictionary<string, string> accessTokens = new();
 
     public LocalAuthenticator(
         Config config,
@@ -40,6 +40,11 @@ public class LocalAuthenticator : IAuthenticator
         this.networkProvider = networkProvider;
         this.localIdentityService = localIdentityService;
         this.userProfile = userProfile;
+    }
+
+    public void Dispose()
+    {
+        jwtAuthenticator.Dispose();
     }
 
     internal async Task<(bool created, Key key)> CreateOrGetPrivateKeyAsync()
@@ -103,13 +108,19 @@ public class LocalAuthenticator : IAuthenticator
     {
         ArgumentNullException.ThrowIfNull(accessToken);
 
-        string? deviceId = null;
-        if (accessTokens.ContainsKey(accessToken))
+        string? result = null;
+        foreach (var (deviceId, token) in accessTokens)
         {
-            deviceId = accessToken[accessTokenPrefix.Length..];
+            if (token == accessToken)
+            {
+                result = deviceId;
+                break;
+            }
         }
-        return Task.FromResult(deviceId);
+        return Task.FromResult(result);
     }
+
+    public Task<string[]> GetDeviceIdsAsync() => Task.FromResult(accessTokens.Keys.ToArray());
 
     public async Task<(string userId, string accessToken)?> LogInAsync(string deviceId, string token)
     {
@@ -124,25 +135,7 @@ public class LocalAuthenticator : IAuthenticator
             {
                 (identityCreated, var key) = await CreateOrGetPrivateKeyAsync();
                 using var _ = key;
-                var (keyId, networkKey) = networkProvider.GetVerifyKey();
-                var localIdentity = LocalIdentity.Create(
-                    key,
-                    new VerifyKeys(new Dictionary<KeyIdentifier, string>
-                    {
-                        [keyId] = networkKey,
-                    }.ToImmutableDictionary(), DateTimeOffset.UtcNow.AddDays(7).ToUnixTimeMilliseconds()));
-                lock (localIdentityService)
-                {
-                    if (localIdentityService.HasSelfIdentity)
-                    {
-                        localIdentity.Dispose();
-                        localIdentity = null;
-                    }
-                    else
-                    {
-                        localIdentityService.SetSelfIdentity(localIdentity);
-                    }
-                }
+                localIdentityService.UpdateSelfIdentity(identity => identity ?? CreateIdentity(key));
             }
             var identity = localIdentityService.GetSelfIdentity();
             var userId = UserIdentifier.FromId(identity.Id);
@@ -151,47 +144,44 @@ public class LocalAuthenticator : IAuthenticator
                 await userProfile.SetDisplayNameAsync(userId.ToString(), userId.UserName);
             }
 
-            string accessToken = accessTokenPrefix + deviceId;
-            if (accessTokens.TryAdd(accessToken, null))
+            string accessToken = jwtAuthenticator.GenerateToken(userId.ToString());
+            accessTokens[deviceId] = accessToken;
+            lock (networkProvider)
             {
-                lock (networkProvider)
+                networkProvider.Initialize(serverKeys =>
                 {
-                    networkProvider.Initialize(serverKeys =>
+                    if (localIdentityService.Verify(serverKeys) is not null)
                     {
-                        if (localIdentityService.Verify(serverKeys) is not null)
-                        {
-                            return LocalIdentity.Create(serverKeys);
-                        }
-                        return null;
-                    });
-                }
+                        return LocalIdentity.Create(serverKeys);
+                    }
+                    return null;
+                });
             }
             result = (userId.ToString(), accessToken);
         }
         return result;
     }
 
-    public Task<string?> AuthenticateAsync(string accessToken)
+    public async Task<string?> AuthenticateAsync(string accessToken)
     {
         ArgumentNullException.ThrowIfNull(accessToken);
 
-        if (accessTokens.ContainsKey(accessToken))
+        string? userId = await jwtAuthenticator.ValidateToken(accessToken);
+        if (userId is not null)
         {
-            var identity = localIdentityService.GetSelfIdentity();
-            return Task.FromResult<string?>(UserIdentifier.FromId(identity.Id).ToString());
+            if (!accessTokens.Values.Contains(accessToken)) // logged out.
+            {
+                userId = null;
+            }
         }
-        else
-        {
-            return Task.FromResult<string?>(null);
-        }
+        return userId;
     }
 
     public Task<int> LogOutAsync(string deviceId)
     {
         ArgumentNullException.ThrowIfNull(deviceId);
 
-        string accessToken = accessTokenPrefix + deviceId;
-        accessTokens.TryRemove(accessToken, out object? _);
+        accessTokens.TryRemove(deviceId, out string? _);
         return Task.FromResult(accessTokens.Count);
     }
 

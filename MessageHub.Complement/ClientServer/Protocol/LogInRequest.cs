@@ -13,8 +13,8 @@ public class LogInUserIdentifier
 
 public class LogInRequest
 {
-    [JsonPropertyName("device_id")]
-    public string? DeviceId { get; set; }
+    [JsonPropertyName("type")]
+    public string LogInType { get; set; } = default!;
 
     [JsonPropertyName("identifier")]
     public LogInUserIdentifier? Identifier { get; set; }
@@ -22,6 +22,9 @@ public class LogInRequest
     [JsonPropertyName("password")]
     public string? Password { get; set; }
 
-    [JsonPropertyName("type")]
-    public string LogInType { get; set; } = default!;
+    [JsonPropertyName("device_id")]
+    public string? DeviceId { get; set; }
+
+    [JsonPropertyName("initial_device_display_name")]
+    public string? InitialDeviceDisplayName { get; set; }
 }

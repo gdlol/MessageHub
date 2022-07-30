@@ -6,6 +6,8 @@ public interface IAuthenticator
 
     Task<string?> GetDeviceIdAsync(string accessToken);
 
+    Task<string[]> GetDeviceIdsAsync();
+
     Task<(string userId, string accessToken)?> LogInAsync(string deviceId, string token);
 
     Task<string?> AuthenticateAsync(string accessToken);

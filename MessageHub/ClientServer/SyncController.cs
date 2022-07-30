@@ -45,7 +45,6 @@ public class SyncController : ControllerBase
     }
 
     [Route("sync")]
-    [Consumes("application/problem+json")]
     [HttpGet]
     public async Task<IActionResult> Sync(
         [FromQuery(Name = "filter")] string? filterString,
@@ -54,17 +53,13 @@ public class SyncController : ControllerBase
         [FromQuery(Name = "since")] string? since,
         [FromQuery(Name = "timeout")] long? timeout)
     {
-        string? userId = Request.HttpContext.User.Identity?.Name;
-        if (userId is null)
-        {
-            throw new InvalidOperationException();
-        }
+        string? userId = HttpContext.User.Identity?.Name ?? throw new InvalidOperationException();
         var request = new SyncRequest
         {
             Filter = filterString,
             FullState = fullState ?? false,
             SetPresence = setPresence ?? PresenceValues.Online,
-            Since = since ?? string.Empty,
+            Since = since,
             Timeout = timeout ?? 0
         };
 
@@ -84,7 +79,7 @@ public class SyncController : ControllerBase
                     (long)TimeSpan.FromSeconds(30).TotalMilliseconds),
                 period: Timeout.Infinite);
             using var _ = notifier.Register(() => tcs.TrySetResult());
-            if (roomLoader.CurrentBatchId == request.Since)
+            if (roomLoader.IsEmpty || roomLoader.CurrentBatchId == request.Since)
             {
                 await tcs.Task;
             }

@@ -25,7 +25,7 @@ public class MatrixError
         {
             MatrixErrorCode.Forbidden => "M_FORBIDDEN",
             MatrixErrorCode.UnknownToken => "M_UNKNOWN_TOKEN",
-            MatrixErrorCode.MissingToken => "M_MISSING_TOKEN ",
+            MatrixErrorCode.MissingToken => "M_MISSING_TOKEN",
             MatrixErrorCode.BadJson => "M_BAD_JSON",
             MatrixErrorCode.NotJson => "M_NOT_JSON",
             MatrixErrorCode.NotFound => "M_NOT_FOUND",

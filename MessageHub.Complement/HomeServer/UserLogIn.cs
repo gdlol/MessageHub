@@ -67,7 +67,7 @@ public sealed class UserLogIn : IUserLogIn, IDisposable
         }
     }
 
-    public async Task<LogInResponse> LogInAsync(string userName, string? deviceId)
+    public async Task<LogInResponse> LogInAsync(string userName, string? deviceId, string? deviceName)
     {
         await InitializeAsync();
 
@@ -76,7 +76,7 @@ public sealed class UserLogIn : IUserLogIn, IDisposable
         {
             throw new InvalidOperationException($"{nameof(userName)}: {userName}");
         }
-        var loginResponse = await homeServerClient.LogInAsync(address, deviceId);
+        var loginResponse = await homeServerClient.LogInAsync(address, deviceId, deviceName);
         if (loginResponse.AccessToken is null)
         {
             throw new InvalidOperationException();
@@ -89,13 +89,41 @@ public sealed class UserLogIn : IUserLogIn, IDisposable
         return loginResponse;
     }
 
+    public async Task<string?> TryGetDeviceIdAsync(string accessToken)
+    {
+        await InitializeAsync();
+
+        if (userNameMapping.TryGetValue(accessToken, out string? userName))
+        {
+            string? address = await userRegistration.TryGetAddressAsync(userName);
+            if (address is null)
+            {
+                throw new InvalidOperationException($"{nameof(userName)}: {userName}");
+            }
+            var whoAmI = await homeServerClient.WhoAmIAsync(address, accessToken);
+            if (whoAmI is null)
+            {
+                userNameMapping.TryRemove(accessToken, out string? _);
+            }
+            else
+            {
+                return whoAmI.DeviceId;
+            }
+        }
+        return null;
+    }
+
     public async Task<string?> TryGetUserNameAsync(string accessToken)
     {
         await InitializeAsync();
 
         if (userNameMapping.TryGetValue(accessToken, out string? userName))
         {
-            return userName;
+            string? deviceId = await TryGetDeviceIdAsync(accessToken);
+            if (deviceId is not null) // logged out
+            {
+                return userName;
+            }
         }
         return null;
     }

@@ -23,7 +23,7 @@ public class AccountDataController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAccountData(string userId, string type)
     {
-        if (userId != Request.HttpContext.User.Identity?.Name)
+        if (userId != HttpContext.User.Identity?.Name)
         {
             return new JsonResult(MatrixError.Create(MatrixErrorCode.Forbidden))
             {
@@ -48,7 +48,7 @@ public class AccountDataController : ControllerBase
         [FromRoute] string type,
         [FromBody] JsonElement? body)
     {
-        if (userId != Request.HttpContext.User.Identity?.Name)
+        if (userId != HttpContext.User.Identity?.Name)
         {
             return new JsonResult(MatrixError.Create(MatrixErrorCode.Forbidden))
             {
@@ -63,7 +63,7 @@ public class AccountDataController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAccountData(string userId, string roomId, string type)
     {
-        if (userId != Request.HttpContext.User.Identity?.Name)
+        if (userId != HttpContext.User.Identity?.Name)
         {
             return new JsonResult(MatrixError.Create(MatrixErrorCode.Forbidden))
             {
@@ -89,7 +89,7 @@ public class AccountDataController : ControllerBase
         [FromRoute] string type,
         [FromBody] JsonElement? body)
     {
-        if (userId != Request.HttpContext.User.Identity?.Name)
+        if (userId != HttpContext.User.Identity?.Name)
         {
             return new JsonResult(MatrixError.Create(MatrixErrorCode.Forbidden))
             {

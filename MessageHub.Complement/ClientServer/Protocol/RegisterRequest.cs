@@ -2,15 +2,6 @@ using System.Text.Json.Serialization;
 
 namespace MessageHub.Complement.ClientServer.Protocol;
 
-public class AuthenticationData
-{
-    [JsonPropertyName("session")]
-    public string? Session { get; set; }
-
-    [JsonPropertyName("type")]
-    public string? Type { get; set; }
-}
-
 public class RegisterRequest
 {
     [JsonPropertyName("auth")]

@@ -31,6 +31,8 @@ public static class ComplementHomeServerServiceCollectionExtensions
         services.AddSingleton<HomeServerHttpForwarder>();
         services.AddSingleton<HomeServerClient>();
         services.AddSingleton<FillJsonContentType>();
+        services.AddSingleton<FillNullBody>();
+        services.AddSingleton<P2pServerProxy>();
         services.AddSingleton<UserProfileProxy>();
         services.AddSingleton<ContentRepositoryProxy>();
         services.AddSingleton<IUserLogIn, UserLogIn>();

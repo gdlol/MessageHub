@@ -26,6 +26,12 @@ public class ClientAuthenticationHandler : AuthenticationHandler<ClientAuthentic
 
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
+        AuthenticateResult Fail(MatrixError error)
+        {
+            Request.HttpContext.SetMatrixError(error);
+            return AuthenticateResult.Fail(error.ToString());
+        }
+
         string? token = null;
         if (Request.Headers.TryGetValue(HeaderNames.Authorization, out var authorizationHeader))
         {
@@ -44,22 +50,26 @@ public class ClientAuthenticationHandler : AuthenticationHandler<ClientAuthentic
 
         if (string.IsNullOrEmpty(token))
         {
-            var error = MatrixError.Create(MatrixErrorCode.MissingToken);
-            return AuthenticateResult.Fail(error.ToString());
+            return Fail(MatrixError.Create(MatrixErrorCode.MissingToken));
         }
-        else
+        string? userId = await authenticator.AuthenticateAsync(token);
+        if (userId is null)
         {
-            string? userId = await authenticator.AuthenticateAsync(token);
-            if (userId is null)
-            {
-                var error = MatrixError.Create(MatrixErrorCode.UnknownToken);
-                return AuthenticateResult.Fail(error.ToString());
-            }
-            Request.HttpContext.SetAccessToken(token);
-            var claims = new[] { new Claim(ClaimTypes.Name, userId) };
-            var claimsIdentity = new ClaimsIdentity(claims, MatrixAuthenticationSchemes.Client);
-            var ticket = new AuthenticationTicket(new ClaimsPrincipal(claimsIdentity), Scheme.Name);
-            return AuthenticateResult.Success(ticket);
+            return Fail(MatrixError.Create(MatrixErrorCode.UnknownToken));
+        }
+        Request.HttpContext.SetAccessToken(token);
+        var claims = new[] { new Claim(ClaimTypes.Name, userId) };
+        var claimsIdentity = new ClaimsIdentity(claims, MatrixAuthenticationSchemes.Client);
+        var ticket = new AuthenticationTicket(new ClaimsPrincipal(claimsIdentity), Scheme.Name);
+        return AuthenticateResult.Success(ticket);
+    }
+
+    protected override async Task HandleChallengeAsync(AuthenticationProperties properties)
+    {
+        await base.HandleChallengeAsync(properties);
+        if (Request.HttpContext.TryGetMatrixError(out var error))
+        {
+            await Response.WriteAsJsonAsync(error);
         }
     }
 }

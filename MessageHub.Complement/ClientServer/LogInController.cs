@@ -86,7 +86,7 @@ public class LogInController : ControllerBase
             };
         }
 
-        var loginResponse = await userLogIn.LogInAsync(userName, request.DeviceId);
+        var loginResponse = await userLogIn.LogInAsync(userName, request.DeviceId, request.InitialDeviceDisplayName);
         loginResponse = loginResponse with
         {
             UserId = $"@{userName}:{config.ServerName}"

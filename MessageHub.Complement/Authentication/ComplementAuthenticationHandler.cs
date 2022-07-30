@@ -28,6 +28,12 @@ public class ComplementAuthenticationHandler : AuthenticationHandler<ComplementA
 
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
+        AuthenticateResult Fail(MatrixError error)
+        {
+            Request.HttpContext.SetMatrixError(error);
+            return AuthenticateResult.Fail(error.ToString());
+        }
+
         string? token = null;
         if (Request.Headers.TryGetValue(HeaderNames.Authorization, out var authorizationHeader))
         {
@@ -46,18 +52,26 @@ public class ComplementAuthenticationHandler : AuthenticationHandler<ComplementA
 
         if (string.IsNullOrEmpty(token))
         {
-            var error = MatrixError.Create(MatrixErrorCode.MissingToken);
-            return AuthenticateResult.Fail(error.ToString());
+            return Fail(MatrixError.Create(MatrixErrorCode.MissingToken));
         }
         string? userName = await userLogIn.TryGetUserNameAsync(token);
         if (userName is null)
         {
-            var error = MatrixError.Create(MatrixErrorCode.UnknownToken);
-            return AuthenticateResult.Fail(error.ToString());
+            return Fail(MatrixError.Create(MatrixErrorCode.UnknownToken));
         }
+        Request.HttpContext.SetAccessToken(token);
         var claims = new[] { new Claim(ClaimTypes.Name, userName) };
         var claimsIdentity = new ClaimsIdentity(claims, MatrixAuthenticationSchemes.Client);
         var ticket = new AuthenticationTicket(new ClaimsPrincipal(claimsIdentity), Scheme.Name);
         return AuthenticateResult.Success(ticket);
+    }
+
+    protected override async Task HandleChallengeAsync(AuthenticationProperties properties)
+    {
+        await base.HandleChallengeAsync(properties);
+        if (Request.HttpContext.TryGetMatrixError(out var error))
+        {
+            await Response.WriteAsJsonAsync(error);
+        }
     }
 }

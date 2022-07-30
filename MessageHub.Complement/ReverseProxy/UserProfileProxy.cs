@@ -54,7 +54,7 @@ public class UserProfileProxy : IMiddleware
     }
 }
 
-public class UserProfilePipeline
+public class UserProfileProxyPipeline
 {
     public void Configure(IApplicationBuilder app) => app.UseMiddleware<UserProfileProxy>();
 }

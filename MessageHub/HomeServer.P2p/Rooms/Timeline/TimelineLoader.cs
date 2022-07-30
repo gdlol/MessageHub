@@ -15,7 +15,7 @@ internal class TimelineLoader : ITimelineLoader
 
     public string CurrentBatchId => eventStore.LoadState().CurrentBatchId;
 
-    public bool IsEmpty => string.IsNullOrEmpty(CurrentBatchId);
+    public bool IsEmpty => CurrentBatchId == EventStoreState.EmptyBatchId;
 
     public async Task<BatchStates> LoadBatchStatesAsync(Func<string, bool> roomIdFilter, bool includeLeave)
     {

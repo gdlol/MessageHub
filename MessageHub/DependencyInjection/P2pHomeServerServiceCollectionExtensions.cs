@@ -101,6 +101,7 @@ public static class P2pHomeServerServiceCollectionExtensions
         services.AddSingleton<MembershipUpdateNotifier>();
         services.AddSingleton<RemoteRequestNotifier>();
         services.TryAddSingleton<IAccountData, AccountData>();
+        services.TryAddSingleton<IDeviceManager, DeviceManager>();
         services.TryAddSingleton<IContentRepository, ContentRepository>();
         services.TryAddSingleton<IEventReceiver, EventReceiver>();
         services.TryAddSingleton<IRoomDiscoveryService, RoomDiscoveryService>();

@@ -1,6 +1,5 @@
 using System.Text.Json;
 using MessageHub.Authentication;
-using MessageHub.Federation.Protocol;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events;
 using MessageHub.HomeServer.Events.Room;
@@ -39,7 +38,7 @@ public class StatesController : ControllerBase
         [FromRoute] string roomId,
         [FromQuery(Name = "event_id")] string? eventId)
     {
-        var request = Request.HttpContext.GetSignedRequest();
+        var request = HttpContext.GetSignedRequest();
         if (!rooms.HasRoom(roomId))
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));
@@ -79,7 +78,7 @@ public class StatesController : ControllerBase
         [FromRoute] string roomId,
         [FromQuery(Name = "event_id")] string? eventId)
     {
-        var request = Request.HttpContext.GetSignedRequest();
+        var request = HttpContext.GetSignedRequest();
         if (!rooms.HasRoom(roomId))
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));

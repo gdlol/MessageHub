@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace MessageHub.Complement.ClientServer;
 
 [Route("_matrix/media/{version}")]
-[MiddlewareFilter(typeof(ContentRepositoryPipeline))]
+[MiddlewareFilter(typeof(ContentRepositoryProxyPipeline))]
 public class ContentRepositoryController : ControllerBase
 {
     [Route("config")]

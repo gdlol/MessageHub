@@ -38,7 +38,7 @@ public class InviteController : ControllerBase
         [FromBody] InviteRequest request)
     {
         var identity = identityService.GetSelfIdentity();
-        var signedRequest = Request.HttpContext.GetSignedRequest();
+        var signedRequest = HttpContext.GetSignedRequest();
         var pdu = request.Event;
         if (string.IsNullOrEmpty(roomId) || roomId != pdu.RoomId)
         {
