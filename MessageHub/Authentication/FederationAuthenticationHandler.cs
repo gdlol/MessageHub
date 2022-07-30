@@ -62,11 +62,16 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
 
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
+        AuthenticateResult Fail(MatrixError error)
+        {
+            Request.HttpContext.SetMatrixError(error);
+            return AuthenticateResult.Fail(error.ToString());
+        }
+
         if (!identityService.HasSelfIdentity)
         {
             Logger.LogDebug("Self identity not initialized.");
-            var error = MatrixError.Create(MatrixErrorCode.Unauthorized);
-            return AuthenticateResult.Fail(error.ToString());
+            return Fail(MatrixError.Create(MatrixErrorCode.Unauthorized));
         }
         var identity = identityService.GetSelfIdentity();
 
@@ -101,15 +106,13 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
         string? sender = signatures.Keys.SingleOrDefault();
         if (sender is null)
         {
-            var error = MatrixError.Create(MatrixErrorCode.Unauthorized);
             Logger.LogInformation("Sender signature not found.");
-            return AuthenticateResult.Fail(error.ToString());
+            return Fail(MatrixError.Create(MatrixErrorCode.Unauthorized));
         }
         if (destination is null)
         {
-            var error = MatrixError.Create(MatrixErrorCode.Unauthorized);
             Logger.LogInformation("Destination not found.");
-            return AuthenticateResult.Fail(error.ToString());
+            return Fail(MatrixError.Create(MatrixErrorCode.Unauthorized));
         }
 
         Request.EnableBuffering();
@@ -127,8 +130,7 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
         catch (Exception ex)
         {
             Logger.LogInformation(ex, "Error authenticating request.");
-            var error = MatrixError.Create(MatrixErrorCode.Unknown);
-            return AuthenticateResult.Fail(error.ToString());
+            return Fail(MatrixError.Create(MatrixErrorCode.Unknown));
         }
         finally
         {
@@ -138,15 +140,13 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
             || !long.TryParse(timestampValues.SingleOrDefault(), out long timestamp))
         {
             Logger.LogInformation("Matrix-Timestamp not found.");
-            var error = MatrixError.Create(MatrixErrorCode.Unauthorized);
-            return AuthenticateResult.Fail(error.ToString());
+            return Fail(MatrixError.Create(MatrixErrorCode.Unauthorized));
         }
         if (!Request.Headers.TryGetValue("Matrix-ServerKeys", out var serverKeyValues)
             || serverKeyValues.SingleOrDefault() is not string serverKeysString)
         {
             Logger.LogInformation("Matrix-ServerKeys not found.");
-            var error = MatrixError.Create(MatrixErrorCode.Unauthorized);
-            return AuthenticateResult.Fail(error.ToString());
+            return Fail(MatrixError.Create(MatrixErrorCode.Unauthorized));
         }
         ServerKeys? serverKeys = null;
         try
@@ -161,8 +161,7 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
         if (serverKeys is null)
         {
             Logger.LogInformation("Invalid Matrix-ServerKeys.");
-            var error = MatrixError.Create(MatrixErrorCode.Unauthorized);
-            return AuthenticateResult.Fail(error.ToString());
+            return Fail(MatrixError.Create(MatrixErrorCode.Unauthorized));
         }
         var request = new SignedRequest
         {
@@ -178,8 +177,7 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
         if (request.Destination != identity.Id && !rooms.HasRoom(request.Destination))
         {
             Logger.LogInformation("Invalid destination: {}", request.Destination);
-            var error = MatrixError.Create(MatrixErrorCode.Unauthorized);
-            return AuthenticateResult.Fail(error.ToString());
+            return Fail(MatrixError.Create(MatrixErrorCode.Unauthorized));
         }
         var requestElement = request.ToJsonElement();
         if (identityService.VerifyJson(sender, requestElement))
@@ -194,8 +192,17 @@ public class FederationAuthenticationHandler : AuthenticationHandler<FederationA
         else
         {
             Logger.LogInformation("VerifyJson failed for {}: {}", sender, requestElement);
-            var error = MatrixError.Create(MatrixErrorCode.Unauthorized);
-            return AuthenticateResult.Fail(error.ToString());
+            return Fail(MatrixError.Create(MatrixErrorCode.Unauthorized));
+        }
+    }
+
+    protected override async Task HandleChallengeAsync(AuthenticationProperties properties)
+    {
+        await base.HandleChallengeAsync(properties);
+        if (Request.HttpContext.TryGetMatrixError(out var error))
+        {
+            Response.ContentType = "application/json";
+            await Response.WriteAsJsonAsync(error);
         }
     }
 }

@@ -42,12 +42,7 @@ internal class KeyRotationService : ScheduledService
         logger.LogInformation("Rotating signing keys...");
         var (_, key) = await localAuthenticator.CreateOrGetPrivateKeyAsync();
         using var _ = key;
-        lock (localIdentityService)
-        {
-            var newIdentity = localAuthenticator.CreateIdentity(key);
-            localIdentityService.SetSelfIdentity(newIdentity);
-            identity.Dispose();
-        }
+        localIdentityService.UpdateSelfIdentity(_ => localAuthenticator.CreateIdentity(key));
         logger.LogInformation("Updated self identity.");
     }
 }

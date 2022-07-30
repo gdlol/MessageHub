@@ -33,7 +33,7 @@ public class TransactionsController : ControllerBase
         [FromRoute(Name = "txnId")] string _,
         [FromBody] PushMessagesRequest requestBody)
     {
-        var request = Request.HttpContext.GetSignedRequest();
+        var request = HttpContext.GetSignedRequest();
         var pdus = new List<PersistentDataUnit>();
         foreach (var pdu in requestBody.Pdus)
         {

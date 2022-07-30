@@ -83,6 +83,13 @@ public class PersistentLocalAuthenticator : IAuthenticator
         return await authenticator.GetDeviceIdAsync(accessToken);
     }
 
+    public async Task<string[]> GetDeviceIdsAsync()
+    {
+        await InitializeAsync();
+
+        return await authenticator.GetDeviceIdsAsync();
+    }
+
     public string GetSsoRedirectUrl(string redirectUrl)
     {
         return authenticator.GetSsoRedirectUrl(redirectUrl);

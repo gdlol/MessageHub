@@ -29,7 +29,7 @@ public class FilterController : ControllerBase
             return new JsonResult(MatrixError.Create(MatrixErrorCode.InvalidParameter));
         }
 
-        var identity = Request.HttpContext.User.Identity!;
+        var identity = HttpContext.User.Identity ?? throw new InvalidOperationException();
         if (userId != identity.Name)
         {
             return new JsonResult(MatrixError.Create(MatrixErrorCode.Forbidden))
@@ -54,7 +54,7 @@ public class FilterController : ControllerBase
             return new JsonResult(MatrixError.Create(MatrixErrorCode.InvalidParameter));
         }
 
-        var identity = Request.HttpContext.User.Identity!;
+        var identity = HttpContext.User.Identity ?? throw new InvalidOperationException();
         if (userId != identity.Name)
         {
             return new JsonResult(MatrixError.Create(MatrixErrorCode.Forbidden))

@@ -33,7 +33,7 @@ public class BackfillingController : ControllerBase
         [FromQuery(Name = "limit")] int? limit,
         [FromQuery(Name = "v")] string[]? eventIds)
     {
-        var request = Request.HttpContext.GetSignedRequest();
+        var request = HttpContext.GetSignedRequest();
         if (!rooms.HasRoom(roomId))
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));
@@ -97,7 +97,7 @@ public class BackfillingController : ControllerBase
         [FromRoute] string roomId,
         [FromBody] GetMissingEventsRequest request)
     {
-        var signedRequest = Request.HttpContext.GetSignedRequest();
+        var signedRequest = HttpContext.GetSignedRequest();
         if (!rooms.HasRoom(roomId))
         {
             return NotFound(MatrixError.Create(MatrixErrorCode.NotFound, nameof(roomId)));

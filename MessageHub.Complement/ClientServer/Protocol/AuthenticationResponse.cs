@@ -11,6 +11,12 @@ public class FlowInformation
 
 public class AuthenticationResponse
 {
+    [JsonPropertyName("errcode")]
+    public string? ErrorCode { get; set; }
+
+    [JsonPropertyName("error")]
+    public string? Error { get; set; }
+
     [JsonPropertyName("completed")]
     public string[]? Completed { get; set; }
 

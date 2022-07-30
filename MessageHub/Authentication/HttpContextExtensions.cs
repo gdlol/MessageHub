@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using MessageHub.Federation.Protocol;
+using MessageHub.HomeServer;
 
 namespace MessageHub.Authentication;
 
@@ -7,8 +8,30 @@ public static class HttpContextExtensions
 {
     private static class ItemKeys
     {
+        public const string MatrixError = nameof(MatrixError);
         public const string AccessToken = nameof(AccessToken);
         public const string SignedRequest = nameof(SignedRequest);
+    }
+
+    public static void SetMatrixError(this HttpContext context, MatrixError error)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(error);
+
+        context.Items[ItemKeys.MatrixError] = error;
+    }
+
+    public static bool TryGetMatrixError(this HttpContext context, [NotNullWhen(true)] out MatrixError? error)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        error = null;
+        if (context.Items[ItemKeys.MatrixError] is MatrixError value)
+        {
+            error = value;
+            return true;
+        }
+        return false;
     }
 
     public static void SetAccessToken(this HttpContext context, string accessToken)

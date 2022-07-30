@@ -15,7 +15,7 @@ public class SyncRequest
     public string SetPresence { get; set; } = PresenceValues.Online;
 
     [JsonPropertyName("since")]
-    public string Since { get; set; } = string.Empty;
+    public string? Since { get; set; }
 
     [JsonPropertyName("timeout")]
     public long Timeout { get; set; } = 0;

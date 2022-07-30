@@ -48,11 +48,7 @@ public class SendMessagesController : ControllerBase
         [FromBody] JsonElement body)
     {
         stateKey ??= string.Empty;
-        string? userId = Request.HttpContext.User.Identity?.Name;
-        if (userId is null)
-        {
-            throw new InvalidOperationException();
-        }
+        string? userId = HttpContext.User.Identity?.Name ?? throw new InvalidOperationException();
         var senderId = UserIdentifier.Parse(userId);
         if (!rooms.HasRoom(roomId))
         {
@@ -90,11 +86,7 @@ public class SendMessagesController : ControllerBase
         [FromRoute(Name = "txnId")] string transactionId,
         [FromBody] JsonElement body)
     {
-        string? userId = Request.HttpContext.User.Identity?.Name;
-        if (userId is null)
-        {
-            throw new InvalidOperationException();
-        }
+        string? userId = HttpContext.User.Identity?.Name ?? throw new InvalidOperationException();
         var senderId = UserIdentifier.Parse(userId);
         if (!rooms.HasRoom(roomId))
         {
@@ -136,11 +128,7 @@ public class SendMessagesController : ControllerBase
         [FromRoute(Name = "txnId")] string transactionId,
         [FromBody] JsonElement body)
     {
-        string? userId = Request.HttpContext.User.Identity?.Name;
-        if (userId is null)
-        {
-            throw new InvalidOperationException();
-        }
+        string? userId = HttpContext.User.Identity?.Name ?? throw new InvalidOperationException();
         var senderId = UserIdentifier.Parse(userId);
         if (!rooms.HasRoom(roomId))
         {

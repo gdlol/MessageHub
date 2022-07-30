@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using MessageHub.ClientServer.Protocol;
 using MessageHub.HomeServer;
 using MessageHub.HomeServer.Events;
@@ -73,16 +74,22 @@ public class RoomsLoader
         return delta.ToArray();
     }
 
+    public bool IsEmpty => timelineLoader.IsEmpty;
+
     public string CurrentBatchId => timelineLoader.CurrentBatchId;
 
     public async Task<(string nextBatch, Rooms rooms)> LoadRoomsAsync(
         string userId,
         bool fullState,
-        string since,
+        string? since,
         RoomFilter? filter)
     {
         var batchStates = await timelineLoader.LoadBatchStatesAsync(filter.ShouldIncludeRoomId, true);
-        var sinceEventIds = await timelineLoader.GetRoomEventIdsAsync(since);
+        IReadOnlyDictionary<string, string> sinceEventIds = ImmutableDictionary<string, string>.Empty;
+        if (since is not null)
+        {
+            sinceEventIds = await timelineLoader.GetRoomEventIdsAsync(since);
+        }
 
         bool includeLeave = filter?.IncludeLeave == true;
         var membershipUpdateRoomIds = new HashSet<string>();
@@ -114,9 +121,9 @@ public class RoomsLoader
             Knock = new Dictionary<string, KnockedRoom>(),
             Leave = includeLeave ? new Dictionary<string, LeftRoom>() : null
         };
-        if (since == string.Empty && timelineLoader.IsEmpty)
+        if (timelineLoader.IsEmpty)
         {
-            return (string.Empty, rooms);
+            return (batchStates.BatchId, rooms);
         }
 
         foreach (var (roomId, stateEvents) in batchStates.Invites)

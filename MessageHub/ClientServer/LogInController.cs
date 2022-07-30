@@ -9,11 +9,17 @@ namespace MessageHub.ClientServer;
 public class LogInController : ControllerBase
 {
     private readonly IAuthenticator authenticator;
+    private readonly IDeviceManager deviceManager;
     private readonly IUserPresence userPresence;
 
-    public LogInController(IAuthenticator authenticator, IUserPresence userPresence)
+    public LogInController(IAuthenticator authenticator, IDeviceManager deviceManager, IUserPresence userPresence)
     {
+        ArgumentNullException.ThrowIfNull(authenticator);
+        ArgumentNullException.ThrowIfNull(deviceManager);
+        ArgumentNullException.ThrowIfNull(userPresence);
+
         this.authenticator = authenticator;
+        this.deviceManager = deviceManager;
         this.userPresence = userPresence;
     }
 
@@ -70,6 +76,15 @@ public class LogInController : ControllerBase
         var result = await authenticator.LogInAsync(deviceId, request.Token);
         if (result is (string userId, string accessToken))
         {
+            string? deviceDisplayName = (await deviceManager.TryGetDeviceAsync(deviceId))?.DisplayName;
+            deviceDisplayName ??= request.InitialDeviceDisplayName;
+            await deviceManager.SetDeviceAsync(new MatrixDevice
+            {
+                DeviceId = deviceId,
+                DisplayName = deviceDisplayName,
+                LastSeenIP = HttpContext.Connection.RemoteIpAddress?.ToString(),
+                LastSeenTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            });
             var presenceStatus = userPresence.GetPresence(userId);
             if (presenceStatus is null)
             {

@@ -94,6 +94,7 @@ public class Program
         });
         app.UseAuthentication();
         app.UseAuthorization();
+        app.MonitorDevices();
         app.MapControllers();
         return app.RunAsync(cancellationToken);
     }

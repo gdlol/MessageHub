@@ -134,11 +134,7 @@ public class CreateRoomController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> CreateRoom([FromBody] CreateRoomRequest request)
     {
-        string? userId = Request.HttpContext.User.Identity?.Name;
-        if (userId is null)
-        {
-            throw new InvalidOperationException();
-        }
+        string? userId = HttpContext.User.Identity?.Name ?? throw new InvalidOperationException();
         var senderId = UserIdentifier.Parse(userId);
         if (request is null)
         {
